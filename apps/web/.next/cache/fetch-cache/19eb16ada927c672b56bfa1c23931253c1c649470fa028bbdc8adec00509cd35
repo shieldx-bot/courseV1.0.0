@@ -1,0 +1,1 @@
+{"kind":"FETCH","data":{"headers":{"content-length":"2","content-type":"application/json","date":"Fri, 24 Jul 2026 02:28:17 GMT","server":"uvicorn"},"body":"W10=","status":200,"url":"http://localhost:8000/api/v1/courses?search=&category=design"},"revalidate":60,"tags":[]}

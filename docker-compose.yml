@@ -1,0 +1,123 @@
+version: "3.9"
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    restart: unless-stopped
+    ports:
+      - "7700:7700"
+    environment:
+      - MEILI_MASTER_KEY=ascendly-dev-master-key
+      - MEILI_NO_ANALYTICS=true
+    volumes:
+      - meili_data:/meili_data
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+      target: api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/ascendly
+      - REDIS_URL=redis://redis:6379/0
+      - MEILI_URL=http://meilisearch:7700
+      - MEILI_MASTER_KEY=ascendly-dev-master-key
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+      - redis
+      - meilisearch
+    volumes:
+      - ./apps/api:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+      target: worker
+    restart: unless-stopped
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/ascendly
+      - REDIS_URL=redis://redis:6379/0
+      - MEILI_URL=http://meilisearch:7700
+      - MEILI_MASTER_KEY=ascendly-dev-master-key
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+      - redis
+      - meilisearch
+    volumes:
+      - ./apps/api:/app
+    command: python -m app.worker
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    env_file:
+      - .env
+    depends_on:
+      - api
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    command: npm run dev
+
+prometheus:
+    image: prom/prometheus:v2.53.0
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker/prometheus:/etc/prometheus/prometheus
+      - prometheus_data:/prometheus
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+    depends_on:
+      - prometheus
+
+volumes:
+  mongo_data:
+  meili_data:
+  prometheus_data:
+  grafana_data:

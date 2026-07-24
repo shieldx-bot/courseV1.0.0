@@ -1,0 +1,38 @@
+groups:
+  - name: ascendly-api
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API error rate > 5%"
+          description: "Error rate for {{ $labels.method }} {{ $labels.path }} is {{ $value | humanizePercentage }} over 5m."
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency > 2s"
+          description: "p95 latency for {{ $labels.method }} {{ $labels.path }} is {{ $value }}s over 5m."
+
+      - alert: WorkerQueueGrowing
+        expr: worker_queue_depth > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker queue depth > 50"
+          description: "Worker queue depth is {{ $value }} — jobs may be backing up."
+
+      - alert: WorkerDLQNonEmpty
+        expr: worker_dlq_count > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Dead-letter queue is not empty"
+          description: "{{ $value }} jobs in dead-letter queue — investigate worker failures."

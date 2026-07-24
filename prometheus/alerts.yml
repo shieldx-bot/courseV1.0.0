@@ -1,0 +1,56 @@
+groups:
+  - name: ascendly-api
+    rules:
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API error rate > 5%"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, http_request_duration_seconds_bucket) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "p95 latency > 2s"
+          description: "p95 latency is {{ $value }}s over the last 5 minutes"
+
+      - alert: High4xxRate
+        expr: rate(http_requests_total{status=~"4.."}[5m]) > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "4xx rate > 20%"
+          description: "4xx rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+      - alert: WorkerQueueGrowing
+        expr: worker_queue_depth > 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker queue depth > 100"
+          description: "Queue depth is {{ $value }} — jobs may be failing or workers are saturated"
+
+      - alert: DeadLetterQueueNonEmpty
+        expr: worker_dlq_count > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Dead letter queue has messages"
+          description: "DLQ has {{ $value }} messages — investigate failed jobs"
+
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Instance {{ $labels.instance }} is down"
+          description: "Instance has been unreachable for over 1 minute"

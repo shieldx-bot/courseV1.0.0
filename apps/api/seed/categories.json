@@ -1,0 +1,9 @@
+[
+  {"_id": "cat-marketing", "name": "Marketing & Advertising", "slug": "marketing", "icon": "briefcase", "course_count": 240},
+  {"_id": "cat-ai", "name": "AI & New Technology", "slug": "ai", "icon": "brain", "course_count": 180},
+  {"_id": "cat-programming", "name": "Programming & Software", "slug": "programming", "icon": "code", "course_count": 420},
+  {"_id": "cat-design", "name": "Design & Creative", "slug": "design", "icon": "palette", "course_count": 310},
+  {"_id": "cat-data", "name": "Data & Analytics", "slug": "data", "icon": "database", "course_count": 260},
+  {"_id": "cat-business", "name": "Business & Investment", "slug": "business", "icon": "bar-chart", "course_count": 330},
+  {"_id": "cat-career", "name": "Career & Professional Skills", "slug": "career", "icon": "users", "course_count": 190}
+]

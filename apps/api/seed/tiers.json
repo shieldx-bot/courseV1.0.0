@@ -1,0 +1,7 @@
+[
+  {"_id": "tier-1mo", "id": "1mo", "label": "Try it out", "price_per_month": 49, "duration_months": 1},
+  {"_id": "tier-3mo", "id": "3mo", "label": "For one focused skill", "price_per_month": 39, "duration_months": 3},
+  {"_id": "tier-6mo", "id": "6mo", "label": "For a career pivot", "price_per_month": 35, "duration_months": 6},
+  {"_id": "tier-12mo", "id": "12mo", "label": "For serious learners", "price_per_month": 29, "duration_months": 12, "recommended": true},
+  {"_id": "tier-lifetime", "id": "lifetime", "label": "Pay once, learn forever", "price_per_month": 999, "duration_months": 999, "badge": "Limited seats"}
+]

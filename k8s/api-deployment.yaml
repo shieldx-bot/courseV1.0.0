@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ascendly-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ascendly-api
+  template:
+    metadata:
+      labels:
+        app: ascendly-api
+    spec:
+      containers:
+        - name: api
+          image: ascendly-api:latest
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: ascendly-secrets
