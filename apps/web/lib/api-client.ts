@@ -242,6 +242,10 @@ const apiClient = {
       seed: () => typedRequest("post", "/admin/referral/seed" as const),
     },
   },
+  admin: {
+    generateLessonCode: (lessonId: string, body: { title: string; description: string; language: string }) =>
+      typedRequest("post", `/admin/lessons/${lessonId}/generate-code` as const, { body }),
+  },
   discussions: {
     list: (courseId: string, lessonId: string, params?: { page?: number; per_page?: number; sort?: string }) => {
       const search = new URLSearchParams();
@@ -284,6 +288,16 @@ const apiClient = {
       }),
     markAnswer: (courseId: string, lessonId: string, discussionId: string, replyId: string) =>
       typedRequest("post", `/courses/${courseId}/lessons/${lessonId}/discussions/${discussionId}/replies/${replyId}/mark-answer` as const),
+  },
+  codeAssistant: {
+    generate: (body: { task: string; language: string; context?: string; starter_code?: string }) =>
+      typedRequest("post", "/code-assistant/generate" as const, { body }),
+    explain: (body: { code: string; language: string; focus?: string }) =>
+      typedRequest("post", "/code-assistant/explain" as const, { body }),
+    review: (body: { code: string; language: string; task?: string }) =>
+      typedRequest("post", "/code-assistant/review" as const, { body }),
+    debug: (body: { code: string; language: string; error: string; task?: string }) =>
+      typedRequest("post", "/code-assistant/debug" as const, { body }),
   },
 };
 

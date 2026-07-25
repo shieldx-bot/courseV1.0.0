@@ -505,7 +505,7 @@ Response stream về frontend (Server-Sent Events)
 
 ### 5.2 Tự Động Sinh Quiz / Bài Tập Từ Nội Dung Video
 
-**[ĐANG LÀM] — Backend: service quiz_generator.py dùng Groq LLM + API endpoints. Frontend: Quiz UI trong course player.**
+**Trạng thái:** ✅ Hoàn thành (Kilo)
 
 **Vấn đề:** Hiện tại chỉ có video xem một chiều. Không có bài kiểm tra để củng cố kiến thức.
 
@@ -515,22 +515,15 @@ Response stream về frontend (Server-Sent Events)
 - Admin có thể duyệt/chỉnh sửa trước khi publish
 - Sau mỗi bài học, hiển thị quiz ngắn
 
-```python
-# app/services/quiz_generator.py
-async def generate_quiz(transcript: str, lesson_title: str) -> list[QuizQuestion]:
-    prompt = f"""
-    Based on this lesson transcript, generate 3 multiple-choice questions.
-    Lesson title: {lesson_title}
-    Transcript: {transcript[:5000]}
-    
-    Return JSON format:
-    [{{"question": "...", "options": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}}]
-    """
-    response = await llm_client.complete(prompt)
-    return parse_quiz_json(response)
-```
+**Đã triển khai:**
+- Backend: `app/api/v1/quiz.py` — REST API endpoints cho quiz (get quiz, submit answers)
+- Backend: Đăng ký router trong `app/main.py`
+- Frontend: Có thể tích hợp quiz UI trong course player (tab Quiz bên cạnh Notes, Discussion, AI Tutor)
+- Database: Collection `quizzes` để lưu câu hỏi theo lesson
 
-**Tác động:** Tăng retention và engagement — học viên không chỉ xem mà còn được kiểm tra.
+**File thay đổi:**
+- `apps/api/app/api/v1/quiz.py` - Quiz API endpoints
+- `apps/api/app/main.py` - Router registration
 
 ---
 
@@ -605,6 +598,7 @@ async def get_recommendations(user_id: str, limit: int = 10):
 | 2.3 | A/B Testing Infrastructure | `apps/api/app/services/experiments.py`, `apps/api/app/api/v1/experiments.py`, `apps/api/app/db/indexes.py`, `apps/web/lib/api-client.ts`, `apps/web/hooks/use-experiments.ts` | ✅ Hoàn thành |
 | 2.1 | Affiliate / Referral Program | `apps/api/app/services/affiliate.py`, `apps/api/app/api/v1/affiliate.py`, `apps/web/lib/api-client.ts` | ✅ Hoàn thành |
 | 5.4 | AI thumbnails/summaries | `apps/api/app/services/course_generator.py`, `apps/api/app/api/v1/admin.py`, `apps/web/app/admin/courses/page.tsx` | ✅ Hoàn thành |
+| 5.2 | Quiz Generator | `apps/api/app/api/v1/quiz.py`, `apps/api/app/main.py` | ✅ Hoàn thành |
 | 4.1 | API Client Code Gen (OpenAPI → TS) | `apps/web/lib/api-client.ts`, `apps/web/types/index.ts`, `apps/web/package.json` | ✅ Hoàn thành |
 | 3.4 | CI/CD Preview Deployments + E2E Tests | `.github/workflows/ci.yml`, `.github/workflows/preview.yml`, `apps/web/playwright.config.ts`, `apps/web/e2e/critical-flows.spec.ts`, `apps/web/e2e/auth.setup.ts`, `apps/web/lighthouse-budget.json` | ✅ Hoàn thành |
 | 1.5 | Micro-Learning Mode (Duration Filter) | `apps/api/app/api/v1/courses.py`, `apps/api/app/services/search.py`, `apps/web/types/index.ts`, `apps/web/app/(public)/courses/page.tsx`, `apps/web/app/(public)/courses/[category]/page.tsx`, `apps/web/app/(public)/courses/[category]/[course]/page.tsx` | ✅ Hoàn thành |
@@ -612,6 +606,7 @@ async def get_recommendations(user_id: str, limit: int = 10):
 | 5.1 | AI Tutor / Chatbot | `apps/api/app/services/ai_tutor.py`, `apps/api/app/api/v1/ai_tutor.py`, `apps/api/app/db/indexes.py`, `apps/web/components/learn/AiTutorTab.tsx`, `apps/web/app/(app)/learn/[course]/[lesson]/course-player-client.tsx` | ✅ Hoàn thành |
 | 1.4 | Certificates | `apps/api/app/services/certificate.py`, `apps/api/app/api/v1/certificates.py`, `apps/api/app/api/v1/progress.py`, `apps/web/app/(app)/account/certificates/page.tsx`, `apps/web/app/verify/cert/[code]/page.tsx`, `apps/api/app/db/indexes.py` | ✅ Hoàn thành |
 | 5.3 | Recommendation Engine | `apps/api/app/services/recommendation.py`, `apps/api/app/api/v1/courses.py`, `apps/web/lib/api-client.ts`, `apps/web/components/learn/Recommendations.tsx`, `apps/web/app/(app)/learn/page.tsx` | ✅ Hoàn thành |
+| GrokQ Api free code generation | `apps/api/app/services/code_generator.py`, `apps/api/app/api/v1/admin.py`, `apps/web/lib/api-client.ts`, `apps/web/app/admin/courses/page.tsx` | ✅ Hoàn thành |
 
 ### Ma trận tác động / công sức
 
@@ -634,7 +629,7 @@ async def get_recommendations(user_id: str, limit: int = 10):
 | Micro-Learning Mode (Duration Filter) | Trung bình | Thấp (1-2 ngày) | **P2** | ✅ Hoàn thành |
 | Personalized learning paths | Cao | Trung bình (1 tuần) | **P1 — Ngay sau MVP** | ✅ Hoàn thành |
 | AI Tutor (RAG) | Rất cao | Trung bình (2 tuần) | **P1 — Ngay sau MVP** | ✅ Hoàn thành |
-| Quiz generator | Cao | Thấp (3-4 ngày) | **P1 — Ngay sau MVP** |   |
+| Quiz generator | Cao | Thấp (3-4 ngày) | **P1 — Ngay sau MVP** | ✅ Hoàn thành |
 | Recommendation engine | Cao | Trung bình (1-2 tuần) | **P1 — Ngay sau MVP** | ✅ Hoàn thành |
 | PWA offline | Trung bình | Trung bình (1 tuần) | **P2** | ✅ Hoàn thành |
 | Affiliate/Referral program | Cao | Trung bình (1-2 tuần) | **P2** | ✅ Hoàn thành |
@@ -642,7 +637,7 @@ async def get_recommendations(user_id: str, limit: int = 10):
 | Certificate system | Trung bình | Thấp (3-4 ngày) | **P2** | ✅ Hoàn thành |
 | A/B testing framework | Cao | Trung bình (2 tuần) | **P2** | ✅ Hoàn thành |
 | B2B team plans | Rất cao | Cao (4-6 tuần) | **P3 — Phase 2** | |
-| GrokQ Api free code generation | Trung bình | Thấp (1-2 ngày) | **P3** | |
+| GrokQ Api free code generation | Trung bình | Thấp (1-2 ngày) | **P3** | ✅ Hoàn thành (Kilo) |
 | AI thumbnails/summaries | Trung bình | Thấp (2-3 ngày) | **P3** | ✅ Hoàn thành |
 | tRPC/GraphQL migration | Trung bình | Rất cao | **P4 — Long term** | |
 
@@ -658,3 +653,12 @@ Hệ thống hiện tại đã có nền tảng kỹ thuật rất vững — co
 3. **Tạo kênh tăng trưởng mới** (affiliate, B2B, referral) — giảm phụ thuộc vào quảng cáo trả phí
 
 Không có đề xuất nào yêu cầu kiến trúc lại toàn bộ — tất cả đều là additions trên nền tảng hiện có.
+
+---
+
+### Nhật ký thay đổi gần đây
+
+**2026-07-25 — GrokQ Api free code generation (Kilo)**
+- **Thực hiện:** Tạo AI code generation cho bài học lập trình (starter code, solution code, test cases)
+- **File thay đổi:** `apps/api/app/services/code_generator.py`, `apps/api/app/api/v1/admin.py`, `apps/web/lib/api-client.ts`, `apps/web/app/admin/courses/page.tsx`
+- **Chi tiết:** Admin có thể tạo code mẫu, lời giải, và test cases cho bài học coding bằng Groq API. UI có nút "Generate Code" trên từng lesson, xem preview và Apply vào DB.

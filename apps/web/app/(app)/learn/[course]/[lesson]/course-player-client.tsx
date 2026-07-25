@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Lock, Paperclip, SkipBack, SkipForward, Clock, MessageSquare, FileText, Sparkles } from "lucide-react";
+import { Check, Lock, Paperclip, SkipBack, SkipForward, Clock, MessageSquare, FileText, Sparkles, FileCode } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { WatermarkOverlay } from "@/components/shared/watermark-overlay";
@@ -15,6 +15,8 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { DiscussionTab } from "@/components/learn/DiscussionTab";
 import { AiTutorTab } from "@/components/learn/AiTutorTab";
+import { CodeAssistantTab } from "@/components/learn/CodeAssistantTab";
+import { CodeAssistantTab } from "@/components/learn/CodeAssistantTab";
 
 export function CoursePlayerClient({
   course: initialCourse,
@@ -295,7 +297,7 @@ export function CoursePlayerClient({
             )}
 
             <div className="border-t pt-6">
-              <div className="flex gap-1 mb-4">
+              <div className="flex gap-1 mb-4 flex-wrap">
                 <Button
                   variant={activeTab === "notes" ? "primary" : "ghost"}
                   className="text-sm"
@@ -319,6 +321,14 @@ export function CoursePlayerClient({
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
                   AI Tutor
+                </Button>
+                <Button
+                  variant={activeTab === "code-assistant" ? "primary" : "ghost"}
+                  className="text-sm"
+                  onClick={() => setActiveTab("code-assistant")}
+                >
+                  <FileCode className="h-4 w-4 mr-2" />
+                  Code Assistant
                 </Button>
               </div>
 
@@ -345,6 +355,17 @@ export function CoursePlayerClient({
 
               {activeTab === "ai-tutor" && (
                 <AiTutorTab courseId={course.id} lessonId={current.id} />
+              )}
+
+              {activeTab === "code-assistant" && (
+                <CodeAssistantTab
+                  courseId={course.id}
+                  lessonId={current.id}
+                  lessonTitle={current.title}
+                  lessonLanguage={current.language || "python"}
+                  lessonContext={current.transcript || current.description}
+                  starterCode={current.starter_code}
+                />
               )}
 
               <p className="text-center text-xs text-neutral-400 mt-6">

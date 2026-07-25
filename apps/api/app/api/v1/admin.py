@@ -42,6 +42,10 @@ class LessonIn(BaseModel):
     duration_seconds: int
     drive_file_id: str | None = None
     r2_key: str | None = None
+    language: str | None = None
+    starter_code: str | None = None
+    solution_code: str | None = None
+    test_cases: str | None = None
     attachments: List[AttachmentIn] = Field(default_factory=list)
 
 
@@ -294,6 +298,81 @@ async def generate_course_ai_content(course_id: str):
     return {
         "course_id": course_id,
         **content,
+    }
+
+
+class GenerateCodeRequest(BaseModel):
+    lesson_title: str
+    language: str = "python"
+    lesson_context: str = ""
+    difficulty: str = "beginner"  # beginner, intermediate, advanced
+
+
+@router.post("/courses/{course_id}/lessons/{lesson_id}/generate-code", dependencies=[Depends(require_admin)])
+async def generate_lesson_code(course_id: str, lesson_id: str, body: GenerateCodeRequest):
+    """Generate starter code, solution code, and test cases for a coding lesson using Groq LLM."""
+    from app.services.code_assistant import generate_code, review_code
+
+    db = get_db()
+    course = await db.courses.find_one({"_id": course_id})
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    lesson = None
+    for l in course.get("syllabus", []):
+        if l["id"] == lesson_id:
+            lesson = l
+            break
+
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+
+    # Generate starter code
+    starter_result = await generate_code(
+        task=f"Create starter code template for a coding exercise: {body.lesson_title}. "
+             f"Difficulty: {body.difficulty}. Context: {body.lesson_context}. "
+             f"Provide a clean template with function signatures, comments, and TODO markers for students to fill in.",
+        language=body.language,
+        context=f"Lesson: {body.lesson_title}. {body.lesson_context}",
+    )
+
+    # Generate solution code
+    solution_result = await generate_code(
+        task=f"Write a complete, correct reference solution for: {body.lesson_title}. "
+             f"Difficulty: {body.difficulty}. Context: {body.lesson_context}. "
+             f"Include proper error handling, documentation, and follow best practices.",
+        language=body.language,
+        context=f"Lesson: {body.lesson_title}. {body.lesson_context}",
+    )
+
+    # Generate test cases by asking the model to create tests
+    test_prompt = f"""Create comprehensive test cases for the solution to: {body.lesson_title}.
+Language: {body.language}
+Difficulty: {body.difficulty}
+Context: {body.lesson_context}
+
+Write tests that verify correctness including edge cases. Use the standard testing framework for the language:
+- Python: pytest
+- JavaScript/TypeScript: Jest
+- Java: JUnit
+- Go: testing package
+- Rust: built-in test module
+
+Return ONLY the test code (no markdown)."""
+
+    test_result = await generate_code(
+        task=test_prompt,
+        language=body.language,
+        context=f"Lesson: {body.lesson_title}. Tests for the solution.",
+    )
+
+    return {
+        "lesson_id": lesson_id,
+        "starter_code": starter_result.get("code", ""),
+        "solution_code": solution_result.get("code", ""),
+        "test_cases": test_result.get("code", ""),
+        "language": body.language,
+        "generated_by": "groq",
     }
 
 

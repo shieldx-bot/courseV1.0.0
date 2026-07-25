@@ -17,6 +17,10 @@ export interface Lesson {
   order: number;
   duration_seconds: number;
   attachments?: Attachment[];
+  language?: string;
+  transcript?: string;
+  description?: string;
+  starter_code?: string;
 }
 
 export interface Instructor {

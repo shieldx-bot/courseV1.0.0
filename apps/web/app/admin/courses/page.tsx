@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { apiFetch } from "@/lib/api-client";
-import { Plus, Trash2, RefreshCw, Download, Sparkles, Check, X } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Download, Sparkles, Check, X, Code, Zap, Copy, FileCode } from "lucide-react";
 
 interface Attachment {
   title: string;
@@ -81,6 +80,10 @@ export default function AdminCourses() {
   // AI generation state
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [aiContent, setAiContent] = useState<Record<string, { short_description: string; long_description: string; learning_outcomes: string[]; thumbnail_prompt: string }>>({});
+
+  // Code generation state
+  const [generatingCodeId, setGeneratingCodeId] = useState<string | null>(null);
+  const [aiCode, setAiCode] = useState<Record<string, { starter_code: string; solution_code: string; test_cases: string; language: string }>>({});
 
   // Scan state
   const [scanning, setScanning] = useState(false);
@@ -318,6 +321,69 @@ export default function AdminCourses() {
     }
   };
 
+  const generateLessonCode = async (courseId: string, lessonId: string, lessonTitle: string) => {
+    setGeneratingCodeId(lessonId);
+    setError("");
+    try {
+      const course = courses.find((c) => c.id === courseId);
+      const lesson = course?.syllabus.find((l) => l.id === lessonId);
+      const result = await apiClient.admin.generateLessonCode(lessonId, {
+        title: lessonTitle,
+        description: lesson?.title || "",
+        language: "python",
+      });
+      setAiCode((prev) => ({ ...prev, [lessonId]: result }));
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setGeneratingCodeId(null);
+    }
+  };
+
+  const applyLessonCode = async (courseId: string, lessonId: string) => {
+    const code = aiCode[lessonId];
+    if (!code) return;
+    setError("");
+    try {
+      const course = courses.find((c) => c.id === courseId);
+      if (!course) return;
+      const syllabus = course.syllabus.map((l) =>
+        l.id === lessonId ? { ...l, starter_code: code.starter_code, solution_code: code.solution_code, test_cases: code.test_cases, language: code.language } : l
+      );
+      const body: any = {
+        category_id: course.category_id,
+        title: course.title,
+        slug: course.slug,
+        description: course.description,
+        image_url: course.image_url || "",
+        syllabus,
+        outcome: course.outcome,
+      };
+      if (course.instructor) body.instructor = course.instructor;
+      await apiFetch(`/admin/courses/${courseId}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      });
+      setAiCode((prev) => {
+        const next = { ...prev };
+        delete next[lessonId];
+        return next;
+      });
+      const updated = await apiFetch("/admin/courses");
+      setCourses(updated);
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const discardLessonCode = (lessonId: string) => {
+    setAiCode((prev) => {
+      const next = { ...prev };
+      delete next[lessonId];
+      return next;
+    });
+  };
+
   const applyAiContent = async (course: Course) => {
     const content = aiContent[course.id];
     if (!content) return;
@@ -545,6 +611,56 @@ export default function AdminCourses() {
                               ))}
                             </select>
                           </div>
+
+                          <div className="mt-3 flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => generateLessonCode(c.id, lesson.id, lesson.title)}
+                              disabled={generatingCodeId === lesson.id}
+                            >
+                              <Sparkles className={`mr-1 h-3 w-3 ${generatingCodeId === lesson.id ? "animate-pulse" : ""}`} />
+                              {generatingCodeId === lesson.id ? "Đang tạo code..." : "Generate Code"}
+                            </Button>
+                          </div>
+
+                          {generatedCode[lesson.id] && (
+                            <div className="mt-3 rounded-md border border-primary-200 bg-primary-50/30 p-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-medium text-primary-900">AI-Generated Code</p>
+                                <div className="flex gap-1">
+                                  <Button size="sm" variant="secondary" onClick={() => applyLessonCode(c.id, lesson.id)}>
+                                    <Check className="mr-1 h-3 w-3" />
+                                    Apply
+                                  </Button>
+                                  <Button size="sm" variant="secondary" onClick={() => discardLessonCode(lesson.id)}>
+                                    <X className="mr-1 h-3 w-3" />
+                                    Discard
+                                  </Button>
+                                </div>
+                              </div>
+                              <div className="space-y-2 text-xs">
+                                <div>
+                                  <p className="font-medium text-neutral-700">Language: {generatedCode[lesson.id].language}</p>
+                                  <p className="text-neutral-600 font-mono text-xs max-h-32 overflow-auto bg-neutral-100 p-2 rounded">
+                                    {generatedCode[lesson.id].starter_code.slice(0, 500)}{generatedCode[lesson.id].starter_code.length > 500 ? "..." : ""}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="font-medium text-neutral-700">Solution Code (preview):</p>
+                                  <p className="text-neutral-600 font-mono text-xs max-h-32 overflow-auto bg-neutral-100 p-2 rounded">
+                                    {generatedCode[lesson.id].solution_code.slice(0, 500)}{generatedCode[lesson.id].solution_code.length > 500 ? "..." : ""}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="font-medium text-neutral-700">Test Cases (preview):</p>
+                                  <p className="text-neutral-600 font-mono text-xs max-h-32 overflow-auto bg-neutral-100 p-2 rounded">
+                                    {generatedCode[lesson.id].test_cases.slice(0, 500)}{generatedCode[lesson.id].test_cases.length > 500 ? "..." : ""}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
 
                           <div className="mt-3">
                             <p className="text-xs font-medium text-neutral-700">Attachments</p>
