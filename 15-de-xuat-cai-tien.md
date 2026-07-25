@@ -266,7 +266,7 @@ User chọn mục tiêu ──► Map đến danh sách course_id có sẵn
 
 ---
 
-### 3.3 Database Indexes + Caching
+### 3.3 Database Indexes + Caching + Read Replicas
 
 > **ĐÃ LÀM (2026-07-24):** Tạo `app/db/indexes.py` với index definitions cho tất cả collections (users, subscriptions, orders, courses, lessons, progress, categories, reviews, coupons, tiers, events, blog). Gọi `ensure_indexes()` trong startup. Cache service (`services/cache.py`) đã có từ trước.
 
@@ -286,6 +286,28 @@ secondary = AsyncIOMotorClient(MONGODB_SECONDARY_URI, read_preference=ReadPrefer
 ```
 
 Hoặc đơn giản hơn: dùng Redis cache cho catalog với TTL 60s, chỉ fallback xuống MongoDB khi cache miss. (Đã có `services/cache.py`)
+
+✅ **Hoàn thành (Kilo): Read Replica support cho catalog queries**
+
+**Đã triển khai:** Thêm MongoDB secondary client với read preference cho read-heavy endpoints (courses, categories, lessons)
+- `apps/api/app/db/mongodb.py`: Thêm `get_read_db()` với SECONDARY_PREFERRED read preference, config `mongodb_secondary_uri`
+- `apps/api/app/core/config.py`: Thêm setting `mongodb_secondary_uri`
+- `apps/api/app/api/v1/courses.py`: Cập nhật endpoints list_categories, get_category, list_courses, get_course, public_stats dùng `get_read_db()`
+- `apps/api/app/services/recommendation.py`: Cập nhật get_recommendations, get_similar_courses, get_popular_courses, _collaborative_filtering dùng `get_read_db()`
+- `apps/api/app/services/learning_paths.py`: Cập nhật get_all_paths, get_path_by_slug, get_path_by_id, get_paths_by_goal, _enrich_path_with_courses, get_user_enrollments, get_user_enrollment_for_path dùng `get_read_db()`
+- `apps/api/app/api/v1/ai_tutor.py`: Endpoint ask_question dùng `get_read_db()` cho course/lesson lookup
+- `apps/api/app/api/v1/discussions.py`: Endpoints list_discussions, get_discussion, list_replies dùng `get_read_db()`
+- `apps/api/app/api/v1/progress.py`: Endpoints list_progress, get_progress, get_progress_summary, get_continue dùng `get_read_db()`
+
+**File thay đổi:**
+- `apps/api/app/db/mongodb.py` - Secondary client với read preference
+- `apps/api/app/core/config.py` - mongodb_secondary_uri setting
+- `apps/api/app/api/v1/courses.py` - Catalog queries
+- `apps/api/app/services/recommendation.py` - Recommendation queries
+- `apps/api/app/services/learning_paths.py` - Learning path queries
+- `apps/api/app/api/v1/ai_tutor.py` - AI tutor course/lesson lookup
+- `apps/api/app/api/v1/discussions.py` - Discussion queries
+- `apps/api/app/api/v1/progress.py` - Progress summary/continue queries
 
 ---
 

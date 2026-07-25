@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field
 
 from app.core.deps import get_current_user
 from app.core.response import api_response
-from app.db.mongodb import get_db
+from app.db.mongodb import get_read_db
 from app.services.ai_tutor import ask_ai_tutor, get_chat_history, clear_chat_history
 
 router = APIRouter()
@@ -21,7 +21,7 @@ async def ask_question(
     user: dict = Depends(get_current_user),
 ):
     """Ask a question to the AI tutor for a specific lesson."""
-    db = get_db()
+    db = get_read_db()
 
     course = await db.courses.find_one({"_id": course_id})
     if not course:

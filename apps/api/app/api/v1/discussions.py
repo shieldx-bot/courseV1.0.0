@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from bson import ObjectId
-from app.db.mongodb import get_db
+from app.db.mongodb import get_db, get_read_db, get_read_db
 from app.core.response import api_response
 from app.core.deps import get_current_user, get_optional_user
 from app.core.exceptions import NotFoundError, ForbiddenError
@@ -122,7 +122,7 @@ async def list_discussions(
     sort: str = Query("newest", pattern="^(newest|oldest|most_votes|most_replies)$"),
     user: dict | None = Depends(get_optional_user),
 ):
-    db = get_db()
+    db = get_read_db()
     query = {"course_id": course_id, "lesson_id": lesson_id}
     sort_map = {
         "newest": [("created_at", -1)],
@@ -186,7 +186,7 @@ async def get_discussion(
     discussion_id: str,
     user: dict | None = Depends(get_optional_user),
 ):
-    db = get_db()
+    db = get_read_db()
     discussion = await db.discussions.find_one({"_id": discussion_id, "course_id": course_id, "lesson_id": lesson_id})
     if not discussion:
         raise NotFoundError("Discussion not found")
@@ -295,7 +295,7 @@ async def list_replies(
     per_page: int = Query(50, ge=1, le=100),
     user: dict | None = Depends(get_optional_user),
 ):
-    db = get_db()
+    db = get_read_db()
     discussion = await db.discussions.find_one({"_id": discussion_id, "course_id": course_id, "lesson_id": lesson_id})
     if not discussion:
         raise NotFoundError("Discussion not found")

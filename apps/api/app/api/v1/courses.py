@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query, HTTPException
-from app.db.mongodb import get_db
+from app.db.mongodb import get_db, get_read_db
 from app.core.response import api_response
 from app.core.deps import get_optional_user
 from app.services.search import search_courses, search_available
@@ -31,14 +31,14 @@ def _enrich_course(course: dict) -> dict:
 
 @router.get("/categories")
 async def list_categories():
-    db = get_db()
+    db = get_read_db()
     cats = await db.categories.find().to_list(100)
     return api_response([{"id": c["_id"], **{k: v for k, v in c.items() if k != "_id"}} for c in cats])
 
 
 @router.get("/categories/{slug}")
 async def get_category(slug: str):
-    db = get_db()
+    db = get_read_db()
     cat = await db.categories.find_one({"slug": slug})
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -73,7 +73,7 @@ async def list_courses(
                 })
             return api_response(courses)
 
-    db = get_db()
+    db = get_read_db()
     query = {}
     if category:
         query["category_slug"] = category
@@ -96,7 +96,7 @@ async def list_courses(
 
 @router.get("/courses/{slug}")
 async def get_course(slug: str):
-    db = get_db()
+    db = get_read_db()
     course = await db.courses.find_one({"slug": slug})
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -147,7 +147,7 @@ async def similar_courses(course_id: str, limit: int = Query(6, ge=1, le=20)):
 
 @router.get("/stats")
 async def public_stats():
-    db = get_db()
+    db = get_read_db()
     courses = await db.courses.find().to_list(1000)
     users = await db.users.find().to_list(10000)
     reviews = await db.reviews.find().to_list(1000)

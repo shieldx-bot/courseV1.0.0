@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timezone
 from typing import Any
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ReadPreference
 from app.core.config import settings
 
 
@@ -99,6 +100,7 @@ class InMemoryDB:
 
 
 client: AsyncIOMotorClient | None = None
+secondary_client: AsyncIOMotorClient | None = None
 memory_db: InMemoryDB | None = None
 
 
@@ -113,6 +115,32 @@ def get_db():
     if client is None:
         client = AsyncIOMotorClient(settings.mongodb_uri, serverSelectionTimeoutMS=5000)
     return client["ascendly"]
+
+
+def get_read_db():
+    """Get database connection with SECONDARY_PREFERRED read preference for read-heavy operations."""
+    global memory_db
+    if settings.mongodb_uri.startswith("memory:"):
+        if memory_db is None:
+            memory_db = InMemoryDB()
+        return memory_db
+
+    global secondary_client
+    if secondary_client is None:
+        if settings.mongodb_secondary_uri:
+            secondary_client = AsyncIOMotorClient(
+                settings.mongodb_secondary_uri,
+                serverSelectionTimeoutMS=5000,
+                readPreference=ReadPreference.SECONDARY_PREFERRED
+            )
+        else:
+            # Fallback to primary with secondary preferred if no secondary URI configured
+            secondary_client = AsyncIOMotorClient(
+                settings.mongodb_uri,
+                serverSelectionTimeoutMS=5000,
+                readPreference=ReadPreference.SECONDARY_PREFERRED
+            )
+    return secondary_client["ascendly"]
 
 
 def get_redis():

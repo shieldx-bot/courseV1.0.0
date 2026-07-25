@@ -1,0 +1,5 @@
+./
+apps/api/app/api/v1/__pycache__/*
+apps/api/app/services/__pycache__/*
+apps/api/app/core/__pycache__/*
+apps/api/app/services/__pycache__/*

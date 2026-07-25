@@ -1,1 +1,0 @@
-{"kind":"FETCH","data":{"headers":{"content-length":"90","content-type":"application/json","date":"Fri, 24 Jul 2026 02:21:11 GMT","server":"uvicorn"},"body":"eyJpZCI6ImNhdC1haSIsIm5hbWUiOiJBSSAmIE5ldyBUZWNobm9sb2d5Iiwic2x1ZyI6ImFpIiwiaWNvbiI6ImJyYWluIiwiY291cnNlX2NvdW50IjoxODB9","status":200,"url":"http://localhost:8000/api/v1/categories/ai"},"revalidate":60,"tags":[]}

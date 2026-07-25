@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any
-from app.db.mongodb import get_db
+from app.db.mongodb import get_db, get_read_db
 
 PREDEFINED_PATHS: list[dict[str, Any]] = [
     {
@@ -180,13 +180,13 @@ async def seed_learning_paths():
 
 
 async def get_all_paths(limit: int = 20) -> list[dict]:
-    db = get_db()
+    db = get_read_db()
     paths = await db.learning_paths.find().to_list(limit)
     return [_format_path(p) for p in paths]
 
 
 async def get_path_by_slug(slug: str) -> dict | None:
-    db = get_db()
+    db = get_read_db()
     path = await db.learning_paths.find_one({"slug": slug})
     if not path:
         return None
@@ -194,7 +194,7 @@ async def get_path_by_slug(slug: str) -> dict | None:
 
 
 async def get_path_by_id(path_id: str) -> dict | None:
-    db = get_db()
+    db = get_read_db()
     path = await db.learning_paths.find_one({"_id": path_id})
     if not path:
         return None
@@ -202,13 +202,13 @@ async def get_path_by_id(path_id: str) -> dict | None:
 
 
 async def get_paths_by_goal(goal: str, limit: int = 5) -> list[dict]:
-    db = get_db()
+    db = get_read_db()
     paths = await db.learning_paths.find({"goal": goal}).to_list(limit)
     return [_format_path(p) for p in paths]
 
 
 async def _enrich_path_with_courses(path: dict) -> dict:
-    db = get_db()
+    db = get_read_db()
     course_ids = [c["course_id"] for c in path.get("courses", [])]
     courses_in_path = {}
     if course_ids:
@@ -283,7 +283,7 @@ async def enroll_user_in_path(user_id: str, path_id: str) -> dict:
 
 
 async def get_user_enrollments(user_id: str, limit: int = 10) -> list[dict]:
-    db = get_db()
+    db = get_read_db()
     enrollments = await db.user_learning_paths.find(
         {"user_id": user_id, "status": "active"}
     ).to_list(limit)
@@ -309,40 +309,7 @@ async def get_user_enrollments(user_id: str, limit: int = 10) -> list[dict]:
 
 async def get_user_enrollment_for_path(user_id: str, path_id: str) -> dict | None:
     """Get user's enrollment for a specific path with progress."""
-    db = get_db()
-    enrollment = await db.user_learning_paths.find_one({
-        "user_id": user_id,
-        "path_id": path_id,
-        "status": "active"
-    })
-    if not enrollment:
-        return None
-
-    path = await get_path_by_id(path_id)
-    if not path:
-        return None
-
-    completed_ids = set(enrollment.get("completed_course_ids", []))
-    total = len(path.get("courses", []))
-    done = sum(1 for c in path.get("courses", []) if c.get("id") in completed_ids)
-
-    return {
-        "enrollment_id": enrollment["_id"],
-        "enrolled_at": enrollment.get("enrolled_at", ""),
-        "status": enrollment.get("status", "active"),
-        "progress": {
-            "completed_courses": done,
-            "total_courses": total,
-            "percent": round(done / total * 100, 0) if total > 0 else 0,
-            "status": enrollment.get("status", "active"),
-            "enrolled_at": enrollment.get("enrolled_at", ""),
-        }
-    }
-
-
-async def get_user_enrollment_for_path(user_id: str, path_id: str) -> dict | None:
-    """Get user's enrollment for a specific path with progress."""
-    db = get_db()
+    db = get_read_db()
     enrollment = await db.user_learning_paths.find_one({
         "user_id": user_id,
         "path_id": path_id,

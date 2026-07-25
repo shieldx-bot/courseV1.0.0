@@ -1,11 +1,11 @@
 from collections import Counter, defaultdict
 from typing import Any
-from app.db.mongodb import get_db
+from app.db.mongodb import get_read_db
 from app.services.cache import get_or_cache
 
 
 async def get_recommendations(user_id: str, limit: int = 10) -> list[dict]:
-    db = get_db()
+    db = get_read_db()
 
     progress = await db.progress.find({"user_id": user_id}).to_list(1000)
     completed_lessons = {p["lesson_id"] for p in progress if p.get("completed")}
@@ -73,7 +73,7 @@ async def get_recommendations(user_id: str, limit: int = 10) -> list[dict]:
 
 
 async def get_similar_courses(course_id: str, limit: int = 6) -> list[dict]:
-    db = get_db()
+    db = get_read_db()
     course = await db.courses.find_one({"_id": course_id})
     if not course:
         return []
@@ -101,7 +101,7 @@ async def get_similar_courses(course_id: str, limit: int = 6) -> list[dict]:
 
 async def get_popular_courses(limit: int = 10) -> list[dict]:
     async def _fetch():
-        db = get_db()
+        db = get_read_db()
         courses = await db.courses.find().to_list(1000)
         courses.sort(key=lambda c: len(c.get("syllabus", [])), reverse=True)
 
@@ -129,7 +129,7 @@ async def _collaborative_filtering(
     lesson_to_course: dict[str, str],
     course_map: dict[str, dict],
 ) -> list[tuple[str, float]]:
-    db = get_db()
+    db = get_read_db()
     similar_progress = await db.progress.find({
         "completed": True,
         "user_id": {"$ne": user_id},

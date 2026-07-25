@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from app.core.deps import get_current_user
-from app.db.mongodb import get_db
+from app.db.mongodb import get_db, get_read_db
 from app.services.certificate import issue_certificate
 
 logger = logging.getLogger(__name__)
@@ -19,14 +19,14 @@ class ProgressUpdate(BaseModel):
 
 @router.get("/progress")
 async def list_progress(user: dict = Depends(get_current_user)):
-    db = get_db()
+    db = get_read_db()
     progress = await db.progress.find({"user_id": user["id"]}).to_list(1000)
     return [{"id": p["_id"], **{k: v for k, v in p.items() if k != "_id"}} for p in progress]
 
 
 @router.get("/progress/{lesson_id}")
 async def get_progress(lesson_id: str, user: dict = Depends(get_current_user)):
-    db = get_db()
+    db = get_read_db()
     record = await db.progress.find_one({"_id": f"prog-{user['id']}-{lesson_id}"})
     if not record:
         return None
@@ -86,7 +86,7 @@ async def update_progress(lesson_id: str, body: ProgressUpdate, user: dict = Dep
 
 @router.get("/progress/summary")
 async def get_progress_summary(user: dict = Depends(get_current_user)):
-    db = get_db()
+    db = get_read_db()
     progress_records = await db.progress.find({"user_id": user["id"]}).to_list(1000)
     courses = await db.courses.find().to_list(1000)
 
@@ -108,7 +108,7 @@ async def get_progress_summary(user: dict = Depends(get_current_user)):
 
 @router.get("/progress/continue")
 async def get_continue(user: dict = Depends(get_current_user)):
-    db = get_db()
+    db = get_read_db()
     # Most recently updated incomplete lesson
     progress_list = await db.progress.find({"user_id": user["id"], "completed": False}).to_list(1)
     if not progress_list:

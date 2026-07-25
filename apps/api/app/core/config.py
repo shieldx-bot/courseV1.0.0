@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     mongodb_uri: str = ""
+    mongodb_secondary_uri: str = ""
     redis_url: str = "redis://localhost:6379/0"
     jwt_secret: str = "dev-secret-change-me"
     jwt_access_expire_minutes: int = 15
