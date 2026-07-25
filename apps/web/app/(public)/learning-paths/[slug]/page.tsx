@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { makeMetadata } from "@/lib/metadata";
 import type { LearningPath } from "@/types";
+import { EnrollButton } from "@/components/learning-paths/EnrollButton";
 
 export const metadata = makeMetadata({
   title: "Learning Path Details | Ascendly",
@@ -35,13 +36,8 @@ async function getPath(slug: string): Promise<LearningPath | null> {
   }
 }
 
-export default async function LearningPathDetailPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const path = await getPath(params.slug);
-  if (!path) notFound();
+function LearningPathContent({ path }: { path: LearningPath }) {
+  const isEnrolled = !!path.progress;
 
   return (
     <section className="py-12">
@@ -145,11 +141,26 @@ export default async function LearningPathDetailPage({
         )}
 
         <div className="mt-10">
-          <Link href={path.courses && path.courses.length > 0 ? `/courses/${path.courses[0].slug}` : "/courses"}>
-            <Button size="lg">Start this path</Button>
-          </Link>
+          {isEnrolled ? (
+            <Link href={path.courses && path.courses.length > 0 ? `/courses/${path.courses[0].slug}` : "/courses"}>
+              <Button size="lg">Continue learning</Button>
+            </Link>
+          ) : (
+            <EnrollButton pathId={path.id} pathSlug={path.slug} />
+          )}
         </div>
       </div>
     </section>
   );
+}
+
+export default async function LearningPathDetailPage({
+  params,
+}: {
+  params: { slug: string };
+}) {
+  const path = await getPath(params.slug);
+  if (!path) notFound();
+
+  return <LearningPathContent path={path} />;
 }

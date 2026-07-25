@@ -4,10 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { Lock, Play, BookOpen, User, CheckCircle } from "lucide-react";
+import { Lock, Play, BookOpen, User, CheckCircle, Clock, Zap } from "lucide-react";
 import Image from "next/image";
 import { JsonLd } from "@/components/json-ld";
 import { makeMetadata, SITE_URL, API_BASE } from "@/lib/metadata";
+
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function hasMicroLesson(course: Course): boolean {
+  return course.syllabus?.some((lesson) => lesson.duration_seconds > 0 && lesson.duration_seconds <= 600) ?? false;
+}
 
 export async function generateMetadata({ params }: { params: { course: string } }) {
   const apiBase = API_BASE;
@@ -96,15 +107,34 @@ export default async function CourseDetailPage({ params }: { params: { category:
               <Badge variant="primary">{course.category_name}</Badge>
               <h1 className="mt-3 text-3xl font-semibold text-primary-900">{course.title}</h1>
 
-              {course.instructor && (
-                <div className="mt-3 flex items-center gap-2 text-sm text-neutral-600">
-                  <User className="h-4 w-4" aria-hidden="true" />
-                  <span>by <strong>{course.instructor.name}</strong></span>
-                  {course.instructor.bio && <span className="text-neutral-400">· {course.instructor.bio}</span>}
-                </div>
-              )}
+{course.instructor && (
+            <div className="mt-3 flex items-center gap-2 text-sm text-neutral-600">
+              <User className="h-4 w-4" aria-hidden="true" />
+              <span>by <strong>{course.instructor.name}</strong></span>
+              {course.instructor.bio && <span className="text-neutral-400">· {course.instructor.bio}</span>}
+            </div>
+          )}
 
-              <p className="mt-4 text-neutral-600">{course.description}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-neutral-600">
+            <span className="flex items-center gap-1">
+              <BookOpen className="h-4 w-4" />
+              {course.lesson_count} lessons
+            </span>
+            {course.total_duration_seconds && (
+              <span className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                {formatDuration(course.total_duration_seconds)}
+              </span>
+            )}
+            {hasMicroLesson(course) && (
+              <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-amber-700">
+                <Zap className="h-3 w-3" />
+                Has micro-lessons (under 10 min)
+              </span>
+            )}
+          </div>
+
+          <p className="mt-4 text-neutral-600">{course.description}</p>
 
               <div className="mt-8 aspect-video rounded-lg bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center text-white overflow-hidden relative">
                 {course.image_url ? (
@@ -167,11 +197,25 @@ export default async function CourseDetailPage({ params }: { params: { category:
                       <span className="text-neutral-600">
                         {idx + 1}. {lesson.title}
                       </span>
-                      {isSubscriber ? (
-                        <Play className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Lock className="h-4 w-4 text-neutral-300" />
-                      )}
+                      <div className="flex items-center gap-2">
+                        {lesson.duration_seconds > 0 && (
+                          <span className="flex items-center gap-1 text-xs text-neutral-500">
+                            <Clock className="h-3 w-3" />
+                            {formatDuration(lesson.duration_seconds)}
+                          </span>
+                        )}
+                        {lesson.duration_seconds > 0 && lesson.duration_seconds <= 600 && (
+                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                            <Zap className="h-2.5 w-2.5 inline mr-0.5" />
+                            Micro
+                          </span>
+                        )}
+                        {isSubscriber ? (
+                          <Play className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <Lock className="h-4 w-4 text-neutral-300" />
+                        )}
+                      </div>
                     </li>
                   ))}
                 </ul>

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Lock, Paperclip, SkipBack, SkipForward, Clock, MessageSquare, FileText } from "lucide-react";
+import { Check, Lock, Paperclip, SkipBack, SkipForward, Clock, MessageSquare, FileText, Sparkles } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { WatermarkOverlay } from "@/components/shared/watermark-overlay";
@@ -14,6 +14,7 @@ import { Course, Lesson, Progress, Subscription } from "@/types";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { DiscussionTab } from "@/components/learn/DiscussionTab";
+import { AiTutorTab } from "@/components/learn/AiTutorTab";
 
 export function CoursePlayerClient({
   course: initialCourse,
@@ -74,7 +75,7 @@ export function CoursePlayerClient({
 
   const isSubscriber = user?.role === "admin" || subscription?.status === "active";
 
-  const [activeTab, setActiveTab] = useState<"notes" | "discussion">("notes");
+  const [activeTab, setActiveTab] = useState<"notes" | "discussion" | "ai-tutor">("notes");
 
   useEffect(() => {
     if (!current || !hasAccess(currentIndex)) return;
@@ -311,6 +312,14 @@ export function CoursePlayerClient({
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Discussion
                 </Button>
+                <Button
+                  variant={activeTab === "ai-tutor" ? "primary" : "ghost"}
+                  className="text-sm"
+                  onClick={() => setActiveTab("ai-tutor")}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  AI Tutor
+                </Button>
               </div>
 
               {activeTab === "notes" && (
@@ -332,6 +341,10 @@ export function CoursePlayerClient({
                   lessonId={current.id}
                   courseSlug={params.course}
                 />
+              )}
+
+              {activeTab === "ai-tutor" && (
+                <AiTutorTab courseId={course.id} lessonId={current.id} />
               )}
 
               <p className="text-center text-xs text-neutral-400 mt-6">

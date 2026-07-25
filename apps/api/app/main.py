@@ -14,7 +14,7 @@ from app.core.ratelimit import limiter
 from app.core.response import api_response, error_response
 from app.db.mongodb import seed_db, get_db
 from app.db.indexes import create_indexes
-from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions
+from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate
 from app.services.learning_paths import seed_learning_paths
 from app.services.r2_storage import r2_storage
 from app.services import search as search_service
@@ -129,6 +129,8 @@ app.include_router(worker.router, prefix="/api/v1", tags=["worker"])
 app.include_router(learning_paths.router, prefix="/api/v1", tags=["learning-paths"])
 app.include_router(certificates.router, prefix="/api/v1", tags=["certificates"])
 app.include_router(discussions.router, prefix="/api/v1", tags=["discussions"])
+app.include_router(ai_tutor.router, prefix="/api/v1", tags=["ai-tutor"])
+app.include_router(affiliate.router, prefix="/api/v1", tags=["affiliate"])
 
 
 @app.get("/api/v1/health")

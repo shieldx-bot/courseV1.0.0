@@ -125,6 +125,7 @@ async def search_courses(
 
 def _course_to_doc(course: dict) -> dict:
     lesson_count = course.get("lesson_count", len(course.get("syllabus", [])))
+    total_duration = sum(lesson.get("duration_seconds", 0) for lesson in course.get("syllabus", []))
     return {
         "id": course["_id"],
         "title": course.get("title", ""),
@@ -135,5 +136,6 @@ def _course_to_doc(course: dict) -> dict:
         "category_name": course.get("category_name", ""),
         "image_url": course.get("image_url", ""),
         "lesson_count": lesson_count,
+        "total_duration_seconds": total_duration,
         "instructor_name": course.get("instructor", {}).get("name", "") if course.get("instructor") else "",
     }

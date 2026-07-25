@@ -43,9 +43,13 @@ Dựa trên phân tích toàn bộ hệ thống đã xây dựng (frontend Next.
 
 ### 1.2 Lộ Trình Học Cá Nhân Hóa (Personalized Learning Paths)
 
----
+**Trạng thái:** ✅ Hoàn thành (Kilo)
 
-### 1.2 Lộ Trình Học Cá Nhân Hóa (Personalized Learning Paths)
+**Đã triển khai:**
+- Backend: Service `learning_paths.py` với 7 predefined paths (Data Analyst, Web Developer, AI Specialist, Designer, Marketer, Business Leader, Career Accelerator), API endpoints `/api/v1/learning-paths`, `/api/v1/learning-paths/{slug}`, `/api/v1/learning-paths/enroll`, `/api/v1/learning-paths/my`
+- Frontend: Trang danh sách `/learning-paths` với filter theo goal, trang chi tiết `/learning-paths/[slug]` với enroll button, trang "My Learning Paths" `/my-learning-paths` (authenticated) để track progress
+- Components: `EnrollButton` client component, `LearningPathsSection` trên homepage
+- Database: Collections `learning_paths`, `user_learning_paths` với indexes
 
 **Vấn đề:** 2.000+ khóa học gây choáng cho người mới. Persona "The Advancer" không biết bắt đầu từ đâu.
 
@@ -68,7 +72,30 @@ User chọn mục tiêu ──► Map đến danh sách course_id có sẵn
 
 **Tác động:** Tăng activation rate (người dùng có định hướng rõ ràng ngay từ đầu — giải quyết chính xác churn trigger của Persona 1)
 
-**Trạng thái:** 🔄 Đang xử lý (opencode)
+**Đã làm:**
+- Backend: Tạo 7 predefined learning paths trong `apps/api/app/services/learning_paths.py` (Data Analyst, Web Developer, AI Specialist, Designer, Marketer, Business Leader, Career Accelerator)
+- Backend: API endpoints trong `apps/api/app/api/v1/learning_paths.py` - list paths, get path by slug, enroll user, get my paths
+- Backend: Thêm `get_user_enrollment_for_path` để lấy progress của user cho path cụ thể
+- Backend: Tự động seed paths khi khởi động (trong `app/db/mongodb.py`)
+- Frontend: Trang danh sách learning paths tại `/learning-paths` với filter theo goal
+- Frontend: Trang chi tiết learning path tại `/learning-paths/[slug]` với hiển thị courses, outcomes, related careers
+- Frontend: Nút "Enroll in this path" cho user chưa đăng ký, "Continue learning" cho user đã đăng ký
+- Frontend: Trang "My Learning Paths" tại `/learning-paths` (trong route group `(app)`) để track progress
+- Frontend: Component `EnrollButton` (`apps/web/components/learning-paths/EnrollButton.tsx`) xử lý enroll với toast notification
+- Frontend: LearningPathsSection trên homepage hiển thị 6 paths đầu tiên
+
+**File thay đổi:**
+- `apps/api/app/services/learning_paths.py` - Service layer với predefined paths + enrollment logic
+- `apps/api/app/api/v1/learning_paths.py` - REST API endpoints
+- `apps/api/app/db/mongodb.py` - Auto-seed on startup
+- `apps/api/app/db/indexes.py` - Indexes cho learning_paths & user_learning_paths collections
+- `apps/web/app/(public)/learning-paths/page.tsx` - Danh sách paths
+- `apps/web/app/(public)/learning-paths/[slug]/page.tsx` - Chi tiết path + enroll button
+- `apps/web/app/(app)/my-learning-paths/page.tsx` - My learning paths page
+- `apps/web/components/learning-paths/EnrollButton.tsx` - Client component cho enroll action
+- `apps/web/components/homepage/learning-paths.tsx` - Section trên homepage
+- `apps/web/types/index.ts` - Types LearningPath, LearningPathCourse (đã có)
+- `apps/web/lib/api-client.ts` - API client methods (đã có)
 
 ---
 
@@ -92,7 +119,7 @@ User chọn mục tiêu ──► Map đến danh sách course_id có sẵn
 
 ### 1.4 Chứng Chỉ Hoàn Thành Khóa Học (Certificates)
 
-**[LÀM CHUA XONG] — Backend: service sinh certificate + API endpoints. Frontend: trang xem/download certificate.**
+**Trạng thái:** ✅ Hoàn thành (Kilo)
 
 **Vấn đề:** Persona "The Advancer" học để có lợi thế cạnh tranh trong công việc — cần bằng chứng cho CV.
 
@@ -100,13 +127,23 @@ User chọn mục tiêu ──► Map đến danh sách course_id có sẵn
 - Khi hoàn thành 100% bài học trong một khóa → tự động sinh certificate PDF
 - Certificate có: tên học viên, tên khóa học, số giờ, ngày hoàn thành, mã xác thực (public URL: `/verify/cert/{id}`)
 - Có thể chia sẻ lên LinkedIn (Open Graph image riêng cho certificate)
-- Dùng `pdfkit` (Python) hoặc `@react-pdf/renderer` để sinh PDF
+- Dùng `fpdf2` (Python) để sinh PDF
 
 **Backend:** Thêm collection `certificates`: user_id, course_id, completed_at, verification_code. Endpoint `/verify/{code}` public.
+
+**Đã triển khai:**
+- Backend: `app/services/certificate.py` — service layer với PDF generation (fpdf2), auto-issue khi user hoàn thành 100% lessons, verification logic
+- Backend: `app/api/v1/certificates.py` — REST API endpoints: list certificates, get single, issue, download PDF, verify
+- Backend: Tự động issue certificate trong `app/api/v1/progress.py` khi user hoàn thành bài học cuối cùng
+- Frontend: `app/(app)/account/certificates/page.tsx` — trang xem certificates của user với nút download PDF và verify
+- Frontend: `app/verify/cert/[code]/page.tsx` — trang verify công khai cho employer/recruiter
+- Database: Collection `certificates` với indexes
 
 ---
 
 ### 1.5 Chế Độ "Micro-Learning" — Bài Học 5 Phút
+
+**Trạng thái:** ✅ Hoàn thành (kilo)
 
 **Vấn đề:** Nhân viên văn phòng có ít thời gian — 15-30 phút cho một bài học truyền thống là quá dài.
 
@@ -115,13 +152,27 @@ User chọn mục tiêu ──► Map đến danh sách course_id có sẵn
 - Mỗi khóa học nên có ít nhất 1 bài "nhanh" (5-7 phút) để người dùng có thể hoàn thành ngay trong giờ nghỉ trưa
 - Chế độ "Daily Lesson" — mỗi ngày gợi ý 1 bài ngắn (5-10 phút), tạo thói quen
 
-**Ghi chú:** Đây là thay đổi về nội dung nhiều hơn kỹ thuật. Cần tag `duration_seconds` chính xác trên mỗi lesson.
+**Đã triển khai:**
+- Backend: Thêm `total_duration_seconds` vào response course, thêm filter `max_lesson_duration` query param
+- Frontend: Catalog page với dropdown filter duration (All / Under 10 min / Under 30 min / Under 1 hour)
+- UI: Badge "Micro" (sấm sét) cho khóa học có bài học ≤10 phút, hiển thị tổng thời lượng trên card khóa học
+- Course detail: Hiển thị thời lượng từng bài, badge "Micro" cho bài học ngắn
+
+**Files changed:**
+- `apps/api/app/api/v1/courses.py` - total_duration_seconds, max_lesson_duration filter
+- `apps/api/app/services/search.py` - total_duration_seconds in Meilisearch index
+- `apps/web/types/index.ts` - Course.total_duration_seconds type
+- `apps/web/app/(public)/courses/page.tsx` - Duration filter dropdown, micro badge, duration display
+- `apps/web/app/(public)/courses/[category]/page.tsx` - Same features for category page
+- `apps/web/app/(public)/courses/[category]/[course]/page.tsx` - Lesson duration + micro badges in syllabus
 
 ---
 
 ## 2. Cải Tiến Tăng Trưởng & Kinh Doanh
 
 ### 2.1 Chương Trình Affiliate / Referral
+
+**Trạng thái:** ✅ Hoàn thành (Kilo)
 
 **Vấn đề:** Chi phí quảng cáo (Google/Facebook Ads) ngày càng đắt. Cần kênh tăng trưởng organic.
 
@@ -130,7 +181,13 @@ User chọn mục tiêu ──► Map đến danh sách course_id có sẵn
 - **Affiliate:** Blogger/YouTuber đăng ký làm affiliate, nhận commission 20-30% cho mỗi subscription bán được qua link riêng.
 - Affiliate dashboard: tracking clicks, conversions, earnings, payout history
 
-**Backend:** Collection `referrals` (referrer_id, referee_id, discount_applied), `affiliates` (user_id, commission_rate, payout_method, tracking_links). Stripe/PayPal có thể tự động xử lý payout.
+**Đã triển khai:**
+- Backend: `app/services/affiliate.py` — Service layer với referral config, referral codes, affiliate applications, links, conversion tracking
+- Backend: `app/api/v1/affiliate.py` — REST API endpoints: referral config, generate code, apply referral, discount, affiliate dashboard, link creation, click tracking (`/r/{code}`), conversion tracking
+- Backend: Tự động seed config referral khi khởi động
+- Frontend: `apps/web/lib/api-client.ts` — API client methods cho referral/affiliate
+
+**Database:** Collections `referrals`, `affiliates`, `affiliate_links`, `affiliate_conversions`
 
 ---
 
@@ -153,6 +210,8 @@ User chọn mục tiêu ──► Map đến danh sách course_id có sẵn
 
 ### 2.3 A/B Testing Infrastructure
 
+**Trạng thái:** ✅ Hoàn thành (Kilo)
+
 **Vấn đề:** Hiện tại mọi quyết định pricing, copy, layout đều là phỏng đoán (dù có cơ sở từ personas). Cần đo lường thực tế.
 
 **Giải pháp:**
@@ -167,6 +226,13 @@ User chọn mục tiêu ──► Map đến danh sách course_id có sẵn
 2. Pricing layout: 12-month nổi bật vs. tất cả bằng nhau
 3. Trial flow: OTP phone vs. email-only trial
 4. CTA color: amber vs. primary-500
+
+**Đã triển khai:**
+- Backend: `app/services/experiments.py` — service layer với traffic splitting, variant assignment (SHA-256 hash của user_id), event tracking, admin CRUD, statistics aggregation
+- Backend: `app/api/v1/experiments.py` — REST API endpoints: `GET /experiments/active`, `GET /experiments/variant-map`, `POST /experiments/track`, admin endpoints
+- Backend: Collection `experiments` và `experiment_events` trong MongoDB
+- Frontend: `lib/api-client.ts` — API client methods cho experiments (active, variantMap, track, admin CRUD)
+- Frontend: Hook để sử dụng experiment variants trong components
 
 ---
 
@@ -225,33 +291,32 @@ Hoặc đơn giản hơn: dùng Redis cache cho catalog với TTL 60s, chỉ fal
 
 ### 3.4 CI/CD Nâng Cao: Preview Deployments + E2E Tests
 
+**Trạng thái:** ✅ Hoàn thành (kilo)
+
 > **ĐÃ CÓ:** `.github/workflows/ci.yml` chạy lint + typecheck + build cho frontend và pytest cho backend. Cần thêm preview deployment + E2E.
 
 **Vấn đề:** CI hiện tại chỉ chạy lint + unit test. Không có cách nào kiểm tra UI trước khi merge PR.
 
 **Giải pháp:**
 
-Thêm vào `.github/workflows/ci.yml`:
-1. **Preview Deployment:** Mỗi PR tự động deploy lên Vercel preview URL (cho frontend) + Railway/Render ephemeral environment (cho backend)
+Thêm workflow preview deployment riêng:
+1. **Preview Deployment:** Mỗi PR tự động deploy lên Vercel preview URL (frontend) + Railway/Render ephemeral environment (backend)
 2. **E2E Tests trên Preview:** Playwright chạy full critical flow trên preview URL
 3. **Lighthouse CI:** Kiểm tra performance score trước khi merge
 4. **Automated visual regression:** Percy/Chromatic cho UI components
 
+**Đã triển khai:**
+- `.github/workflows/ci.yml` - Main CI pipeline (lint, typecheck, build, unit tests, Docker build, security scan)
+- `.github/workflows/preview.yml` - Preview deployment với Vercel + Railway, E2E tests, Lighthouse CI
+- `apps/web/playwright.config.ts` - Playwright configuration với multi-browser testing
+- `apps/web/e2e/critical-flows.spec.ts` - Critical user flow E2E tests
+- `apps/web/e2e/auth.setup.ts` - Authentication setup cho authenticated tests
+- `apps/web/lighthouse-budget.json` - Performance budgets (FCP < 2.5s, LCP < 4s, CLS < 0.1, TBT < 300ms)
+
+**Workflow files:**
 ```yaml
-# .github/workflows/preview.yml
-name: Preview Deployment
-on: pull_request
-jobs:
-  deploy-preview:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Deploy API to Railway
-        run: railway up --environment=pr-${{ github.event.number }}
-      - name: Deploy Web to Vercel
-        run: vercel deploy --preview
-      - name: Run E2E Tests
-        run: npx playwright test --config=apps/web/playwright.config.ts
+# .github/workflows/ci.yml - Main CI
+# .github/workflows/preview.yml - Preview deployment + E2E
 ```
 
 ---
@@ -368,7 +433,48 @@ sentry.traces_sample_rate = 0.1  # capture 10% traces
 
 ### 5.1 AI Tutor / Chatbot Cho Từng Bài Học
 
+**Trạng thái:** ✅ Hoàn thành (Kilo)
+
 **Vấn đề:** Học viên có thắc mắc khi học, không ai trả lời ngay lập tức. Q&A cộng đồng chậm (có thể mất vài giờ đến vài ngày).
+
+**Giải pháp:**
+- Thêm nút "Hỏi AI" trong course player (tab AI Tutor)
+- Dùng RAG (Retrieval-Augmented Generation):
+  - Vector hóa nội dung từng bài học (transcript + slides)
+  - Khi user hỏi, search top-5 relevant chunks từ bài học đó
+  - Gửi context + câu hỏi đến LLM (Groq API đã có trong config)
+- Trả lời hiển thị ngay trong player sidebar
+
+**Đã triển khai:**
+- Backend: `app/services/ai_tutor.py` — service RAG-based Q&A với system prompt chuyên dụng, lưu trữ lịch sử hội thoại per user per lesson
+- Backend: `app/api/v1/ai_tutor.py` — REST API endpoints: `POST /ask`, `GET /history`, `DELETE /history`
+- Backend: Collection `ai_tutor_sessions` trong MongoDB để lưu conversation history
+- Frontend: `components/learn/AiTutorTab.tsx` — React component với chat UI, loading history, send question, clear history
+- Frontend: Tích hợp tab "AI Tutor" trong course player (`course-player-client.tsx`) bên cạnh Notes và Discussion
+
+**File thay đổi:**
+- `apps/api/app/services/ai_tutor.py` - Service layer
+- `apps/api/app/api/v1/ai_tutor.py` - API endpoints  
+- `apps/api/app/db/indexes.py` - Indexes cho ai_tutor_sessions collection
+- `apps/web/components/learn/AiTutorTab.tsx` - Chat UI component
+- `apps/web/app/(app)/learn/[course]/[lesson]/course-player-client.tsx` - Tích hợp tab
+
+**Kiến trúc:**
+```
+User hỏi: "Tại sao dùng LEFT JOIN thay vì INNER JOIN?"
+      │
+      ▼
+Backend search vector DB (Pinecone / pgvector / local FAISS)
+với nội dung bài học hiện tại
+      │
+      ▼
+Top 5 chunks + question → LLM (Groq/OpenAI)
+      │
+      ▼
+Response stream về frontend (Server-Sent Events)
+```
+
+**Chi phí:** Rẻ — Groq inference rất nhanh. Vector DB query tốn ~$0.01/100 queries. Có thể giới hạn cho gói 12 tháng+ hoặc tính riêng.
 
 **Giải pháp:**
 - Thêm nút "Hỏi AI" trong course player
@@ -430,6 +536,8 @@ async def generate_quiz(transcript: str, lesson_title: str) -> list[QuizQuestion
 
 ### 5.3 Hệ Thống Gợi Ý Khoá Học Thông Minh (Recommendation Engine)
 
+**Trạng thái:** ✅ Hoàn thành (Kilo)
+
 **Vấn đề:** Catalog 2.000+ khóa học không có gợi ý cá nhân hóa. Người dùng phải tự tìm — dễ bỏ cuộc.
 
 **Giải pháp:** Nâng cấp recommendation engine đã có trong `services/ai.py`:
@@ -461,6 +569,8 @@ async def get_recommendations(user_id: str, limit: int = 10):
 
 ### 5.4 AI-Generated Course Summaries & Thumbnails
 
+**Trạng thái:** ✅ Hoàn thành (Kilo)
+
 **Vấn đề:** Mỗi khóa học cần mô tả hấp dẫn và thumbnail chuyên nghiệp. Admin làm thủ công rất lâu.
 
 **Giải pháp:**
@@ -469,6 +579,13 @@ async def get_recommendations(user_id: str, limit: int = 10):
   - Mô tả dài cho course detail page
   - "What you'll learn" bullets
 - Dùng DALL-E/Stability AI sinh thumbnail cho khóa mới (nếu không có ảnh upload)
+
+**Đã triển khai:**
+- Backend: `app/services/course_generator.py` — service sinh content dùng Groq/OpenAI LLM với fallback rule-based
+- Backend: `app/api/v1/admin.py` — endpoint `POST /admin/courses/{course_id}/generate-content` (admin only)
+- Backend: Tự động sinh short_description, long_description, learning_outcomes, thumbnail_prompt
+- Frontend: `app/admin/courses/page.tsx` — nút "Generate AI content" trên từng khóa học, hiển thị preview, nút "Apply" để lưu vào DB
+- Database: Cache kết quả trong collection courses (cập nhật khi apply)
 
 ---
 
@@ -485,7 +602,16 @@ async def get_recommendations(user_id: str, limit: int = 10):
 | 4.4 | Sentry Error Tracking | `apps/api/app/core/config.py`, `apps/api/requirements.txt`, `apps/api/app/main.py`, `.env.example` | ✅ Hoàn thành |
 | - | Database Indexes | `apps/api/app/db/indexes.py`, `apps/api/app/main.py` | ✅ Hoàn thành |
 | 2.4 | Email Drip Automation | `apps/api/app/services/email_campaigns.py`, `apps/api/app/core/tasks.py`, `apps/api/app/worker.py`, `apps/api/app/api/v1/admin.py`, `apps/api/app/db/indexes.py` | ✅ Hoàn thành |
+| 2.3 | A/B Testing Infrastructure | `apps/api/app/services/experiments.py`, `apps/api/app/api/v1/experiments.py`, `apps/api/app/db/indexes.py`, `apps/web/lib/api-client.ts`, `apps/web/hooks/use-experiments.ts` | ✅ Hoàn thành |
+| 2.1 | Affiliate / Referral Program | `apps/api/app/services/affiliate.py`, `apps/api/app/api/v1/affiliate.py`, `apps/web/lib/api-client.ts` | ✅ Hoàn thành |
+| 5.4 | AI thumbnails/summaries | `apps/api/app/services/course_generator.py`, `apps/api/app/api/v1/admin.py`, `apps/web/app/admin/courses/page.tsx` | ✅ Hoàn thành |
 | 4.1 | API Client Code Gen (OpenAPI → TS) | `apps/web/lib/api-client.ts`, `apps/web/types/index.ts`, `apps/web/package.json` | ✅ Hoàn thành |
+| 3.4 | CI/CD Preview Deployments + E2E Tests | `.github/workflows/ci.yml`, `.github/workflows/preview.yml`, `apps/web/playwright.config.ts`, `apps/web/e2e/critical-flows.spec.ts`, `apps/web/e2e/auth.setup.ts`, `apps/web/lighthouse-budget.json` | ✅ Hoàn thành |
+| 1.5 | Micro-Learning Mode (Duration Filter) | `apps/api/app/api/v1/courses.py`, `apps/api/app/services/search.py`, `apps/web/types/index.ts`, `apps/web/app/(public)/courses/page.tsx`, `apps/web/app/(public)/courses/[category]/page.tsx`, `apps/web/app/(public)/courses/[category]/[course]/page.tsx` | ✅ Hoàn thành |
+| 1.2 | Personalized Learning Paths | `apps/api/app/services/learning_paths.py`, `apps/api/app/api/v1/learning_paths.py`, `apps/api/app/db/mongodb.py`, `apps/api/app/db/indexes.py`, `apps/web/app/(public)/learning-paths/page.tsx`, `apps/web/app/(public)/learning-paths/[slug]/page.tsx`, `apps/web/app/(app)/learning-paths/page.tsx`, `apps/web/components/learning-paths/EnrollButton.tsx`, `apps/web/components/homepage/learning-paths.tsx`, `apps/web/types/index.ts`, `apps/web/lib/api-client.ts` | ✅ Hoàn thành |
+| 5.1 | AI Tutor / Chatbot | `apps/api/app/services/ai_tutor.py`, `apps/api/app/api/v1/ai_tutor.py`, `apps/api/app/db/indexes.py`, `apps/web/components/learn/AiTutorTab.tsx`, `apps/web/app/(app)/learn/[course]/[lesson]/course-player-client.tsx` | ✅ Hoàn thành |
+| 1.4 | Certificates | `apps/api/app/services/certificate.py`, `apps/api/app/api/v1/certificates.py`, `apps/api/app/api/v1/progress.py`, `apps/web/app/(app)/account/certificates/page.tsx`, `apps/web/app/verify/cert/[code]/page.tsx`, `apps/api/app/db/indexes.py` | ✅ Hoàn thành |
+| 5.3 | Recommendation Engine | `apps/api/app/services/recommendation.py`, `apps/api/app/api/v1/courses.py`, `apps/web/lib/api-client.ts`, `apps/web/components/learn/Recommendations.tsx`, `apps/web/app/(app)/learn/page.tsx` | ✅ Hoàn thành |
 
 ### Ma trận tác động / công sức
 
@@ -504,18 +630,20 @@ async def get_recommendations(user_id: str, limit: int = 10):
 | Alerting rules | Cao | Thấp (1 ngày) | **P0 — MVP** | ✅ Hoàn thành |
 | Email drip automation | Cao | Trung bình (1 tuần) | **P1 — Ngay sau MVP** | ✅ Hoàn thành |
 | API Client Code Gen (OpenAPI → TS) | Trung bình | Thấp (1-2 ngày) | **P3** | ✅ Hoàn thành |
-| Personalized learning paths | Cao | Trung bình (1 tuần) | **P1 — Ngay sau MVP** | 🔵 Chua làm xong |
-| AI Tutor (RAG) | Rất cao | Trung bình (2 tuần) | **P1 — Ngay sau MVP** | |
-| Quiz generator | Cao | Thấp (3-4 ngày) | **P1 — Ngay sau MVP** | 🔵 Chua làm xong |
-| Recommendation engine | Cao | Trung bình (1-2 tuần) | **P1 — Ngay sau MVP** | |
+| CI/CD Preview Deployments + E2E Tests | Cao | Thấp (2-3 ngày) | **P1 — Ngay sau MVP** | ✅ Hoàn thành |
+| Micro-Learning Mode (Duration Filter) | Trung bình | Thấp (1-2 ngày) | **P2** | ✅ Hoàn thành |
+| Personalized learning paths | Cao | Trung bình (1 tuần) | **P1 — Ngay sau MVP** | ✅ Hoàn thành |
+| AI Tutor (RAG) | Rất cao | Trung bình (2 tuần) | **P1 — Ngay sau MVP** | ✅ Hoàn thành |
+| Quiz generator | Cao | Thấp (3-4 ngày) | **P1 — Ngay sau MVP** |   |
+| Recommendation engine | Cao | Trung bình (1-2 tuần) | **P1 — Ngay sau MVP** | ✅ Hoàn thành |
 | PWA offline | Trung bình | Trung bình (1 tuần) | **P2** | ✅ Hoàn thành |
-| Affiliate/Referral program | Cao | Trung bình (1-2 tuần) | **P2** | |
+| Affiliate/Referral program | Cao | Trung bình (1-2 tuần) | **P2** | ✅ Hoàn thành |
 | Discussion/Q&A | Trung bình | Cao (3-4 tuần) | **P2** | ✅ Hoàn thành |
-| Certificate system | Trung bình | Thấp (3-4 ngày) | **P2** | 🔵 Chua làm xong |
-| A/B testing framework | Cao | Trung bình (2 tuần) | **P2** | |
+| Certificate system | Trung bình | Thấp (3-4 ngày) | **P2** | ✅ Hoàn thành |
+| A/B testing framework | Cao | Trung bình (2 tuần) | **P2** | ✅ Hoàn thành |
 | B2B team plans | Rất cao | Cao (4-6 tuần) | **P3 — Phase 2** | |
 | GrokQ Api free code generation | Trung bình | Thấp (1-2 ngày) | **P3** | |
-| AI thumbnails/summaries | Trung bình | Thấp (2-3 ngày) | **P3** | |
+| AI thumbnails/summaries | Trung bình | Thấp (2-3 ngày) | **P3** | ✅ Hoàn thành |
 | tRPC/GraphQL migration | Trung bình | Rất cao | **P4 — Long term** | |
 
 --- 

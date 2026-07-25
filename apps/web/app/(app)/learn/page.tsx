@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-client";
 import { Course } from "@/types";
 import { OnboardingModal } from "@/components/shared/onboarding-modal";
+import { Recommendations } from "@/components/learn/Recommendations";
 
 interface ContinueData {
   course_id: string;
@@ -21,16 +22,11 @@ interface ContinueData {
 
 export default function LearnDashboard() {
   const [continueData, setContinueData] = useState<ContinueData | null>(null);
-  const [recommended, setRecommended] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     apiFetch("/progress/continue")
       .then(setContinueData)
-      .catch(() => {});
-
-    apiFetch("/courses")
-      .then((courses: Course[]) => setRecommended(courses.slice(0, 3)))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -59,18 +55,7 @@ export default function LearnDashboard() {
           </Card>
         )}
 
-        <h2 className="mt-10 text-xl font-semibold text-primary-900">Recommended for you</h2>
-        <div className="mt-4 grid gap-4 md:grid-cols-3">
-          {recommended.map((c) => (
-            <Card key={c.id} className="p-5">
-              <p className="font-medium text-neutral-900">{c.title}</p>
-              <p className="text-xs text-neutral-600">{c.category_name}</p>
-              <Link href={`/learn/${c.slug}/${c.syllabus[0]?.id || ""}`}>
-                <Button variant="secondary" className="mt-3 w-full">Start</Button>
-              </Link>
-            </Card>
-          ))}
-        </div>
+        <Recommendations title="Recommended for you" limit={6} variant="grid" />
       </div>
       <OnboardingModal />
     </section>

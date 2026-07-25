@@ -9,6 +9,26 @@ from app.services.recommendation import get_recommendations, get_similar_courses
 router = APIRouter()
 
 
+def _compute_total_duration(syllabus: list) -> int:
+    """Compute total duration in seconds from syllabus."""
+    return sum(lesson.get("duration_seconds", 0) for lesson in syllabus)
+
+
+def _public_syllabus(syllabus: list):
+    return [{k: v for k, v in lesson.items() if k != "drive_file_id"} for lesson in syllabus]
+
+
+def _enrich_course(course: dict) -> dict:
+    """Add computed fields to course response."""
+    syllabus = course.get("syllabus", [])
+    return {
+        "id": course["_id"],
+        **{k: v for k, v in course.items() if k != "_id"},
+        "syllabus": _public_syllabus(syllabus),
+        "total_duration_seconds": _compute_total_duration(syllabus),
+    }
+
+
 @router.get("/categories")
 async def list_categories():
     db = get_db()
@@ -32,6 +52,7 @@ async def list_courses(
     sort_by: str = "",
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
+    max_lesson_duration: int = Query(0, ge=0, description="Filter courses with lessons under N seconds (e.g. 600 for 10 min)"),
 ):
     if q and search_available:
         result = await search_courses(q, category=category, sort_by=sort_by, page=page, per_page=per_page)
@@ -62,7 +83,15 @@ async def list_courses(
             {"description": {"$regex": q, "$options": "i"}},
         ]
     courses = await db.courses.find(query).to_list(100)
-    return api_response([{"id": c["_id"], **{k: v for k, v in c.items() if k != "_id"}, "syllabus": _public_syllabus(c.get("syllabus", []))} for c in courses])
+    enriched = [_enrich_course(c) for c in courses]
+    
+    if max_lesson_duration > 0:
+        enriched = [
+            c for c in enriched
+            if any(lesson.get("duration_seconds", 0) <= max_lesson_duration for lesson in c.get("syllabus", []))
+        ]
+    
+    return api_response(enriched)
 
 
 @router.get("/courses/{slug}")
@@ -71,15 +100,7 @@ async def get_course(slug: str):
     course = await db.courses.find_one({"slug": slug})
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
-    return api_response({
-        "id": course["_id"],
-        **{k: v for k, v in course.items() if k != "_id"},
-        "syllabus": _public_syllabus(course.get("syllabus", [])),
-    })
-
-
-def _public_syllabus(syllabus: list):
-    return [{k: v for k, v in lesson.items() if k != "drive_file_id"} for lesson in syllabus]
+    return api_response(_enrich_course(course))
 
 
 from pydantic import BaseModel

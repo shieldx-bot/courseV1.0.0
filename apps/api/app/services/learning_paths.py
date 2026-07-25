@@ -305,3 +305,69 @@ async def get_user_enrollments(user_id: str, limit: int = 10) -> list[dict]:
             results.append(path)
 
     return results
+
+
+async def get_user_enrollment_for_path(user_id: str, path_id: str) -> dict | None:
+    """Get user's enrollment for a specific path with progress."""
+    db = get_db()
+    enrollment = await db.user_learning_paths.find_one({
+        "user_id": user_id,
+        "path_id": path_id,
+        "status": "active"
+    })
+    if not enrollment:
+        return None
+
+    path = await get_path_by_id(path_id)
+    if not path:
+        return None
+
+    completed_ids = set(enrollment.get("completed_course_ids", []))
+    total = len(path.get("courses", []))
+    done = sum(1 for c in path.get("courses", []) if c.get("id") in completed_ids)
+
+    return {
+        "enrollment_id": enrollment["_id"],
+        "enrolled_at": enrollment.get("enrolled_at", ""),
+        "status": enrollment.get("status", "active"),
+        "progress": {
+            "completed_courses": done,
+            "total_courses": total,
+            "percent": round(done / total * 100, 0) if total > 0 else 0,
+            "status": enrollment.get("status", "active"),
+            "enrolled_at": enrollment.get("enrolled_at", ""),
+        }
+    }
+
+
+async def get_user_enrollment_for_path(user_id: str, path_id: str) -> dict | None:
+    """Get user's enrollment for a specific path with progress."""
+    db = get_db()
+    enrollment = await db.user_learning_paths.find_one({
+        "user_id": user_id,
+        "path_id": path_id,
+        "status": "active"
+    })
+    if not enrollment:
+        return None
+
+    path = await get_path_by_id(path_id)
+    if not path:
+        return None
+
+    completed_ids = set(enrollment.get("completed_course_ids", []))
+    total = len(path.get("courses", []))
+    done = sum(1 for c in path.get("courses", []) if c.get("id") in completed_ids)
+
+    return {
+        "enrollment_id": enrollment["_id"],
+        "enrolled_at": enrollment.get("enrolled_at", ""),
+        "status": enrollment.get("status", "active"),
+        "progress": {
+            "completed_courses": done,
+            "total_courses": total,
+            "percent": round(done / total * 100, 0) if total > 0 else 0,
+            "status": enrollment.get("status", "active"),
+            "enrolled_at": enrollment.get("enrolled_at", ""),
+        }
+    }

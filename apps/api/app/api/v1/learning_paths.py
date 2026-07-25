@@ -9,6 +9,7 @@ from app.services.learning_paths import (
     enroll_user_in_path,
     get_user_enrollments,
     seed_learning_paths,
+    get_user_enrollment_for_path,
 )
 
 router = APIRouter()
@@ -27,10 +28,16 @@ async def list_paths(
 
 
 @router.get("/learning-paths/{slug}")
-async def get_path(slug: str):
+async def get_path(slug: str, user: dict | None = Depends(get_optional_user)):
     path = await get_path_by_slug(slug)
     if not path:
         raise HTTPException(status_code=404, detail="Learning path not found")
+
+    if user:
+        enrollment = await get_user_enrollment_for_path(user["id"], path["id"])
+        if enrollment:
+            path["progress"] = enrollment.get("progress")
+
     return api_response(path)
 
 

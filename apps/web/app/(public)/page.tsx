@@ -20,6 +20,7 @@ import { StickyCtaBar } from "@/components/homepage/sticky-cta-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { JsonLd } from "@/components/json-ld";
 import { makeMetadata, SITE_URL } from "@/lib/metadata";
+import { RecommendationsSection, RecommendationsSectionSkeleton } from "@/components/homepage/recommendations";
 
 export const metadata = makeMetadata();
 
@@ -67,6 +68,9 @@ export default function HomePage() {
       <FAQSection />
       <Suspense fallback={<Skeleton className="h-60 w-full" />}>
         <PricingTable variant="mini" />
+      </Suspense>
+      <Suspense fallback={<RecommendationsSectionSkeleton />}>
+        <RecommendationsSection />
       </Suspense>
       <TrustBadges />
       <FinalCTA />

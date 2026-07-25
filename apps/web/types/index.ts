@@ -38,6 +38,7 @@ export interface Course {
   lesson_count: number;
   syllabus: Lesson[];
   outcome: string[];
+  total_duration_seconds?: number;
 }
 
 export interface User {

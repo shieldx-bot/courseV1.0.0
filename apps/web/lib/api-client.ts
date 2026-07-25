@@ -161,6 +161,10 @@ const apiClient = {
     get: (slug: string) => typedRequest("get", `/courses/${slug}` as const),
     getByCategory: (categorySlug: string) =>
       typedRequest("get", "/courses" as const, { query: { category: categorySlug } }),
+    recommendations: (limit?: number) =>
+      typedRequest("get", "/courses/recommendations" as const, { query: { limit } }),
+    similar: (courseId: string, limit?: number) =>
+      typedRequest("get", `/courses/${courseId}/similar` as const, { query: { limit } }),
   },
   categories: {
     list: () => typedRequest("get", "/categories" as const),
@@ -198,6 +202,45 @@ const apiClient = {
     my: () => typedRequest("get", "/learning-paths/my" as const),
     enroll: (pathId: string) =>
       typedRequest("post", "/learning-paths/enroll" as const, { query: { path_id: pathId } }),
+  },
+  experiments: {
+    active: () => typedRequest("get", "/experiments/active" as const),
+    variantMap: () => typedRequest("get", "/experiments/variant-map" as const),
+    track: (experimentSlug: string, eventType: string, metadata?: Record<string, unknown>) =>
+      typedRequest("post", "/experiments/track" as const, {
+        query: { experiment_slug: experimentSlug },
+        body: { event_type: eventType, metadata },
+      }),
+    admin: {
+      list: () => typedRequest("get", "/admin/experiments" as const),
+      create: (data: Record<string, unknown>) =>
+        typedRequest("post", "/admin/experiments" as const, { body: data }),
+      update: (experimentId: string, data: Record<string, unknown>) =>
+        typedRequest("put", `/admin/experiments/${experimentId}` as const, { body: data }),
+      delete: (experimentId: string) => typedRequest("delete", `/admin/experiments/${experimentId}` as const),
+      stats: (experimentSlug?: string) =>
+        typedRequest("get", "/admin/experiments/stats" as const, { query: { experiment_slug: experimentSlug } }),
+    },
+  },
+  affiliate: {
+    config: () => typedRequest("get", "/referral/config" as const),
+    updateConfig: (data: Record<string, unknown>) =>
+      typedRequest("put", "/referral/config" as const, { body: data }),
+    generateCode: () => typedRequest("post", "/referral/code" as const),
+    getMyCode: () => typedRequest("get", "/referral/code" as const),
+    apply: (code: string) => typedRequest("post", "/referral/apply" as const, { query: { code } }),
+    applyDiscount: () => typedRequest("post", "/referral/apply-discount" as const),
+    stats: () => typedRequest("get", "/referral/stats" as const),
+    affiliate: {
+      apply: (data: Record<string, unknown>) =>
+        typedRequest("post", "/affiliate/apply" as const, { body: data }),
+      dashboard: () => typedRequest("get", "/affiliate/dashboard" as const),
+      createLink: (data: Record<string, unknown>) =>
+        typedRequest("post", "/affiliate/links" as const, { body: data }),
+    },
+    admin: {
+      seed: () => typedRequest("post", "/admin/referral/seed" as const),
+    },
   },
   discussions: {
     list: (courseId: string, lessonId: string, params?: { page?: number; per_page?: number; sort?: string }) => {

@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import { BookOpen, User } from "lucide-react";
+import { BookOpen, User, Clock, Zap } from "lucide-react";
 import { Course, Category } from "@/types";
 import { makeMetadata } from "@/lib/metadata";
 
@@ -15,6 +15,19 @@ export const metadata = makeMetadata({
   path: "/courses",
 });
 
+function formatDuration(seconds: number): string {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  return `${minutes}m`;
+}
+
+function hasMicroLesson(course: Course): boolean {
+  return course.syllabus?.some((lesson) => lesson.duration_seconds > 0 && lesson.duration_seconds <= 600) ?? false;
+}
+
 export default async function CoursesPage({
   searchParams,
 }: {
@@ -22,16 +35,22 @@ export default async function CoursesPage({
 }) {
   const search = typeof searchParams.search === "string" ? searchParams.search : "";
   const category = typeof searchParams.category === "string" ? searchParams.category : "";
+  const maxLessonDuration = typeof searchParams.max_lesson_duration === "string"
+    ? parseInt(searchParams.max_lesson_duration, 10)
+    : 0;
 
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   let courses: Course[] = [];
   let categories: Category[] = [];
 
   try {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (category) params.set("category", category);
+    if (maxLessonDuration > 0) params.set("max_lesson_duration", String(maxLessonDuration));
+
     const [coursesRes, catsRes] = await Promise.all([
-      fetch(`${apiBase}/api/v1/courses?search=${encodeURIComponent(search)}&category=${encodeURIComponent(category)}`, {
-        next: { revalidate: 60 },
-      }),
+      fetch(`${apiBase}/api/v1/courses?${params.toString()}`, { next: { revalidate: 60 } }),
       fetch(`${apiBase}/api/v1/categories`, { next: { revalidate: 60 } }),
     ]);
     if (coursesRes.ok) courses = await coursesRes.json();
@@ -41,8 +60,12 @@ export default async function CoursesPage({
     categories = [];
   }
 
-  const query = new URLSearchParams();
-  if (search) query.set("search", search);
+  const durationOptions = [
+    { value: 0, label: "All durations" },
+    { value: 600, label: "Under 10 min (Micro-learning)" },
+    { value: 1800, label: "Under 30 min" },
+    { value: 3600, label: "Under 1 hour" },
+  ] as const;
 
   return (
     <section className="py-12">
@@ -53,6 +76,19 @@ export default async function CoursesPage({
         <form className="mt-6 flex flex-col gap-3 sm:flex-row" action="/courses" method="GET">
           <Input name="search" defaultValue={search} placeholder="Search courses..." className="flex-1" />
           <input type="hidden" name="category" value={category} />
+          
+          <select
+            name="max_lesson_duration"
+            defaultValue={String(maxLessonDuration)}
+            className="w-full sm:w-56 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+          >
+            {durationOptions.map((opt) => (
+              <option key={opt.value} value={String(opt.value)}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          
           <Button type="submit">Search</Button>
         </form>
 
@@ -66,7 +102,7 @@ export default async function CoursesPage({
           {categories.map((c) => (
             <Link
               key={c.id}
-              href={`/courses?category=${c.slug}${search ? `&search=${encodeURIComponent(search)}` : ""}`}
+              href={`/courses?category=${c.slug}${search ? `&search=${encodeURIComponent(search)}` : ""}${maxLessonDuration ? `&max_lesson_duration=${maxLessonDuration}` : ""}`}
               className={`rounded-full px-3 py-1 text-sm ${category === c.slug ? "bg-primary-700 text-white" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"}`}
             >
               {c.name}
@@ -90,6 +126,13 @@ export default async function CoursesPage({
                   ) : (
                     <BookOpen className="h-10 w-10 text-primary-400" aria-hidden="true" />
                   )}
+                  
+                  {hasMicroLesson(course) && (
+                    <span className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-medium text-white">
+                      <Zap className="h-3 w-3" />
+                      Micro
+                    </span>
+                  )}
                 </div>
                 <div className="p-5">
                   <Badge variant="primary" className="text-xs">
@@ -102,12 +145,27 @@ export default async function CoursesPage({
                     </p>
                   )}
                   <p className="mt-2 line-clamp-2 text-sm text-neutral-600">{course.description}</p>
-                  <p className="mt-4 text-xs text-neutral-600">{course.lesson_count} lessons</p>
+                  <div className="mt-4 flex items-center justify-between text-xs text-neutral-600">
+                    <span>{course.lesson_count} lessons</span>
+                    {course.total_duration_seconds && (
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatDuration(course.total_duration_seconds)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </Card>
             </Link>
           ))}
         </div>
+        
+        {courses.length === 0 && (
+          <div className="mt-12 text-center text-neutral-500">
+            <BookOpen className="h-12 w-12 mx-auto text-neutral-300 mb-4" />
+            <p>No courses found. Try adjusting your filters.</p>
+          </div>
+        )}
       </div>
     </section>
   );
