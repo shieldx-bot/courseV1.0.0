@@ -1,4 +1,4 @@
-import type { paths } from "@/types/api";
+import type { ApiPaths as paths } from "@/types/api";
 
 const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL || "";
 const API_PREFIX = "/api/v1";

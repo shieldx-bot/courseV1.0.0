@@ -58,7 +58,7 @@ export function useOfflineProgress(courseId?: string) {
   return { progress, loading, saveProgress, clearProgress, refresh: loadProgress };
 }
 
-export function useOfflineNotes(lessonId?: string) {
+export function useOfflineNotes(courseId?: string, lessonId?: string) {
   const [notes, setNotes] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -69,7 +69,7 @@ export function useOfflineNotes(lessonId?: string) {
       return;
     }
     try {
-      const items = await getOfflineNotes();
+      const items = await getOfflineNotes(courseId);
       const lessonNotes = items
         .filter(n => n.lessonId === lessonId)
         .map(n => n.content);
@@ -79,14 +79,13 @@ export function useOfflineNotes(lessonId?: string) {
     } finally {
       setLoading(false);
     }
-  }, [lessonId]);
+  }, [courseId, lessonId]);
 
-  const saveNote = useCallback(async (lessonId: string, content: string) => {
-    await saveOfflineNote({ lessonId, content, timestamp: Date.now() });
-    if (lessonId === lessonId) {
-      setNotes(prev => [...prev, content]);
-    }
-  }, []);
+  const saveNote = useCallback(async (content: string) => {
+    if (!courseId || !lessonId) return;
+    await saveOfflineNote({ courseId, lessonId, content, timestamp: Date.now() });
+    setNotes(prev => [...prev, content]);
+  }, [courseId, lessonId]);
 
   const deleteNote = useCallback(async (noteId: number) => {
     await clearOfflineNote(noteId);
