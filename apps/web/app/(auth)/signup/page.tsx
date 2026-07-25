@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import type { User } from "@/types";
 import { GoogleLogin } from "@react-oauth/google";
 
 export default function SignupPage() {
@@ -27,7 +28,7 @@ export default function SignupPage() {
       return;
     }
     try {
-      const data = await apiFetch("/auth/signup", {
+      const data = await apiFetch<{ user: User }>("/auth/signup", {
         method: "POST",
         body: JSON.stringify({ name, email, password }),
       });
@@ -41,7 +42,7 @@ export default function SignupPage() {
   const handleGoogle = async (credentialResponse: any) => {
     if (!credentialResponse?.credential) return;
     try {
-      const data = await apiFetch("/auth/google", {
+      const data = await apiFetch<{ user: User }>("/auth/google", {
         method: "POST",
         body: JSON.stringify({ token: credentialResponse.credential }),
       });

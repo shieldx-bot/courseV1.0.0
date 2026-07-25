@@ -32,7 +32,7 @@ export default function AdminOrders() {
     if (search) params.set("search", search);
     if (statusFilter) params.set("status", statusFilter);
     if (providerFilter) params.set("provider", providerFilter);
-    return apiFetch(`/admin/orders?${params.toString()}`);
+    return apiFetch<Order[]>(`/admin/orders?${params.toString()}`);
   }, [search, statusFilter, providerFilter]);
 
   useEffect(() => {

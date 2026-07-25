@@ -188,7 +188,7 @@ export function CodeAssistantTab({
               rows={4}
             />
             <div className="flex flex-wrap items-center gap-4">
-              <Select value={language} onValueChange={setLanguage}>
+              <Select value={language} onValueChange={setLanguage as (value: string) => void}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Language" />
                 </SelectTrigger>
@@ -319,7 +319,7 @@ export function CodeAssistantTab({
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col min-h-0">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab as (value: string) => void} className="flex-1 flex flex-col">
           <TabsList className="grid w-full grid-cols-4 mb-4" role="tablist">
             {Object.entries(TAB_CONFIG).map(([key, config]) => (
               <TabsTrigger key={key} value={key as TabType} className="flex items-center justify-center gap-1 text-xs py-2" role="tab">

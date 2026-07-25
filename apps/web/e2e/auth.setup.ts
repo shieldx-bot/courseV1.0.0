@@ -3,7 +3,7 @@ import { test as setup, expect } from '@playwright/test';
 const authFile = 'playwright/.auth/user.json';
 
 setup('authenticate user', async ({ page }) => {
-  const { baseURL } = page.context().browser()?.defaultContext?.options || { baseURL: 'http://localhost:3000' };
+  const baseURL = process.env.BASE_URL || 'http://localhost:3000';
 
   await page.goto(`${baseURL}/auth/signin`, { waitUntil: 'networkidle' });
 

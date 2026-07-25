@@ -282,7 +282,6 @@ function DiscussionItem({
           onVote={vote => onReplyVote(reply.id, reply.user_vote, vote)}
           onReplyClick={() => onReplyingToChange(reply.id)}
           onCreateReply={onCreateReply}
-          onCancelReply={() => onReplyingToChange(null)}
           replyContent={replyContent}
           onReplyContentChange={onReplyContentChange}
           replyingTo={replyingTo}
@@ -313,7 +312,7 @@ function DiscussionItem({
             </span>
             <Button
               variant="ghost"
-             
+              size="icon"
               className={cn("h-8 w-8 p-0", discussion.user_vote === -1 && "text-error")}
               onClick={() => onVote(discussion.user_vote === -1 ? 0 : -1)}
               disabled={!user}
@@ -396,7 +395,6 @@ interface ReplyItemProps {
   getInitials: (name: string) => string;
   user: any;
   renderReplies: (replies: Reply[], depth: number) => React.ReactNode;
-  onCancelReply: () => void;
 }
 
 function ReplyItem({
@@ -407,7 +405,6 @@ function ReplyItem({
   onCreateReply,
   replyContent,
   onReplyContentChange,
-  onCancelReply,
   replyingTo,
   formatDate,
   getInitials,
@@ -416,14 +413,15 @@ function ReplyItem({
 }: ReplyItemProps) {
   const [showNested, setShowNested] = useState(true);
 
-  const children: Reply[] = []; // Would need to fetch nested replies
+  const children = []; // Would need to fetch nested replies
 
   return (
     <div className="py-3">
       <div className="flex gap-3">
         <div className="flex flex-col items-center gap-1">
-<Button
+          <Button
             variant="ghost"
+            size="icon"
             className={cn("h-7 w-7 p-0", reply.user_vote === 1 && "text-accent-600")}
             onClick={() => onVote(reply.user_vote === 1 ? 0 : 1)}
             disabled={!user}
@@ -433,8 +431,9 @@ function ReplyItem({
           <span className={cn("font-medium text-sm", reply.vote_score > 0 && "text-accent-600")}>
             {reply.vote_score}
           </span>
-<Button
+          <Button
             variant="ghost"
+            size="icon"
             className={cn("h-7 w-7 p-0", reply.user_vote === -1 && "text-error")}
             onClick={() => onVote(reply.user_vote === -1 ? 0 : -1)}
             disabled={!user}
@@ -460,7 +459,7 @@ function ReplyItem({
                 <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700">Instructor</span>
               )}
             </div>
-            <Button variant="ghost" onClick={onReplyClick} className="text-neutral-500 hover:text-primary-700">
+            <Button variant="ghost" size="icon" onClick={onReplyClick} className="text-neutral-500 hover:text-primary-700">
               Reply
             </Button>
           </div>
@@ -477,7 +476,7 @@ function ReplyItem({
               />
               <div className="mt-2 flex gap-2">
                 <Button size="sm" onClick={() => onCreateReply(reply.id)}>Post</Button>
-                <Button size="sm" variant="ghost" onClick={() => onCancelReply()}>Cancel</Button>
+                <Button size="sm" variant="ghost" onClick={() => onReplyingToChange(null)}>Cancel</Button>
               </div>
             </div>
           )}

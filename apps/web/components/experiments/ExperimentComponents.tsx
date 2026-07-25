@@ -17,7 +17,7 @@ export function ExperimentCTA({
     <Button 
       className="w-full" 
       size="lg"
-      variant={isAmber ? "secondary" : "default"}
+      variant={isAmber ? "secondary" : "primary"}
     >
       {children}
     </Button>

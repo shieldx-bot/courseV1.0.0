@@ -23,7 +23,7 @@ export default function AdminCoupons() {
   const [form, setForm] = useState({ code: "", discount_value: "", max_uses: "", expires_at: "" });
 
   useEffect(() => {
-    apiFetch("/admin/coupons")
+    apiFetch<Coupon[]>("/admin/coupons")
       .then(setCoupons)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
@@ -42,7 +42,7 @@ export default function AdminCoupons() {
           expires_at: form.expires_at || null,
         }),
       });
-      const updated = await apiFetch("/admin/coupons");
+      const updated = await apiFetch<Coupon[]>("/admin/coupons");
       setCoupons(updated);
       setForm({ code: "", discount_value: "", max_uses: "", expires_at: "" });
     } catch (e: any) {

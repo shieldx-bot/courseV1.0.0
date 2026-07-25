@@ -36,13 +36,13 @@ export default function AdminUsers() {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (roleFilter) params.set("role", roleFilter);
-    const u = await apiFetch(`/admin/users?${params.toString()}`);
+    const u = await apiFetch<User[]>(`/admin/users?${params.toString()}`);
     setUsers(u);
   }, [search, roleFilter]);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([fetchUsers(), apiFetch("/subscriptions/tiers")])
+    Promise.all([fetchUsers(), apiFetch<Tier[]>("/subscriptions/tiers")])
       .then(([_, t]) => setTiers(t))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

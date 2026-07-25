@@ -20,9 +20,10 @@ export function OnboardingModal() {
     if (done) return;
 
     apiFetch("/courses")
-      .then((courses: Course[]) => {
-        if (courses.length > 0) {
-          setFirstCourse(courses[0]);
+      .then((courses: unknown) => {
+        const courseList = courses as Course[];
+        if (courseList.length > 0) {
+          setFirstCourse(courseList[0]);
           setOpen(true);
         }
       })

@@ -39,12 +39,6 @@ export default function LoginPage() {
       setError(err.message);
     }
   };
-      login(data.user);
-      router.push("/learn");
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
 
   return (
     <section className="flex flex-1 items-center justify-center py-16">

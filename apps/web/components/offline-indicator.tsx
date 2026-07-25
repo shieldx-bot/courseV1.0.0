@@ -45,31 +45,31 @@ export function OfflineIndicator() {
           <>
             <WifiOff className="h-5 w-5 flex-shrink-0" />
             <div className="flex-1 min-w-[200px]">
-              <p className="font-medium">Đang ngoại tuyến</p>
+              <p className="font-medium">Dang ngoai tuyen</p>
               <p className="text-sm opacity-80">
-                Các bài học đã tải vẫn có sẵn. Dữ liệu sẽ đồng bộ khi có mạng.
+                Cac bai hoc da tai van co san. Du lieu se dong bo khi co mang.
               </p>
             </div>
             <a
               href="/offline-courses"
               className="text-sm font-medium underline hover:no-underline whitespace-nowrap"
             >
-              Xem khóa học offline
+              Xem khoa hoc offline
             </a>
           </>
         ) : (
           <>
             <Wifi className="h-5 w-5 flex-shrink-0 text-green-600 dark:text-green-400" />
             <div className="flex-1">
-              <p className="font-medium">Đã kết nối lại</p>
-              <p className="text-sm opacity-80">Đang đồng bộ dữ liệu...</p>
+              <p className="font-medium">Da ket noi lai</p>
+              <p className="text-sm opacity-80">Dang dong bo du lieu...</p>
             </div>
           </>
         )}
         <button
           onClick={() => setShowOfflineToast(false)}
           className="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10 flex-shrink-0"
-          aria-label="Đóng"
+          aria-label="Dong"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -94,11 +94,11 @@ export function OfflineBanner() {
             <WifiOff className="h-5 w-5 text-amber-700 dark:text-amber-300" />
           </div>
           <div>
-            <p className="font-medium text-amber-900 dark:text-amber-100">Bạn đang ngoại tuyến</p>
+            <p className="font-medium text-amber-900 dark:text-amber-100">Ban dang ngoai tuyen</p>
             <p className="text-sm text-amber-700 dark:text-amber-300">
               {offlineReady
-                ? 'Các khóa học đã tải vẫn có sẵn để học. Dữ liệu sẽ đồng bộ khi có kết nối.'
-                : 'Kết nối internet để tải khóa học và đồng bộ tiến độ.'}
+                ? 'Cac khoa hoc da tai van co san de hoc. Du lieu se dong bo khi co ket noi.'
+                : 'Ket noi internet de tai khoa hoc va dong bo tien do.'}
             </p>
           </div>
         </div>
@@ -113,7 +113,7 @@ export function OfflineBanner() {
           <button
             onClick={() => setDismissed(true)}
             className="p-2 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800 rounded-lg transition-colors"
-            aria-label="Đóng thông báo"
+            aria-label="Dong thong bao"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -139,15 +139,15 @@ export function InstallPrompt() {
             <Download className="h-5 w-5 text-primary-600 dark:text-primary-400" />
           </div>
           <div className="flex-1">
-            <h3 className="font-semibold text-neutral-900 dark:text-white">Cài đặt Ascendly</h3>
+            <h3 className="font-semibold text-neutral-900 dark:text-white">Cai dat Ascendly</h3>
             <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-              Học offline mọi lúc, mọi nơi. Nhận thông báo khóa học mới.
+              Hoc offline moi luc, moi noi. Nhan thong bao khoa hoc moi.
             </p>
           </div>
           <button
             onClick={() => setDismissed(true)}
             className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 rounded"
-            aria-label="Đóng"
+            aria-label="Dong"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -160,70 +160,21 @@ export function InstallPrompt() {
               await install();
               setDismissed(true);
             }}
-            className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-primary-700 transition-colors text-sm"
+            className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-primary-700 transition-colors text-sm flex items-center justify-center gap-2"
           >
-            Cài đặt ứng dụng
+            <Download className="h-4 w-4" />
+            Cai dat ung dung
           </button>
           <button
             onClick={() => setDismissed(true)}
-            className="px-4 py-2 text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white text-sm"
-          }
+            className="px-4 py-2.5 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors"
           >
-            Sau
+            De sau
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-export function UpdatePrompt() {
-  const { updateAvailable, applyUpdate } = usePWA();
-  const [dismissed, setDismissed] = useState(false);
-
-  if (!updateAvailable || dismissed) return null;
-
-  return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:bottom-4 md:w-96 z-50">
-      <div className="bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-neutral-200 dark:border-neutral-800 p-4">
-        <div className="flex items-start gap-3">
-          <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30">
-            <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-neutral-900 dark:text-white">Có bản cập nhật mới</h3>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-              Tải bản mới nhất để có tính năng tốt nhất và sửa lỗi.
-            </p>
-          </div>
-          <button
-            onClick={() => setDismissed(true)}
-            className="p-1 text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 rounded"
-            aria-label="Đóng"
-          >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="mt-3 flex gap-2">
-          <button
-            onClick={() => {
-              applyUpdate();
-              setDismissed(true);
-            }}
-            className="flex-1 bg-primary-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-primary-700 transition-colors text-sm"
-          >
-            Cập nhật ngay
-          </button>
-          <button
-            onClick={() => setDismissed(true)}
-            className="px-4 py-2 text-neutral-600 dark:text-neutral-400 font-medium hover:text-neutral-900 dark:hover:text-white text-sm"
-          }
-          >
-            Sau
-          </button>
-        </div>
+        <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-500 text-center">
+          Hoac them vao man hinh chinh tu menu trinh duyet
+        </p>
       </div>
     </div>
   );

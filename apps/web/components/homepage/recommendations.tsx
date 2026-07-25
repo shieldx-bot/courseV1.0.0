@@ -10,7 +10,7 @@ export async function RecommendationsSection() {
   let courses: Course[] = [];
 
   try {
-    const res = await apiFetch("/courses/recommendations?limit=6", { next: { revalidate: 60 } });
+    const res = await apiFetch<Course[]>("/courses/recommendations?limit=6", { next: { revalidate: 60 } });
     courses = res || [];
   } catch {
     courses = [];

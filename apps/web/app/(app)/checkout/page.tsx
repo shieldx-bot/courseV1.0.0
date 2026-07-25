@@ -39,7 +39,7 @@ function CheckoutInner() {
 
   useEffect(() => {
     apiClient.subscriptions.tiers()
-      .then((tiers) => setTier(tiers.find((t) => t.id === tierId) || tiers[0]))
+      .then((tiers) => setTier(tiers.find((t: SubscriptionTier) => t.id === tierId) || tiers[0]))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [tierId]);

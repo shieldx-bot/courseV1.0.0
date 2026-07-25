@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 import { DiscussionTab } from "@/components/learn/DiscussionTab";
 import { AiTutorTab } from "@/components/learn/AiTutorTab";
 import { CodeAssistantTab } from "@/components/learn/CodeAssistantTab";
-import { CodeAssistantTab } from "@/components/learn/CodeAssistantTab";
 
 export function CoursePlayerClient({
   course: initialCourse,
@@ -77,7 +76,7 @@ export function CoursePlayerClient({
 
   const isSubscriber = user?.role === "admin" || subscription?.status === "active";
 
-  const [activeTab, setActiveTab] = useState<"notes" | "discussion" | "ai-tutor">("notes");
+  const [activeTab, setActiveTab] = useState<"notes" | "discussion" | "ai-tutor" | "code-assistant">("notes");
 
   useEffect(() => {
     if (!current || !hasAccess(currentIndex)) return;

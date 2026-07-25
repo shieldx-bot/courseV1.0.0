@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { apiFetch } from "@/lib/api-client";
+import { apiClient } from "@/lib/api-client";
 import { Plus, Trash2, RefreshCw, Download, Sparkles, Check, X, Code, Zap, Copy, FileCode } from "lucide-react";
 
 interface Attachment {
@@ -95,7 +97,7 @@ export default function AdminCourses() {
   const [driveCategoryFolderId, setDriveCategoryFolderId] = useState("");
 
   useEffect(() => {
-    Promise.all([apiFetch("/admin/courses"), apiFetch("/admin/drive/files"), apiFetch("/categories")])
+    Promise.all([apiFetch<Course[]>("/admin/courses"), apiFetch<{ files: DriveFile[] }>("/admin/drive/files"), apiFetch<Category[]>("/categories")])
       .then(([c, d, cats]) => {
         setCourses(c);
         setDriveFiles(d.files || []);
@@ -114,7 +116,7 @@ export default function AdminCourses() {
     setError("");
     setScanResult(null);
     try {
-      const result = await apiFetch("/admin/drive/scan", {
+      const result = await apiFetch<ScanResult>("/admin/drive/scan", {
         method: "POST",
         body: JSON.stringify({ category_folder_id: driveCategoryFolderId.trim() }),
       });
@@ -145,8 +147,8 @@ export default function AdminCourses() {
       console.error(e);
     }
     const [updatedCourses, scanAgain] = await Promise.all([
-      apiFetch("/admin/courses"),
-      apiFetch("/admin/drive/scan", {
+      apiFetch<Course[]>("/admin/courses"),
+      apiFetch<ScanResult>("/admin/drive/scan", {
         method: "POST",
         body: JSON.stringify({ category_folder_id: driveCategoryFolderId.trim() }),
       }),
@@ -169,7 +171,7 @@ export default function AdminCourses() {
           apiFetch(`/admin/courses/${c.existing_course_id}`, { method: "DELETE" })
         )
       );
-      const scanAgain = await apiFetch("/admin/drive/scan", {
+      const scanAgain = await apiFetch<ScanResult>("/admin/drive/scan", {
         method: "POST",
         body: JSON.stringify({ category_folder_id: driveCategoryFolderId.trim() }),
       });
@@ -195,8 +197,8 @@ export default function AdminCourses() {
         body: JSON.stringify({ folder_id: folderId, category_id: selectedCategory, video_ids: videoIds }),
       });
       const [updatedCourses, updatedFiles] = await Promise.all([
-        apiFetch("/admin/courses"),
-        apiFetch("/admin/drive/files"),
+        apiFetch<Course[]>("/admin/courses"),
+        apiFetch<{ files: DriveFile[] }>("/admin/drive/files"),
       ]);
       setCourses(updatedCourses);
       setDriveFiles(updatedFiles.files || []);
@@ -231,7 +233,7 @@ export default function AdminCourses() {
       if (form.image_url) body.image_url = form.image_url;
       if (form.instructor_name) body.instructor = { name: form.instructor_name, bio: form.instructor_bio };
       await apiFetch("/admin/courses", { method: "POST", body: JSON.stringify(body) });
-      const updated = await apiFetch("/admin/courses");
+      const updated = await apiFetch<Course[]>("/admin/courses");
       setCourses(updated);
       setForm({ category_id: "", title: "", slug: "", description: "", image_url: "", instructor_name: "", instructor_bio: "" });
     } catch (e: any) {
@@ -251,7 +253,7 @@ export default function AdminCourses() {
         method: "PUT",
         body: JSON.stringify({ drive_file_id: driveFileId }),
       });
-      const updated = await apiFetch("/admin/courses");
+      const updated = await apiFetch<Course[]>("/admin/courses");
       setCourses(updated);
     } catch (e: any) {
       setError(e.message);
@@ -277,7 +279,7 @@ export default function AdminCourses() {
         }),
       });
       setAttachments((prev) => prev.filter((a) => a.lessonId !== lessonId));
-      const updated = await apiFetch("/admin/courses");
+      const updated = await apiFetch<Course[]>("/admin/courses");
       setCourses(updated);
     } catch (e: any) {
       setError(e.message);
@@ -301,7 +303,7 @@ export default function AdminCourses() {
           attachments: updatedAttachments,
         }),
       });
-      const updated = await apiFetch("/admin/courses");
+      const updated = await apiFetch<Course[]>("/admin/courses");
       setCourses(updated);
     } catch (e: any) {
       setError(e.message);
@@ -312,7 +314,7 @@ export default function AdminCourses() {
     setGeneratingId(courseId);
     setError("");
     try {
-      const result = await apiFetch(`/admin/courses/${courseId}/generate-content`, { method: "POST" });
+      const result = await apiFetch<{ short_description: string; long_description: string; learning_outcomes: string[]; thumbnail_prompt: string }>(`/admin/courses/${courseId}/generate-content`, { method: "POST" });
       setAiContent((prev) => ({ ...prev, [courseId]: result }));
     } catch (e: any) {
       setError(e.message);
@@ -369,7 +371,7 @@ export default function AdminCourses() {
         delete next[lessonId];
         return next;
       });
-      const updated = await apiFetch("/admin/courses");
+      const updated = await apiFetch<Course[]>("/admin/courses");
       setCourses(updated);
     } catch (e: any) {
       setError(e.message);
@@ -408,7 +410,7 @@ export default function AdminCourses() {
         delete next[course.id];
         return next;
       });
-      const updated = await apiFetch("/admin/courses");
+      const updated = await apiFetch<Course[]>("/admin/courses");
       setCourses(updated);
     } catch (e: any) {
       setError(e.message);
@@ -519,7 +521,7 @@ export default function AdminCourses() {
                         className="text-error hover:bg-error/10"
                         onClick={async () => {
                           await apiFetch(`/admin/courses/${candidate.existing_course_id}`, { method: "DELETE" });
-                          const result = await apiFetch("/admin/drive/scan", {
+      const result = await apiFetch<ScanResult>("/admin/drive/scan", {
                             method: "POST",
                             body: JSON.stringify({ category_folder_id: driveCategoryFolderId.trim() }),
                           });
@@ -624,7 +626,7 @@ export default function AdminCourses() {
                             </Button>
                           </div>
 
-                          {generatedCode[lesson.id] && (
+                          {aiCode[lesson.id] && (
                             <div className="mt-3 rounded-md border border-primary-200 bg-primary-50/30 p-3">
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-xs font-medium text-primary-900">AI-Generated Code</p>
@@ -641,21 +643,21 @@ export default function AdminCourses() {
                               </div>
                               <div className="space-y-2 text-xs">
                                 <div>
-                                  <p className="font-medium text-neutral-700">Language: {generatedCode[lesson.id].language}</p>
+                                  <p className="font-medium text-neutral-700">Language: {aiCode[lesson.id].language}</p>
                                   <p className="text-neutral-600 font-mono text-xs max-h-32 overflow-auto bg-neutral-100 p-2 rounded">
-                                    {generatedCode[lesson.id].starter_code.slice(0, 500)}{generatedCode[lesson.id].starter_code.length > 500 ? "..." : ""}
+                                    {aiCode[lesson.id].starter_code.slice(0, 500)}{aiCode[lesson.id].starter_code.length > 500 ? "..." : ""}
                                   </p>
                                 </div>
                                 <div>
                                   <p className="font-medium text-neutral-700">Solution Code (preview):</p>
                                   <p className="text-neutral-600 font-mono text-xs max-h-32 overflow-auto bg-neutral-100 p-2 rounded">
-                                    {generatedCode[lesson.id].solution_code.slice(0, 500)}{generatedCode[lesson.id].solution_code.length > 500 ? "..." : ""}
+                                    {aiCode[lesson.id].solution_code.slice(0, 500)}{aiCode[lesson.id].solution_code.length > 500 ? "..." : ""}
                                   </p>
                                 </div>
                                 <div>
                                   <p className="font-medium text-neutral-700">Test Cases (preview):</p>
                                   <p className="text-neutral-600 font-mono text-xs max-h-32 overflow-auto bg-neutral-100 p-2 rounded">
-                                    {generatedCode[lesson.id].test_cases.slice(0, 500)}{generatedCode[lesson.id].test_cases.length > 500 ? "..." : ""}
+                                    {aiCode[lesson.id].test_cases.slice(0, 500)}{aiCode[lesson.id].test_cases.length > 500 ? "..." : ""}
                                   </p>
                                 </div>
                               </div>

@@ -190,10 +190,10 @@ export function AiTutorTab({ courseId, lessonId }: AiTutorTabProps) {
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Bot className="h-10 w-10 text-neutral-300 mb-3" />
             <p className="text-sm text-neutral-500 max-w-xs">
-              Ask a question about this lesson and I'll help you understand it better.
+              Ask a question about this lesson and I&apos;ll help you understand it better.
             </p>
             <p className="mt-2 text-xs text-neutral-400">
-              Example: "Can you explain the main concept in simpler terms?"
+              Example: &ldquo;Can you explain the main concept in simpler terms?&rdquo;
             </p>
           </div>
         ) : (

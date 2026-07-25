@@ -18,7 +18,7 @@ export default function BillingPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch("/subscriptions/orders")
+    apiFetch<Order[]>("/subscriptions/orders")
       .then(setOrders)
       .catch(() => {})
       .finally(() => setLoading(false));

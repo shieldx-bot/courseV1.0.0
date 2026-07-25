@@ -19,7 +19,7 @@ export default function ProgressPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiFetch("/progress/summary")
+    apiFetch<CourseProgress[]>("/progress/summary")
       .then(setCourses)
       .catch(() => {})
       .finally(() => setLoading(false));

@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,9 +37,9 @@ async function getMyPaths(): Promise<LearningPath[]> {
   }
 }
 
-function ProgressBar({ value }: { value: number }) {
+function ProgressBar({ value, className }: { value: number; className?: string }) {
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-accent-200">
+    <div className={cn("h-2 w-full overflow-hidden rounded-full bg-accent-200", className)}>
       <div
         className="h-full rounded-full bg-accent-500 transition-all"
         style={{ width: `${value}%` }}
@@ -61,7 +62,7 @@ export default async function MyLearningPathsPage() {
             </p>
           </div>
           <Link href="/learning-paths">
-            <Button variant="outline">Browse all paths</Button>
+            <Button variant="secondary">Browse all paths</Button>
           </Link>
         </div>
 
@@ -127,7 +128,7 @@ export default async function MyLearningPathsPage() {
                     </Link>
                   ) : (
                     <Link href={`/learning-paths/${path.slug}`} className="w-full">
-                      <Button variant="outline" className="w-full">
+                      <Button variant="secondary" className="w-full">
                         View path
                       </Button>
                     </Link>

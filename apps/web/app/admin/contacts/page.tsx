@@ -20,7 +20,7 @@ export default function AdminContacts() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    apiFetch("/admin/contacts")
+    apiFetch<Contact[]>("/admin/contacts")
       .then(setContacts)
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

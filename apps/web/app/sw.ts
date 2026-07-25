@@ -1,11 +1,17 @@
 /// <reference types="serwist" />
 
-import { Serwist } from 'serwist';
+import { Serwist, NetworkFirst, StaleWhileRevalidate, CacheFirst, ExpirationPlugin } from 'serwist';
 
-declare const self: ServiceWorkerGlobalScope;
+declare global {
+  interface ServiceWorkerGlobalScope {
+    __SW_MANIFEST?: string[];
+  }
+}
+
+const swSelf = self as unknown as ServiceWorkerGlobalScope;
 
 const serwist = new Serwist({
-  precacheEntries: [
+  precacheEntries: swSelf.__SW_MANIFEST || [
     { url: '/', revision: '1' },
     { url: '/offline', revision: '1' },
     { url: '/offline-courses', revision: '1' },
@@ -13,42 +19,43 @@ const serwist = new Serwist({
   runtimeCaching: [
     {
       matcher: ({ request }) => request.destination === 'document',
-      handler: 'NetworkFirst',
-      options: {
+      handler: new NetworkFirst({
         cacheName: 'pages',
-        expiration: { maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 },
         networkTimeoutSeconds: 10,
-      },
+        plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 24 * 60 * 60 })],
+      }),
     },
     {
       matcher: ({ request }) => request.destination === 'script' || request.destination === 'style',
-      handler: 'StaleWhileRevalidate',
-      options: {
+      handler: new StaleWhileRevalidate({
         cacheName: 'static-resources',
-        expiration: { maxEntries: 100, maxAgeSeconds: 7 * 24 * 60 * 60 },
-      },
+        plugins: [new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 7 * 24 * 60 * 60 })],
+      }),
     },
     {
       matcher: ({ request }) => request.destination === 'image',
-      handler: 'CacheFirst',
-      options: {
+      handler: new CacheFirst({
         cacheName: 'images',
-        expiration: { maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 },
-      },
+        plugins: [new ExpirationPlugin({ maxEntries: 100, maxAgeSeconds: 30 * 24 * 60 * 60 })],
+      }),
     },
     {
       matcher: ({ url }) => url.pathname.startsWith('/api/v1/'),
-      handler: 'NetworkFirst',
-      options: {
+      handler: new NetworkFirst({
         cacheName: 'api',
-        expiration: { maxEntries: 50, maxAgeSeconds: 5 * 60 },
         networkTimeoutSeconds: 10,
-      },
+        plugins: [new ExpirationPlugin({ maxEntries: 50, maxAgeSeconds: 5 * 60 })],
+      }),
     },
   ],
-  fallbackEntries: [
-    { url: '/offline', revision: '1' },
-  ],
+  fallbacks: {
+    entries: [
+      {
+        url: '/offline',
+        matcher: ({ request }) => request.mode === 'navigate',
+      },
+    ],
+  },
 });
 
 serwist.addEventListeners();

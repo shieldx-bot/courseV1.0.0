@@ -37,7 +37,7 @@ export default function AIAnalyticsPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    apiFetch("/admin/analytics/summary")
+    apiFetch<Summary>("/admin/analytics/summary")
       .then(setSummary)
       .catch((e) => setError(e.message));
   }, []);
@@ -45,7 +45,7 @@ export default function AIAnalyticsPage() {
   const runForecast = async () => {
     setError("");
     try {
-      const f = await apiFetch("/admin/analytics/forecast");
+      const f = await apiFetch<Forecast>("/admin/analytics/forecast");
       setForecast(f);
     } catch (e: any) {
       setError(e.message);

@@ -196,6 +196,12 @@ const apiClient = {
     create: (body: paths["/api/v1/reviews"]["post"]["requestBody"]["content"]["application/json"]) =>
       typedRequest("post", "/reviews" as const, { body }),
   },
+  certificates: {
+    list: () => typedRequest("get", "/certificates" as const),
+    get: (certId: string) => typedRequest("get", `/certificates/${certId}` as const),
+    downloadUrl: (certId: string) => `${API_BASE}/api/v1/certificates/${certId}/download`,
+    verify: (code: string) => typedRequest("get", `/certificates/verify/${code}` as const),
+  },
   learningPaths: {
     list: (goal?: string) => typedRequest("get", "/learning-paths" as const, { query: { goal } }),
     get: (slug: string) => typedRequest("get", `/learning-paths/${slug}` as const),
