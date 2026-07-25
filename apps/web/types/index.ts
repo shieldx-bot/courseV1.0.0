@@ -168,6 +168,15 @@ export interface Coupon {
   discount_value: number;
 }
 
+export interface CheckoutSessionResponse {
+  provider: "stripe" | "paypal";
+  order?: {
+    order_id: string;
+    approval_url?: string;
+  };
+  session_url?: string;
+}
+
 export interface StreamToken {
   stream_url: string;
   expires_in: number;

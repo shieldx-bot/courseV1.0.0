@@ -80,7 +80,7 @@ type PathItem = paths[keyof paths];
 type Operation = PathItem[HttpMethod];
 
 type ExtractRequestBody<T extends Operation> = T extends { requestBody: { content: { "application/json": infer B } } } ? B : never;
-type ExtractResponseBody<T extends Operation> = T extends { responses: { 200: { content: { "application/json": infer R } } } } ? R : void;
+type ExtractResponseBody<T extends Operation> = T extends { responses: { 200: { content: { "application/json": infer R } } } } ? R : unknown;
 type ExtractPathParams<T extends Operation> = T extends { parameters: { path?: infer P } } ? P : never;
 type ExtractQueryParams<T extends Operation> = T extends { parameters: { query?: infer Q } } ? Q : never;
 
@@ -93,7 +93,7 @@ type TypedRequestOptions<T extends Operation> = RequestInit & {
 export async function typedRequest<
   M extends HttpMethod,
   P extends keyof paths,
-  T extends paths[P][M] & { responses: { 200: { content: { "application/json": unknown } } } }
+  T extends paths[P][M]
 >(
   method: M,
   path: P,

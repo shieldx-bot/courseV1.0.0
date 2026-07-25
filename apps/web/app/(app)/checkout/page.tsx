@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { apiClient } from "@/lib/api-client";
-import { SubscriptionTier } from "@/types";
+import { SubscriptionTier, CheckoutSessionResponse } from "@/types";
 
 export default function CheckoutPage() {
   return (
@@ -113,7 +113,7 @@ function CheckoutInner() {
     try {
       const data = await apiClient.checkout.createSession({
         tier_id: tier?.id, coupon_code: code || null, payment_provider: provider,
-      });
+      }) as CheckoutSessionResponse;
       if (data.provider === "paypal" && data.order?.approval_url) {
         sessionStorage.setItem("paypal_order_id", data.order.order_id);
         window.location.href = data.order.approval_url;
