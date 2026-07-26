@@ -21,7 +21,8 @@ Rules:
 - "correct" is the 0-based index of the correct answer
 - Questions should test understanding, not trivial recall
 - Provide a brief explanation for the correct answer
-- Return ONLY the JSON array, no other text`
+- Return ONLY the JSON array, no other text
+"""
 
 
 async def generate_quiz(lesson_title: str, transcript: str, num_questions: int = 3) -> list[dict[str, Any]]:

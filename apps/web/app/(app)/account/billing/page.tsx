@@ -19,7 +19,7 @@ export default function BillingPage() {
 
   useEffect(() => {
     apiFetch<Order[]>("/subscriptions/orders")
-      .then(setOrders)
+      .then((data) => setOrders(data as any))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

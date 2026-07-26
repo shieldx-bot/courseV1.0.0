@@ -12,7 +12,7 @@ export function RenewalBanner() {
 
   useEffect(() => {
     apiClient.subscriptions.me()
-      .then(setSub)
+      .then((data) => setSub(data as any))
       .catch(() => setSub(null));
   }, []);
 

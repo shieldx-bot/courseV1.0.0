@@ -111,8 +111,13 @@ function CheckoutInner() {
     setCaptureFailed(false);
     setSubmitting(true);
     try {
+      if (!tier?.id) {
+        setError("Please select a subscription tier");
+        setSubmitting(false);
+        return;
+      }
       const data = await apiClient.checkout.createSession({
-        tier_id: tier?.id, coupon_code: code || null, payment_provider: provider,
+        tier_id: tier.id, coupon_code: code || null, payment_provider: provider,
       }) as CheckoutSessionResponse;
       if (data.provider === "paypal" && data.order?.approval_url) {
         sessionStorage.setItem("paypal_order_id", data.order.order_id);

@@ -6,3 +6,90 @@ apps/api/app/services/__pycache__/*
 apps/web/node_modules/*
 /node_modules
 apps/web/.next/*
+# ==========================================
+# CẤU HÌNH CHO NODE.JS (JAVASCRIPT)
+# ==========================================
+# Thư mục chứa thư viện phụ thuộc
+node_modules/
+jspm_packages/
+
+# Thư mục build đầu ra
+dist/
+build/
+.next/
+.nuxt/
+out/
+
+# Log của npm và yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# CẤU HÌNH CHO PYTHON
+# ==========================================
+# File byte-compiled / tối ưu hóa
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Thư mục môi trường ảo (Virtual Environments)
+.venv/
+venv/
+ENV/
+env/
+
+# Thư mục phân phối / đóng gói sản phẩm
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Thư mục kiểm thử và đo lường mã nguồn (Testing / Coverage)
+htmlcov/
+.toml
+.cache
+.pytest_cache/
+.coverage
+.coverage.*
+.nosenv
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+
+# ==========================================
+# FILE HỆ THỐNG & BẢO MẬT (DÙNG CHUNG)
+# ==========================================
+# File cấu hình môi trường bí mật (KHÔNG ĐƯỢC ĐẨY LÊN GIT)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# File hệ điều hành tự động sinh ra
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Thư mục cấu hình của IDE (VS Code, WebStorm, PyCharm)
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

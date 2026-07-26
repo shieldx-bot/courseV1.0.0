@@ -639,3 +639,5 @@ export interface ApiPaths {
   };
 
 }
+
+export type paths = ApiPaths;

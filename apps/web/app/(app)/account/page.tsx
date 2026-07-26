@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { apiClient } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
+import type { User } from "@/types";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Clock } from "lucide-react";
@@ -34,7 +35,7 @@ export default function AccountPage() {
   useEffect(() => {
     setLoading(true);
     apiClient.subscriptions.me()
-      .then(setSub)
+      .then((data) => setSub(data as any))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -54,7 +55,7 @@ export default function AccountPage() {
     setMessage("");
     try {
       const updated = await apiClient.auth.updateProfile({ name });
-      updateUser(updated);
+      updateUser(updated as Partial<User>);
       setMessage("Profile updated.");
     } catch (e: any) {
       setMessage(e.message);

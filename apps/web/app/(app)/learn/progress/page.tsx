@@ -20,7 +20,7 @@ export default function ProgressPage() {
 
   useEffect(() => {
     apiFetch<CourseProgress[]>("/progress/summary")
-      .then(setCourses)
+      .then((data) => setCourses(data as any))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

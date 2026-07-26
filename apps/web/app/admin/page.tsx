@@ -54,7 +54,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     apiFetch<DashboardData>("/admin/dashboard")
-      .then(setData)
+      .then((data) => setData(data as any))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

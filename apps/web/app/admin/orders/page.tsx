@@ -38,7 +38,7 @@ export default function AdminOrders() {
   useEffect(() => {
     setLoading(true);
     fetchOrders()
-      .then(setOrders)
+      .then((data) => setOrders(data as any))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [fetchOrders]);

@@ -38,7 +38,7 @@ export default function AIAnalyticsPage() {
 
   useEffect(() => {
     apiFetch<Summary>("/admin/analytics/summary")
-      .then(setSummary)
+      .then((data) => setSummary(data as any))
       .catch((e) => setError(e.message));
   }, []);
 

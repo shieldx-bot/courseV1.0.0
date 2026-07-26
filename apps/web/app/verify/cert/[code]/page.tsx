@@ -13,7 +13,7 @@ export default function VerifyCertificatePage({ params }: { params: Promise<{ co
 
   useEffect(() => {
     apiClient.certificates.verify(code)
-      .then(setResult)
+      .then((data) => setResult(data as any))
       .catch(() => setResult({ valid: false, verification_code: code }))
       .finally(() => setLoading(false));
   }, [code]);

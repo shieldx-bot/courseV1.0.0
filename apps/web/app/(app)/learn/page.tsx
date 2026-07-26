@@ -26,7 +26,7 @@ export default function LearnDashboard() {
 
   useEffect(() => {
     apiFetch<ContinueData>("/progress/continue")
-      .then(setContinueData)
+      .then((data) => setContinueData(data as any))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

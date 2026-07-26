@@ -24,7 +24,7 @@ export default function AdminCoupons() {
 
   useEffect(() => {
     apiFetch<Coupon[]>("/admin/coupons")
-      .then(setCoupons)
+      .then((data) => setCoupons(data as any))
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, []);

@@ -13,7 +13,7 @@ export default function CertificatesPage() {
 
   useEffect(() => {
     apiClient.certificates.list()
-      .then(setCerts)
+      .then((data) => setCerts(data as Certificate[]))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
