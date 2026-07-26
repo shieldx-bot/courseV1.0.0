@@ -40,11 +40,11 @@ def _build_token_data(user: dict) -> dict:
     return {"sub": user["_id"], "email": user["email"], "role": user["role"]}
 
 
-def _auth_response(user: dict, response: Response):
+def _auth_response(user: dict, response: Response, request: Request):
     token_data = _build_token_data(user)
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
-    set_auth_cookies(response, access_token, refresh_token)
+    set_auth_cookies(response, access_token, refresh_token, request)
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -91,7 +91,7 @@ class ProfileUpdate(BaseModel):
 
 
 @router.post("/signup")
-async def signup(body: AuthIn, response: Response):
+async def signup(body: AuthIn, response: Response, request: Request):
     db = get_db()
     if await db.users.find_one({"email": body.email}):
         raise HTTPException(status_code=400, detail="Account already exists")
@@ -107,7 +107,7 @@ async def signup(body: AuthIn, response: Response):
         "role": "user",
     }
     await db.users.insert_one(user)
-    return api_response(_auth_response(user, response))
+    return api_response(_auth_response(user, response, request))
 
 
 @router.post("/login")
@@ -117,7 +117,7 @@ async def login(body: AuthIn, response: Response, request: Request):
     user = await db.users.find_one({"email": body.email})
     if not user or not verify_password(body.password, user.get("password_hash", "")):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    return api_response(_auth_response(user, response))
+    return api_response(_auth_response(user, response, request))
 
 
 @router.post("/otp/request")
@@ -131,7 +131,7 @@ async def request_otp(body: OTPRequest, request: Request):
 
 
 @router.post("/otp/verify")
-async def verify_otp(body: OTPVerify, response: Response, current_user: dict | None = Depends(get_optional_user)):
+async def verify_otp(body: OTPVerify, response: Response, request: Request, current_user: dict | None = Depends(get_optional_user)):
     cache = await cache_service.get_cache()
     sanitized = "".join(c for c in body.phone if c.isdigit() or c == "+")
     stored = await cache.get(f"otp:{sanitized}")
@@ -163,7 +163,7 @@ async def verify_otp(body: OTPVerify, response: Response, current_user: dict | N
     await cache.delete(f"otp:{sanitized}")
 
     updated = await db.users.find_one({"_id": user["_id"]})
-    result = _auth_response(updated, response)
+    result = _auth_response(updated, response, request)
     result["verified"] = True
     result["trial_active"] = True
     result["trial_expires"] = trial_expires
@@ -207,7 +207,7 @@ async def reset_password(body: ResetPasswordIn):
 
 
 @router.post("/google")
-async def google_auth(body: GoogleAuthIn, response: Response):
+async def google_auth(body: GoogleAuthIn, response: Response, request: Request):
     from google.oauth2 import id_token
     from google.auth.transport import requests as google_requests
 
@@ -240,7 +240,7 @@ async def google_auth(body: GoogleAuthIn, response: Response):
         }
         await db.users.insert_one(user)
 
-    return api_response(_auth_response(user, response))
+    return api_response(_auth_response(user, response, request))
 
 
 @router.post("/refresh")
@@ -264,7 +264,7 @@ async def refresh_token(request: Request, response: Response):
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    return api_response(_auth_response(user, response))
+    return api_response(_auth_response(user, response, request))
 
 
 @router.post("/logout")

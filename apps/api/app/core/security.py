@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import Response
+from fastapi import Response, Request
 from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -39,14 +39,16 @@ def verify_password(password: str, hashed: str) -> bool:
     return pwd_context.verify(password, hashed)
 
 
-def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
-    secure = settings.environment != "development"
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str, request: Request | None = None):
+    is_cloudshell = request and request.headers.get("origin", "").endswith(".cloudshell.dev")
+    secure = settings.environment != "development" or is_cloudshell
+    samesite = "none" if is_cloudshell else "lax"
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite=samesite,
         max_age=settings.jwt_access_expire_minutes * 60,
         path="/",
     )
@@ -55,7 +57,7 @@ def set_auth_cookies(response: Response, access_token: str, refresh_token: str):
         value=refresh_token,
         httponly=True,
         secure=secure,
-        samesite="lax",
+        samesite=samesite,
         max_age=settings.jwt_refresh_expire_days * 86400,
         path="/api/v1/auth",
     )
