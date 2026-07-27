@@ -27,8 +27,20 @@ import type { UserPayload } from "./types";
 
 const app = new Hono<{ Bindings: Env; Variables: { user: UserPayload } }>();
 
+const ALLOWED_ORIGINS = [
+  "https://vanhstack.dev",
+  "https://ascendly.io",
+  "http://localhost:3000",
+  "http://localhost:3001",
+];
+
+const getCorsOrigin = (origin: string | null): string | undefined => {
+  if (!origin) return undefined;
+  return ALLOWED_ORIGINS.includes(origin) ? origin : undefined;
+};
+
 app.use("*", cors({
-  origin: "https://vanhstack.dev",
+  origin: (origin) => getCorsOrigin(origin),
   credentials: true,
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],

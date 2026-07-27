@@ -5,7 +5,12 @@ import { query, queryOne, execute, apiResponse, successResponse, errorResponse, 
 const app = new Hono<{ Bindings: Env; Variables: Variables }>();
 
 function enrichCourse(course: any): any {
-  const syllabus = course.syllabus || [];
+  let syllabus: any[] = [];
+  try {
+    syllabus = typeof course.syllabus === "string" ? JSON.parse(course.syllabus || "[]") : (course.syllabus || []);
+  } catch {
+    syllabus = [];
+  }
   const totalDuration = syllabus.reduce(
     (sum: number, lesson: any) => sum + (lesson.duration_seconds || 0),
     0
