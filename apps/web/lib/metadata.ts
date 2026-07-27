@@ -53,6 +53,6 @@ export function makeMetadata({
   };
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://ascendly-api.anhnv-24810310060.workers.dev";
 
 export { SITE_URL, API_BASE };

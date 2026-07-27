@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  output: "export",
   images: {
     unoptimized: true,
     remotePatterns: [
@@ -12,7 +11,7 @@ const nextConfig = {
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.ascendly.io"}/api/v1/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_API_BASE_URL || "https://ascendly-api.anhnv-24810310060.workers.dev"}/api/v1/:path*`,
       },
     ];
   },

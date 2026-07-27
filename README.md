@@ -1,4 +1,5 @@
 # Ascendly — Premium Learning Membership Platform
+   admin@ascendly.io", "password 
 
 Full-stack subscription learning platform built with Next.js, FastAPI, MongoDB, and Redis.
 
