@@ -4,12 +4,12 @@
   "main": "src/worker.ts",
   "compatibility_date": "2024-12-01",
   "compatibility_flags": ["nodejs_compat"],
-  "account_id": "YOUR_ACCOUNT_ID",
+  "account_id": "2eaef23a2b1520d2d2fb07035fd172fd",
   
   "routes": [
     {
-      "pattern": "api.ascendly.io/*",
-      "zone_name": "ascendly.io"
+      "pattern": "api.vanhstack.dev/*",
+      "zone_name": "vanhstack.dev"
     }
   ],
   
@@ -31,18 +31,6 @@
     "TELEMETRY_ENVIRONMENT": "production"
   },
   
-  "secrets": [
-    "JWT_SECRET",
-    "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-    "PAYPAL_CLIENT_SECRET",
-    "SMTP_PASSWORD",
-    "OPENAI_API_KEY",
-    "GOOGLE_OAUTH_CLIENT_SECRET",
-    "MEILI_MASTER_KEY",
-    "SENTRY_DSN"
-  ],
-  
   "r2_buckets": [
     {
       "binding": "R2_BUCKET",
@@ -54,8 +42,7 @@
   "kv_namespaces": [
     {
       "binding": "CACHE",
-      "id": "YOUR_CACHE_NAMESPACE_ID",
-      "preview_id": "YOUR_PREVIEW_CACHE_NAMESPACE_ID"
+      "id": "c395db120d6642ab8704c6201c24895e"
     }
   ],
   
@@ -63,48 +50,50 @@
     {
       "binding": "DB",
       "database_name": "ascendly-db",
-      "database_id": "YOUR_D1_DATABASE_ID",
-      "preview_database_id": "YOUR_PREVIEW_D1_DATABASE_ID"
+      "database_id": "58fca8e5-8f9f-482a-af86-e786fe76fc96",
+      "preview_database_id": "58fca8e5-8f9f-482a-af86-e786fe76fc96"
     }
   ],
   
-  "durable_objects": {
-    "bindings": [
+  // "durable_objects": {
+  //   "bindings": [
+  //     {
+  //       "name": "RATE_LIMITER",
+  //       "class_name": "RateLimiter",
+  //       "new_sqlite_classes": ["RateLimiter"]
+  //     }
+  //   ]
+  // },
+  
+  // "migrations": [
+  //   {
+  //     "tag": "v1",
+  //     "new_classes": ["RateLimiter"]
+  //   }
+  // ],
+  
+  "queues": {
+    "producers": [
       {
-        "name": "RATE_LIMITER",
-        "class_name": "RateLimiter"
+        "binding": "BACKGROUND_QUEUE",
+        "queue": "ascendly-background-jobs"
       }
     ]
   },
   
-  "migrations": [
-    {
-      "tag": "v1",
-      "new_classes": ["RateLimiter"]
-    }
-  ],
-  
-  "queue_producers": [
-    {
-      "binding": "BACKGROUND_QUEUE",
-      "queue": "ascendly-background-jobs"
-    }
-  ],
-  
-  "cron_triggers": [
-    {
-      "cron": "0 0 * * *",
-      "timezone": "UTC"
-    }
-  ],
-  
-  "limits": {
-    "cpu_ms": 50
+  "triggers": {
+    "crons": ["0 0 * * *"]
   },
+  
+  // "limits": {
+  //   "cpu_ms": 50
+  // },
   
   "placement": {
     "mode": "smart"
   },
+  
+  "workers_dev": true,
   
   "observability": {
     "enabled": true,
