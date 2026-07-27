@@ -1,0 +1,113 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ascendly-api",
+  "main": "src/worker.ts",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "account_id": "YOUR_ACCOUNT_ID",
+  
+  "routes": [
+    {
+      "pattern": "api.ascendly.io/*",
+      "zone_name": "ascendly.io"
+    }
+  ],
+  
+  "vars": {
+    "ENVIRONMENT": "production",
+    "FRONTEND_URL": "https://ascendly.io",
+    "API_BASE_URL": "https://api.ascendly.io",
+    "JWT_ACCESS_EXPIRE_MINUTES": "15",
+    "JWT_REFRESH_EXPIRE_DAYS": "30",
+    "R2_BUCKET_NAME": "ascendly-videos",
+    "R2_SIGNED_URL_EXPIRY_SECONDS": "3600",
+    "R2_AUTO_DELETE_DAYS": "1",
+    "WORKER_MAX_RETRIES": "5",
+    "WORKER_KEEP_RESULT_SECONDS": "3600",
+    "WORKER_POLL_DELAY": "0.5",
+    "WORKER_MAX_BURST_JOBS": "10",
+    "SENTRY_TRACES_SAMPLE_RATE": "0.1",
+    "TELEMETRY_ENABLED": "true",
+    "TELEMETRY_ENVIRONMENT": "production"
+  },
+  
+  "secrets": [
+    "JWT_SECRET",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "PAYPAL_CLIENT_SECRET",
+    "SMTP_PASSWORD",
+    "OPENAI_API_KEY",
+    "GOOGLE_OAUTH_CLIENT_SECRET",
+    "MEILI_MASTER_KEY",
+    "SENTRY_DSN"
+  ],
+  
+  "r2_buckets": [
+    {
+      "binding": "R2_BUCKET",
+      "bucket_name": "ascendly-videos",
+      "preview_bucket_name": "ascendly-videos-preview"
+    }
+  ],
+  
+  "kv_namespaces": [
+    {
+      "binding": "CACHE",
+      "id": "YOUR_CACHE_NAMESPACE_ID",
+      "preview_id": "YOUR_PREVIEW_CACHE_NAMESPACE_ID"
+    }
+  ],
+  
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "ascendly-db",
+      "database_id": "YOUR_D1_DATABASE_ID",
+      "preview_database_id": "YOUR_PREVIEW_D1_DATABASE_ID"
+    }
+  ],
+  
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RATE_LIMITER",
+        "class_name": "RateLimiter"
+      }
+    ]
+  },
+  
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_classes": ["RateLimiter"]
+    }
+  ],
+  
+  "queue_producers": [
+    {
+      "binding": "BACKGROUND_QUEUE",
+      "queue": "ascendly-background-jobs"
+    }
+  ],
+  
+  "cron_triggers": [
+    {
+      "cron": "0 0 * * *",
+      "timezone": "UTC"
+    }
+  ],
+  
+  "limits": {
+    "cpu_ms": 50
+  },
+  
+  "placement": {
+    "mode": "smart"
+  },
+  
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  }
+}

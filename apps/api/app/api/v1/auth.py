@@ -182,7 +182,7 @@ async def forgot_password(body: ForgotPasswordIn):
     await cache.setex(f"pwdreset:{body.email}:{token}", 900, "1")
 
     reset_url = f"{settings.frontend_url}/reset-password?email={body.email}&token={token}"
-    email_service.send_password_reset(body.email, reset_url)
+    await email_service.send_password_reset(body.email, reset_url)
     return api_response({"message": "If the account exists, a reset email was sent."})
 
 

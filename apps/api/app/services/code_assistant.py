@@ -96,12 +96,17 @@ async def generate_code(
     starter_code: str = "",
 ) -> dict[str, Any]:
     """Generate code for a given task."""
-    prompt = f"""Task: {task}
-Language: {language}
-{f"Additional context: {context}" if context else ""}
-{f"Starter code:\n```{language}\n{starter_code}\n```" if starter_code else ""}
-
-Write complete, runnable code that solves this task. Include necessary imports and a main/example usage if appropriate."""
+    prompt_parts = [
+        f"Task: {task}",
+        f"Language: {language}",
+    ]
+    if context:
+        prompt_parts.append(f"Additional context: {context}")
+    if starter_code:
+        prompt_parts.append(f"Starter code:\n```{language}\n{starter_code}\n```")
+    
+    prompt_parts.append("\nWrite complete, runnable code that solves this task. Include necessary imports and a main/example usage if appropriate.")
+    prompt = "\n".join(prompt_parts)
 
     messages = [
         {"role": "system", "content": _SYSTEM_PROMPTS["generate"]},

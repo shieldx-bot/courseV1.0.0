@@ -1,7 +1,7 @@
 import type { ApiPaths as paths } from "@/types/api";
 
 const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL || "";
-const API_PREFIX = "";
+const API_PREFIX = "/api/v1";
 
 export const API_BASE = API_ORIGIN || "";
 
@@ -106,7 +106,7 @@ export async function typedRequest<
 
   let finalPath = path as string;
   
-  // Extract actual path if it includes method prefix (e.g., "GET /api/v1/auth/me")
+  // Extract actual path if it includes method prefix (e.g., "GET /auth/me")
   if (finalPath.includes(' ')) {
     finalPath = finalPath.split(' ')[1];
   }
@@ -143,122 +143,122 @@ export function apiPath(method: string, path: string): string {
 
 const apiClient = {
   auth: {
-    me: () => typedRequest("get", "GET /api/v1/auth/me" as any),
+    me: () => typedRequest("get", "GET /auth/me" as any),
     login: (body: any) =>
-      typedRequest("post", "POST /api/v1/auth/login" as any, { body }),
-    logout: () => typedRequest("post", "POST /api/v1/auth/logout" as any),
+      typedRequest("post", "POST /auth/login" as any, { body }),
+    logout: () => typedRequest("post", "POST /auth/logout" as any),
     signup: (body: any) =>
-      typedRequest("post", "POST /api/v1/auth/signup" as any, { body }),
+      typedRequest("post", "POST /auth/signup" as any, { body }),
     updateProfile: (body: any) =>
-      typedRequest("put", "PUT /api/v1/auth/me" as any, { body }),
+      typedRequest("put", "PUT /auth/me" as any, { body }),
     changePassword: (body: any) =>
-      typedRequest("put", "PUT /api/v1/auth/me/password" as any, { body }),
+      typedRequest("put", "PUT /auth/me/password" as any, { body }),
     googleLogin: (body: any) =>
-      typedRequest("post", "POST /api/v1/auth/google" as any, { body }),
+      typedRequest("post", "POST /auth/google" as any, { body }),
     otpRequest: (body: any) =>
-      typedRequest("post", "POST /api/v1/auth/otp/request" as any, { body }),
+      typedRequest("post", "POST /auth/otp/request" as any, { body }),
     otpVerify: (body: any) =>
-      typedRequest("post", "POST /api/v1/auth/otp/verify" as any, { body }),
+      typedRequest("post", "POST /auth/otp/verify" as any, { body }),
     forgotPassword: (body: any) =>
-      typedRequest("post", "POST /api/v1/auth/forgot-password" as any, { body }),
+      typedRequest("post", "POST /auth/forgot-password" as any, { body }),
     resetPassword: (body: any) =>
-      typedRequest("post", "POST /api/v1/auth/reset-password" as any, { body }),
+      typedRequest("post", "POST /auth/reset-password" as any, { body }),
   },
   courses: {
-    list: () => typedRequest("get", "GET /api/v1/courses" as any),
-    get: (slug: string) => typedRequest("get", "GET /api/v1/courses/{slug}" as any),
+    list: () => typedRequest("get", "GET /courses" as any),
+    get: (slug: string) => typedRequest("get", "GET /courses/{slug}" as any),
     getByCategory: (categorySlug: string) =>
-      typedRequest("get", "GET /api/v1/courses" as any, { query: { category: categorySlug } }),
+      typedRequest("get", "GET /courses" as any, { query: { category: categorySlug } }),
     recommendations: (limit?: number) =>
-      typedRequest("get", "GET /api/v1/courses/recommendations" as any, { query: { limit } }),
+      typedRequest("get", "GET /courses/recommendations" as any, { query: { limit } }),
     similar: (courseId: string, limit?: number) =>
-      typedRequest("get", "GET /api/v1/courses/{course_id}/similar" as any, { query: { limit } }),
+      typedRequest("get", "GET /courses/{course_id}/similar" as any, { query: { limit } }),
   },
   categories: {
-    list: () => typedRequest("get", "GET /api/v1/categories" as any),
+    list: () => typedRequest("get", "GET /categories" as any),
   },
   subscriptions: {
-    me: () => typedRequest("get", "GET /api/v1/subscriptions/me" as any),
-    tiers: () => typedRequest("get", "GET /api/v1/subscriptions/tiers" as any),
-    coupon: (code: string) => typedRequest("get", "GET /api/v1/subscriptions/coupons/{code}" as any),
-    cancel: () => typedRequest("post", "POST /api/v1/subscriptions/cancel" as any),
+    me: () => typedRequest("get", "GET /subscriptions/me" as any),
+    tiers: () => typedRequest("get", "GET /subscriptions/tiers" as any),
+    coupon: (code: string) => typedRequest("get", "GET /subscriptions/coupons/{code}" as any),
+    cancel: () => typedRequest("post", "POST /subscriptions/cancel" as any),
   },
   progress: {
-    list: () => typedRequest("get", "GET /api/v1/progress" as any),
-    get: (lessonId: string) => typedRequest("get", "GET /api/v1/progress/{lesson_id}" as any),
+    list: () => typedRequest("get", "GET /progress" as any),
+    get: (lessonId: string) => typedRequest("get", "GET /progress/{lesson_id}" as any),
     update: (lessonId: string, body: any) =>
-      typedRequest("put", "PUT /api/v1/progress/{lesson_id}" as any, { body }),
+      typedRequest("put", "PUT /progress/{lesson_id}" as any, { body }),
   },
   lessons: {
     streamToken: (lessonId: string) =>
-      typedRequest("post", "POST /api/v1/lessons/{lesson_id}/stream-token" as any),
+      typedRequest("post", "POST /lessons/{lesson_id}/stream-token" as any),
   },
   checkout: {
     createSession: (body: any) =>
-      typedRequest("post", "POST /api/v1/checkout/session" as any, { body }),
+      typedRequest("post", "POST /checkout/session" as any, { body }),
     paypalCapture: (orderId: string) =>
-      typedRequest("post", "POST /api/v1/checkout/paypal/capture" as any, { query: { order_id: orderId } }),
+      typedRequest("post", "POST /checkout/paypal/capture" as any, { query: { order_id: orderId } }),
   },
   reviews: {
-    list: () => typedRequest("get", "GET /api/v1/reviews" as any),
+    list: () => typedRequest("get", "GET /reviews" as any),
     create: (body: any) =>
-      typedRequest("post", "POST /api/v1/reviews" as any, { body }),
+      typedRequest("post", "POST /reviews" as any, { body }),
   },
   certificates: {
-    list: () => typedRequest("get", "GET /api/v1/certificates" as any),
-    get: (certId: string) => typedRequest("get", "GET /api/v1/certificates/{cert_id}" as any),
+    list: () => typedRequest("get", "GET /certificates" as any),
+    get: (certId: string) => typedRequest("get", "GET /certificates/{cert_id}" as any),
     downloadUrl: (certId: string) => `${API_BASE}/api/v1/certificates/${certId}/download`,
-    verify: (code: string) => typedRequest("get", "GET /api/v1/certificates/verify/{code}" as any),
+    verify: (code: string) => typedRequest("get", "GET /certificates/verify/{code}" as any),
   },
   learningPaths: {
-    list: (goal?: string) => typedRequest("get", "GET /api/v1/learning-paths" as any, { query: { goal } }),
-    get: (slug: string) => typedRequest("get", "GET /api/v1/learning-paths/{slug}" as any),
-    my: () => typedRequest("get", "GET /api/v1/learning-paths/my" as any),
+    list: (goal?: string) => typedRequest("get", "GET /learning-paths" as any, { query: { goal } }),
+    get: (slug: string) => typedRequest("get", "GET /learning-paths/{slug}" as any),
+    my: () => typedRequest("get", "GET /learning-paths/my" as any),
     enroll: (pathId: string) =>
-      typedRequest("post", "POST /api/v1/learning-paths/enroll" as any, { query: { path_id: pathId } }),
+      typedRequest("post", "POST /learning-paths/enroll" as any, { query: { path_id: pathId } }),
   },
   experiments: {
-    active: () => typedRequest("get", "GET /api/v1/experiments/active" as any),
-    variantMap: () => typedRequest("get", "GET /api/v1/experiments/variant-map" as any),
+    active: () => typedRequest("get", "GET /experiments/active" as any),
+    variantMap: () => typedRequest("get", "GET /experiments/variant-map" as any),
     track: (experimentSlug: string, eventType: string, metadata?: Record<string, unknown>) =>
-      typedRequest("post", "POST /api/v1/experiments/track" as any, {
+      typedRequest("post", "POST /experiments/track" as any, {
         query: { experiment_slug: experimentSlug },
         body: { event_type: eventType, metadata } as any,
       }),
     admin: {
-      list: () => typedRequest("get", "GET /api/v1/admin/experiments" as any),
+      list: () => typedRequest("get", "GET /admin/experiments" as any),
       create: (data: Record<string, unknown>) =>
-        typedRequest("post", "POST /api/v1/admin/experiments" as any, { body: data as any }),
+        typedRequest("post", "POST /admin/experiments" as any, { body: data as any }),
       update: (experimentId: string, data: Record<string, unknown>) =>
-        typedRequest("put", "PUT /api/v1/admin/experiments/{experiment_id}" as any, { body: data as any }),
-      delete: (experimentId: string) => typedRequest("delete", "DELETE /api/v1/admin/experiments/{experiment_id}" as any),
+        typedRequest("put", "PUT /admin/experiments/{experiment_id}" as any, { body: data as any }),
+      delete: (experimentId: string) => typedRequest("delete", "DELETE /admin/experiments/{experiment_id}" as any),
       stats: (experimentSlug?: string) =>
-        typedRequest("get", "GET /api/v1/admin/experiments/stats" as any, { query: { experiment_slug: experimentSlug } }),
+        typedRequest("get", "GET /admin/experiments/stats" as any, { query: { experiment_slug: experimentSlug } }),
     },
   },
   affiliate: {
-    config: () => typedRequest("get", "GET /api/v1/referral/config" as any),
+    config: () => typedRequest("get", "GET /referral/config" as any),
     updateConfig: (data: Record<string, unknown>) =>
-      typedRequest("put", "PUT /api/v1/referral/config" as any, { body: data as any }),
-    generateCode: () => typedRequest("post", "POST /api/v1/referral/code" as any),
-    getMyCode: () => typedRequest("get", "GET /api/v1/referral/code" as any),
-    apply: (code: string) => typedRequest("post", "POST /api/v1/referral/apply" as any, { query: { code } }),
-    applyDiscount: () => typedRequest("post", "POST /api/v1/referral/apply-discount" as any),
-    stats: () => typedRequest("get", "GET /api/v1/referral/stats" as any),
+      typedRequest("put", "PUT /referral/config" as any, { body: data as any }),
+    generateCode: () => typedRequest("post", "POST /referral/code" as any),
+    getMyCode: () => typedRequest("get", "GET /referral/code" as any),
+    apply: (code: string) => typedRequest("post", "POST /referral/apply" as any, { query: { code } }),
+    applyDiscount: () => typedRequest("post", "POST /referral/apply-discount" as any),
+    stats: () => typedRequest("get", "GET /referral/stats" as any),
     affiliate: {
       apply: (data: Record<string, unknown>) =>
-        typedRequest("post", "POST /api/v1/affiliate/apply" as any, { body: data as any }),
-      dashboard: () => typedRequest("get", "GET /api/v1/affiliate/dashboard" as any),
+        typedRequest("post", "POST /affiliate/apply" as any, { body: data as any }),
+      dashboard: () => typedRequest("get", "GET /affiliate/dashboard" as any),
       createLink: (data: Record<string, unknown>) =>
-        typedRequest("post", "POST /api/v1/affiliate/links" as any, { body: data as any }),
+        typedRequest("post", "POST /affiliate/links" as any, { body: data as any }),
     },
     admin: {
-      seed: () => typedRequest("post", "POST /api/v1/admin/referral/seed" as any),
+      seed: () => typedRequest("post", "POST /admin/referral/seed" as any),
     },
   },
   admin: {
     generateLessonCode: (lessonId: string, body: { title: string; description: string; language: string }) =>
-      typedRequest("post", "POST /api/v1/admin/lessons/{lesson_id}/generate-code" as any, { body: body as any }),
+      typedRequest("post", "POST /admin/lessons/{lesson_id}/generate-code" as any, { body: body as any }),
   },
   discussions: {
     list: (courseId: string, lessonId: string, params?: { page?: number; per_page?: number; sort?: string }) => {
@@ -266,52 +266,52 @@ const apiClient = {
       if (params?.page) search.set("page", String(params.page));
       if (params?.per_page) search.set("per_page", String(params.per_page));
       if (params?.sort) search.set("sort", params.sort);
-      return typedRequest("get", "GET /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions" as any, {
+      return typedRequest("get", "GET /courses/{course_id}/lessons/{lesson_id}/discussions" as any, {
         query: Object.fromEntries(search.entries()),
       });
     },
     get: (courseId: string, lessonId: string, discussionId: string) =>
-      typedRequest("get", "GET /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any),
+      typedRequest("get", "GET /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any),
     create: (courseId: string, lessonId: string, body: any) =>
-      typedRequest("post", "POST /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions" as any, { body }),
+      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions" as any, { body }),
     update: (courseId: string, lessonId: string, discussionId: string, body: any) =>
-      typedRequest("put", "PUT /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any, { body }),
+      typedRequest("put", "PUT /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any, { body }),
     delete: (courseId: string, lessonId: string, discussionId: string) =>
-      typedRequest("delete", "DELETE /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any),
+      typedRequest("delete", "DELETE /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any),
     vote: (courseId: string, lessonId: string, discussionId: string, vote: number) =>
-      typedRequest("post", "POST /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/vote" as any, {
+      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/vote" as any, {
         body: { vote } as any,
       }),
     listReplies: (courseId: string, lessonId: string, discussionId: string, params?: { page?: number; per_page?: number }) => {
       const search = new URLSearchParams();
       if (params?.page) search.set("page", String(params.page));
       if (params?.per_page) search.set("per_page", String(params.per_page));
-      return typedRequest("get", "GET /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies" as any, {
+      return typedRequest("get", "GET /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies" as any, {
         query: Object.fromEntries(search.entries()),
       });
     },
     createReply: (courseId: string, lessonId: string, discussionId: string, body: any) =>
-      typedRequest("post", "POST /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies" as any, { body }),
+      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies" as any, { body }),
     updateReply: (courseId: string, lessonId: string, discussionId: string, replyId: string, body: any) =>
-      typedRequest("put", "PUT /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}" as any, { body }),
+      typedRequest("put", "PUT /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}" as any, { body }),
     deleteReply: (courseId: string, lessonId: string, discussionId: string, replyId: string) =>
-      typedRequest("delete", "DELETE /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}" as any),
+      typedRequest("delete", "DELETE /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}" as any),
     voteReply: (courseId: string, lessonId: string, discussionId: string, replyId: string, vote: number) =>
-      typedRequest("post", "POST /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}/vote" as any, {
+      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}/vote" as any, {
         body: { vote } as any,
       }),
     markAnswer: (courseId: string, lessonId: string, discussionId: string, replyId: string) =>
-      typedRequest("post", "POST /api/v1/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}/mark-answer" as any),
+      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}/mark-answer" as any),
   },
   codeAssistant: {
     generate: (body: { task: string; language: string; context?: string; starter_code?: string }) =>
-      typedRequest("post", "POST /api/v1/code-assistant/generate" as any, { body: body as any }),
+      typedRequest("post", "POST /code-assistant/generate" as any, { body: body as any }),
     explain: (body: { code: string; language: string; focus?: string }) =>
-      typedRequest("post", "POST /api/v1/code-assistant/explain" as any, { body: body as any }),
+      typedRequest("post", "POST /code-assistant/explain" as any, { body: body as any }),
     review: (body: { code: string; language: string; task?: string }) =>
-      typedRequest("post", "POST /api/v1/code-assistant/review" as any, { body: body as any }),
+      typedRequest("post", "POST /code-assistant/review" as any, { body: body as any }),
     debug: (body: { code: string; language: string; error: string; task?: string }) =>
-      typedRequest("post", "POST /api/v1/code-assistant/debug" as any, { body: body as any }),
+      typedRequest("post", "POST /code-assistant/debug" as any, { body: body as any }),
   },
 };
 

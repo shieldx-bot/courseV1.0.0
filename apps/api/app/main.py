@@ -14,7 +14,7 @@ from app.core.ratelimit import limiter
 from app.core.response import api_response, error_response
 from app.db.mongodb import seed_db, get_db
 from app.db.indexes import create_indexes
-from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, code_assistant
+from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant
 from app.services.learning_paths import seed_learning_paths
 from app.services.r2_storage import r2_storage
 from app.services import search as search_service
@@ -87,7 +87,7 @@ if settings.telemetry_enabled:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

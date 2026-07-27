@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from bson import ObjectId
-from app.db.mongodb import get_db, get_read_db, get_read_db
+from app.db.mongodb import get_db, get_read_db
 from app.core.response import api_response
 from app.core.deps import get_current_user, get_optional_user
 from app.core.exceptions import NotFoundError, ForbiddenError

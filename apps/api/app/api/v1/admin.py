@@ -1,4 +1,3 @@
-import re
 from datetime import datetime, timezone, timedelta
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -75,6 +74,22 @@ class SubscriptionOverrideIn(BaseModel):
     duration_months: int | None = None
     ends_at: str | None = None
     status: str = "active"
+
+
+class CategoryIn(BaseModel):
+    name: str
+    slug: str
+    icon: str | None = None
+    description: str | None = None
+    course_count: int = 0
+
+
+class CategoryUpdateIn(BaseModel):
+    name: str | None = None
+    slug: str | None = None
+    icon: str | None = None
+    description: str | None = None
+    course_count: int | None = None
 
 
 class DriveMapIn(BaseModel):
@@ -225,8 +240,8 @@ async def create_course(body: CourseIn):
         "lesson_count": len(body.syllabus),
         "syllabus": [{"id": f"{course_id}-lesson-{i+1}", **s.model_dump()} for i, s in enumerate(body.syllabus)],
         "outcome": body.outcome,
-}
-    course = await db.courses.find_one({"_id": course_id})
+    }
+    await db.courses.insert_one(course)
     await enqueue_task_with_retry("index_search_task", "index", course, _max_retries=5, _job_timeout=30)
     WORKER_JOBS_ENQUEUED.labels(task="index_search_task").inc()
     return {"id": course["_id"], **{k: v for k, v in course.items() if k != "_id"}}
@@ -421,6 +436,20 @@ async def scan_drive(body: DriveScanIn):
 
     cat_folder_id = body.category_folder_id
 
+    try:
+        # Get category folder info
+        cat_info = service.files().get(fileId=cat_folder_id, fields="id,name").execute()
+        category_name = cat_info["name"]
+    except Exception as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower() or "404" in error_msg:
+            return {
+                "configured": True,
+                "error": f"Category folder not found: {cat_folder_id}. Make sure the service account has access to this folder.",
+                "candidates": []
+            }
+        return {"configured": True, "error": f"Cannot access category folder: {error_msg}", "candidates": []}
+
     db = get_db()
     existing_courses = await db.courses.find().to_list(1000)
 
@@ -439,10 +468,6 @@ async def scan_drive(body: DriveScanIn):
             if not page_token:
                 break
         return items
-
-    # Get category folder info
-    cat_info = service.files().get(fileId=cat_folder_id, fields="id,name").execute()
-    category_name = cat_info["name"]
 
     # Get level-2 folders (courses) under this category
     course_folders = {}
@@ -1086,3 +1111,108 @@ async def campaign_stats():
             for s in stats
         },
     }
+
+
+# ── Category Management ─────────────────────────────────────────────────────
+
+
+@router.get("/categories", dependencies=[Depends(require_admin)])
+async def list_categories():
+    """List all categories."""
+    db = get_db()
+    categories = await db.categories.find().to_list(1000)
+    return [{"id": c["_id"], **{k: v for k, v in c.items() if k != "_id"}} for c in categories]
+
+
+@router.post("/categories", dependencies=[Depends(require_admin)])
+async def create_category(body: CategoryIn):
+    """Create a new category."""
+    db = get_db()
+    
+    # Check if category with same slug or name already exists
+    existing = await db.categories.find_one({"$or": [{"slug": body.slug}, {"name": body.name}]})
+    if existing:
+        raise HTTPException(status_code=400, detail="Category with this slug or name already exists")
+    
+    category = {
+        "_id": f"cat-{body.slug}",
+        "name": body.name,
+        "slug": body.slug,
+        "icon": body.icon or "book",
+        "description": body.description or "",
+        "course_count": body.course_count,
+    }
+    await db.categories.insert_one(category)
+    return {"id": category["_id"], **{k: v for k, v in category.items() if k != "_id"}}
+
+
+@router.get("/categories/{category_id}", dependencies=[Depends(require_admin)])
+async def get_category(category_id: str):
+    """Get a specific category."""
+    db = get_db()
+    category = await db.categories.find_one({"_id": category_id})
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    return {"id": category["_id"], **{k: v for k, v in category.items() if k != "_id"}}
+
+
+@router.put("/categories/{category_id}", dependencies=[Depends(require_admin)])
+async def update_category(category_id: str, body: CategoryUpdateIn):
+    """Update a category."""
+    db = get_db()
+    category = await db.categories.find_one({"_id": category_id})
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    # Check for duplicate slug/name if being updated
+    if body.slug or body.name:
+        query = {"$or": []}
+        if body.slug:
+            query["$or"].append({"slug": body.slug})
+        if body.name:
+            query["$or"].append({"name": body.name})
+        
+        existing = await db.categories.find_one({**query, "_id": {"$ne": category_id}})
+        if existing:
+            raise HTTPException(status_code=400, detail="Category with this slug or name already exists")
+    
+    updates = {}
+    if body.name is not None:
+        updates["name"] = body.name
+    if body.slug is not None:
+        updates["slug"] = body.slug
+        updates["_id"] = f"cat-{body.slug}"
+    if body.icon is not None:
+        updates["icon"] = body.icon
+    if body.description is not None:
+        updates["description"] = body.description
+    if body.course_count is not None:
+        updates["course_count"] = body.course_count
+    
+    if updates:
+        await db.categories.update_one({"_id": category_id}, {"$set": updates})
+    
+    updated = await db.categories.find_one({"_id": category_id})
+    return {"id": updated["_id"], **{k: v for k, v in updated.items() if k != "_id"}}
+
+
+@router.delete("/categories/{category_id}", dependencies=[Depends(require_admin)])
+async def delete_category(category_id: str):
+    """Delete a category."""
+    db = get_db()
+    
+    # Check if category exists
+    category = await db.categories.find_one({"_id": category_id})
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    # Check if any courses are using this category
+    courses_count = await db.courses.count_documents({"category_id": category_id})
+    if courses_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Cannot delete category. {courses_count} course(s) are using this category."
+        )
+    
+    await db.categories.delete_one({"_id": category_id})
+    return {"deleted": True, "category_id": category_id}

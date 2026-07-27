@@ -10,7 +10,10 @@ async function getStats(): Promise<Stats> {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/stats`, {
       next: { revalidate: 60 },
     });
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const json = await res.json();
+      return json.data ?? json;
+    }
   } catch {}
   return { total_courses: 0, total_members: 0, total_hours: 0, average_rating: 0 };
 }

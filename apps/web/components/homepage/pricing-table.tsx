@@ -15,7 +15,10 @@ async function getTiers(): Promise<SubscriptionTier[]> {
       `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/subscriptions/tiers`,
       { next: { revalidate: 60 } }
     );
-    if (res.ok) return await res.json();
+    if (res.ok) {
+      const json = await res.json();
+      return json.data ?? json;
+    }
   } catch {}
   return [];
 }

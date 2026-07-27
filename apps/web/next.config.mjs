@@ -1,10 +1,9 @@
 /** @type {import('next').NextConfig} */
-// import withSerwist from '@serwist/next';
-
 const nextConfig = {
   reactStrictMode: true,
-  // output: "standalone", // Commented out for development
+  output: "export",
   images: {
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "**" },
     ],
@@ -13,17 +12,36 @@ const nextConfig = {
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${process.env.API_BASE_URL || "http://127.0.0.1:8000"}/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_API_BASE_URL || "https://api.ascendly.io"}/api/v1/:path*`,
+      },
+    ];
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-XSS-Protection", value: "1; mode=block" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=0, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+      {
+        source: "/manifest.json",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
       },
     ];
   },
 };
-
-// Temporarily disabled Serwist for development
-// export default withSerwist({
-//   swSrc: 'app/sw.ts',
-//   swDest: 'public/sw.js',
-//   reloadOnOnline: true,
-// })(nextConfig);
 
 export default nextConfig;

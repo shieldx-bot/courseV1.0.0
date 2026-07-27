@@ -42,6 +42,11 @@ interface DriveFile {
   name: string;
 }
 
+interface DriveFilesResponse {
+  configured: boolean;
+  files: DriveFile[];
+}
+
 interface ScanVideo {
   file_id: string;
   name: string;
@@ -95,13 +100,15 @@ export default function AdminCourses() {
   const [deletingAll, setDeletingAll] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [driveCategoryFolderId, setDriveCategoryFolderId] = useState("");
+  const [driveConfigured, setDriveConfigured] = useState(false);
 
   useEffect(() => {
-    Promise.all([apiFetch<Course[]>("/admin/courses"), apiFetch<{ files: DriveFile[] }>("/admin/drive/files"), apiFetch<Category[]>("/categories")])
+    Promise.all([apiFetch<Course[]>("/admin/courses"), apiFetch<DriveFilesResponse>("/admin/drive/files"), apiFetch<Category[]>("/categories")])
       .then(([c, d, cats]) => {
         setCourses(c);
         setDriveFiles(d.files || []);
         setCategories(cats || []);
+        setDriveConfigured(d.configured || false);
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));

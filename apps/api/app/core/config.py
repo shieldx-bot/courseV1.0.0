@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # Google Drive (legacy — used for migration only)
-    google_service_account_json: str = "/home/anhnv_24810310060/courseV1.0.0/warm-rock-502600-j8-f32701103bbf.json"
+    google_service_account_json: str = "/home/shieldx/Music/warm-rock-502600-j8-f32701103bbf.json"
     drive_root_folder_id: str = "1_obpXZKZIUtIPHf__DCGvbmcEXv4QJg5"
 
     # Cloudflare R2 (primary video storage)
@@ -61,6 +61,9 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "https://*.cloudshell.dev"]
+    
+    # Security
+    allowed_hosts: list[str] = ["localhost", "127.0.0.1", "*.ascendly.io"]
 
     class Config:
         env_file = ".env"

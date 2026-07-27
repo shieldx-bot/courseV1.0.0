@@ -8,6 +8,7 @@ from arq.connections import RedisSettings
 from app.core.config import settings
 from app.core.dlq import get_dlq_count, list_dlq_entries
 from app.core.worker import get_redis_pool, get_queue_depth
+from app.core.response import api_response
 
 logger = logging.getLogger(__name__)
 
@@ -39,20 +40,20 @@ async def worker_health():
     except Exception:
         worker_info = {"status": "unavailable"}
 
-    return {
+    return api_response({
         "status": "ok" if pool is not None else "degraded",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "queue_depth": queue_depth,
         "dlq_count": dlq_count,
         "worker": worker_info,
         "redis_url": settings.redis_url.replace("redis://", "redis://[hidden]@") if "@" in settings.redis_url else "redis://localhost:6379",
-    }
+    })
 
 
 @router.get("/worker/queue")
 async def worker_queue_depth():
     depth = await get_queue_depth()
-    return {"queue_depth": depth, "timestamp": datetime.now(timezone.utc).isoformat()}
+    return api_response({"queue_depth": depth, "timestamp": datetime.now(timezone.utc).isoformat()})
 
 
 @router.get("/worker/dlq")
@@ -60,11 +61,11 @@ async def dlq_list(limit: int = 100):
     pool = await get_redis_pool()
     entries = await list_dlq_entries(pool, 0, limit)
     count = await get_dlq_count(pool)
-    return {
+    return api_response({
         "count": count,
         "entries": entries,
         "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+    })
 
 
 @router.post("/worker/dlq/requeue/{index}")
@@ -73,8 +74,8 @@ async def dlq_requeue(index: int):
     pool = await get_redis_pool()
     entry = await requeue_dlq_entry(pool, index)
     if not entry:
-        return {"requeued": False, "error": "Entry not found at index"}
-    return {"requeued": True, "function": entry.get("function")}
+        return api_response({"requeued": False, "error": "Entry not found at index"})
+    return api_response({"requeued": True, "function": entry.get("function")})
 
 
 @router.post("/worker/dlq/clear")
@@ -82,4 +83,4 @@ async def dlq_clear():
     from app.core.dlq import clear_dlq
     pool = await get_redis_pool()
     cleared = await clear_dlq(pool)
-    return {"cleared": cleared, "timestamp": datetime.now(timezone.utc).isoformat()}
+    return api_response({"cleared": cleared, "timestamp": datetime.now(timezone.utc).isoformat()})

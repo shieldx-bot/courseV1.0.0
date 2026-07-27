@@ -34,7 +34,8 @@ async def get_config(user: dict = Depends(get_current_user)):
 
 @router.put("/referral/config", dependencies=[Depends(get_current_user)])
 async def put_config(data: dict, user: dict = Depends(get_current_user)):
-    # TODO: Check admin role
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin required")
     config = await update_referral_config(data)
     return api_response(config)
 
