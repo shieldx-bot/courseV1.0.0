@@ -18,13 +18,32 @@ export function VerifyPhoneForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/learn";
-  const { login } = useAuth();
+  const { login, user } = useAuth();
+
+  useEffect(() => {
+    if (user?.phone_verified && user?.trial_active) {
+      router.replace(next || "/learn");
+    }
+  }, [user, router, next]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
     const id = setInterval(() => setResendCooldown((c) => c - 1), 1000);
     return () => clearInterval(id);
   }, [resendCooldown]);
+
+  if (user?.phone_verified && user?.trial_active) {
+    return (
+      <section className="flex flex-1 items-center justify-center py-16">
+        <Card className="w-full max-w-md p-8 text-center">
+          <h1 className="text-2xl font-semibold text-primary-900">Already verified</h1>
+          <p className="mt-2 text-sm text-neutral-600">
+            Your phone number is already verified. Redirecting...
+          </p>
+        </Card>
+      </section>
+    );
+  }
 
   const requestOtp = async (e: React.FormEvent) => {
     e.preventDefault();

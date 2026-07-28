@@ -1,6 +1,8 @@
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, Field
 from bson import ObjectId
 from app.db.mongodb import get_db, get_read_db
@@ -176,7 +178,7 @@ async def create_discussion(
     }
     await db.discussions.insert_one(discussion)
     enriched = await _enrich_discussion(db, discussion, user["id"])
-    return api_response(enriched, status_code=201)
+    return JSONResponse(status_code=201, content=api_response(jsonable_encoder(enriched)))
 
 
 @router.get("/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}")
@@ -345,7 +347,7 @@ async def create_reply(
     await db.discussions.update_one({"_id": discussion_id}, {"$inc": {"reply_count": 1}})
 
     enriched = await _enrich_reply(db, reply, user["id"])
-    return api_response(enriched, status_code=201)
+    return JSONResponse(status_code=201, content=api_response(jsonable_encoder(enriched)))
 
 
 @router.put("/courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}")

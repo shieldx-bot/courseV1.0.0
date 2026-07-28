@@ -59,6 +59,16 @@ async def get_or_cache(prefix: str, ttl: int, fetch: Callable, **params) -> Any:
     key = _build_cache_key(prefix, **params)
     cached = await cache.get(key)
     if cached is not None:
+        if isinstance(cached, bytes):
+            try:
+                return json.loads(cached.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                return cached
+        if isinstance(cached, str):
+            try:
+                return json.loads(cached)
+            except json.JSONDecodeError:
+                return cached
         return cached
     value = await fetch()
     await cache.setex(key, ttl, json.dumps(value, default=str))

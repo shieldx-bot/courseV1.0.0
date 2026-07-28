@@ -192,6 +192,7 @@ export interface LearningPathCourse {
   lesson_count: number;
   instructor_name: string;
   order: number;
+  first_lesson_id?: string;
 }
 
 export interface LearningPath {

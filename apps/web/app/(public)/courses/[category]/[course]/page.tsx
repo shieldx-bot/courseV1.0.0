@@ -53,19 +53,36 @@ export default async function CourseDetailPage({ params }: { params: { category:
   const course: Course = (await res.json()).data;
 
   let subscription: Subscription | null = null;
+  let currentUser: any = null;
   try {
     const cookieStore = cookies();
     const token = cookieStore.get("access_token")?.value;
     if (token) {
-      const subRes = await fetch(`${apiBase}/api/v1/subscriptions/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-        next: { revalidate: 30 },
-      });
-      if (subRes.ok) subscription = await subRes.json();
+      const headers = { Authorization: `Bearer ${token}` };
+      const [subRes, userRes] = await Promise.all([
+        fetch(`${apiBase}/api/v1/subscriptions/me`, {
+          headers,
+          next: { revalidate: 30 },
+        }),
+        fetch(`${apiBase}/api/v1/auth/me`, {
+          headers,
+          next: { revalidate: 30 },
+        }),
+      ]);
+      if (subRes.ok) {
+        const subJson = await subRes.json();
+        subscription = subJson?.data || null;
+      }
+      if (userRes.ok) {
+        const userJson = await userRes.json();
+        currentUser = userJson?.data || null;
+      }
     }
   } catch {}
 
   const isSubscriber = subscription?.status === "active";
+  const trialActive = !!currentUser?.trial_active && !!currentUser?.trial_expires && new Date(currentUser.trial_expires) > new Date();
+  const hasAccess = isSubscriber || trialActive;
   const firstLessonId = course.syllabus[0]?.id;
 
   const courseSchema = {
@@ -147,14 +164,16 @@ export default async function CourseDetailPage({ params }: { params: { category:
                 )}
               </div>
 
-              {isSubscriber ? (
+              {hasAccess ? (
                 <div className="mt-8 flex items-center justify-center gap-4 rounded-lg bg-green-50 p-8 text-center text-green-900">
                   <div>
                     <CheckCircle className="mx-auto h-8 w-8 text-green-500" />
-                    <p className="mt-3 font-medium">You have full access to this course.</p>
+                    <p className="mt-3 font-medium">
+                      {trialActive ? "You have a free preview of this course." : "You have full access to this course."}
+                    </p>
                     <Link href={`/learn/${course.slug}/${firstLessonId}`}>
                       <Button className="mt-5 bg-green-600 hover:bg-green-700 text-white">
-                        <Play className="mr-2 h-4 w-4" /> Continue learning
+                        <Play className="mr-2 h-4 w-4" /> {trialActive ? "Start free preview" : "Continue learning"}
                       </Button>
                     </Link>
                   </div>
@@ -210,7 +229,7 @@ export default async function CourseDetailPage({ params }: { params: { category:
                             Micro
                           </span>
                         )}
-                        {isSubscriber ? (
+                        {hasAccess ? (
                           <Play className="h-4 w-4 text-green-500" />
                         ) : (
                           <Lock className="h-4 w-4 text-neutral-300" />
@@ -219,9 +238,9 @@ export default async function CourseDetailPage({ params }: { params: { category:
                     </li>
                   ))}
                 </ul>
-                {isSubscriber ? (
+                {hasAccess ? (
                   <Link href={`/learn/${course.slug}/${firstLessonId}`} className="mt-6 block">
-                    <Button className="w-full">Go to course</Button>
+                    <Button className="w-full">{trialActive ? "Start free preview" : "Go to course"}</Button>
                   </Link>
                 ) : (
                   <>

@@ -213,6 +213,10 @@ async def _enrich_path_with_courses(path: dict) -> dict:
     courses_in_path = {}
     if course_ids:
         for c in await db.courses.find({"_id": {"$in": course_ids}}).to_list(100):
+            first_lesson_id = None
+            syllabus = c.get("syllabus", [])
+            if syllabus:
+                first_lesson_id = syllabus[0].get("id")
             courses_in_path[c["_id"]] = {
                 "id": c["_id"],
                 "title": c.get("title", ""),
@@ -222,6 +226,7 @@ async def _enrich_path_with_courses(path: dict) -> dict:
                 "category_slug": c.get("category_slug", ""),
                 "lesson_count": c.get("lesson_count", 0),
                 "instructor_name": c.get("instructor", {}).get("name", ""),
+                "first_lesson_id": first_lesson_id,
             }
 
     enriched_courses = []

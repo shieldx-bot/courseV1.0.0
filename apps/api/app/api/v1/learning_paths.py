@@ -27,6 +27,12 @@ async def list_paths(
     return api_response(paths)
 
 
+@router.get("/learning-paths/my", dependencies=[Depends(get_current_user)])
+async def my_paths(user: dict = Depends(get_current_user)):
+    paths = await get_user_enrollments(user["id"])
+    return api_response(paths)
+
+
 @router.get("/learning-paths/{slug}")
 async def get_path(slug: str, user: dict | None = Depends(get_optional_user)):
     path = await get_path_by_slug(slug)
@@ -41,6 +47,12 @@ async def get_path(slug: str, user: dict | None = Depends(get_optional_user)):
     return api_response(path)
 
 
+@router.post("/learning-paths/seed")
+async def seed_paths():
+    await seed_learning_paths()
+    return api_response({"seeded": True})
+
+
 @router.post("/learning-paths/enroll", dependencies=[Depends(get_current_user)])
 async def enroll_path(path_id: str = Query(...), user: dict = Depends(get_current_user)):
     try:
@@ -48,15 +60,3 @@ async def enroll_path(path_id: str = Query(...), user: dict = Depends(get_curren
         return api_response(result)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
-
-
-@router.get("/learning-paths/my", dependencies=[Depends(get_current_user)])
-async def my_paths(user: dict = Depends(get_current_user)):
-    paths = await get_user_enrollments(user["id"])
-    return api_response(paths)
-
-
-@router.post("/learning-paths/seed")
-async def seed_paths():
-    await seed_learning_paths()
-    return api_response({"seeded": True})

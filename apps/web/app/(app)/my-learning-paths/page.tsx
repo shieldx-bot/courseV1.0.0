@@ -122,22 +122,24 @@ export default async function MyLearningPathsPage() {
                   </div>
                 </Link>
 
-                <div className="p-5 border-t">
-                  {path.progress ? (
-                    <Link
-                      href={path.courses && path.courses.length > 0 ? `/courses/${path.courses[0].category_slug}/${path.courses[0].slug}` : "/courses"}
-                      className="w-full"
-                    >
-                      <Button className="w-full">Continue learning</Button>
-                    </Link>
-                  ) : (
-                    <Link href={`/learning-paths/${path.slug}`} className="w-full">
-                      <Button variant="secondary" className="w-full">
-                        View path
-                      </Button>
-                    </Link>
-                  )}
-                </div>
+                    <div className="p-5 border-t">
+                      {path.progress ? (
+                        <Link
+                          href={path.courses && path.courses.length > 0 && path.courses[0].first_lesson_id
+                            ? `/learn/${path.courses[0].slug}/${path.courses[0].first_lesson_id}`
+                            : "/courses"}
+                          className="w-full"
+                        >
+                          <Button className="w-full">Continue learning</Button>
+                        </Link>
+                      ) : (
+                        <Link href={`/learning-paths/${path.slug}`} className="w-full">
+                          <Button variant="secondary" className="w-full">
+                            View path
+                          </Button>
+                        </Link>
+                      )}
+                    </div>
               </Card>
             ))}
           </div>

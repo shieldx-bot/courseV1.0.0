@@ -142,7 +142,9 @@ function LearningPathContent({ path }: { path: LearningPath }) {
 
         <div className="mt-10">
           {isEnrolled ? (
-            <Link href={path.courses && path.courses.length > 0 ? `/courses/${path.courses[0].slug}` : "/courses"}>
+            <Link href={path.courses && path.courses.length > 0 && path.courses[0].first_lesson_id
+              ? `/learn/${path.courses[0].slug}/${path.courses[0].first_lesson_id}`
+              : "/courses"} className="block">
               <Button size="lg">Continue learning</Button>
             </Link>
           ) : (

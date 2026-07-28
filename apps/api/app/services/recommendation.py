@@ -85,7 +85,9 @@ async def get_similar_courses(course_id: str, limit: int = 6) -> list[dict]:
         score = 0.0
         if c.get("category_slug") == course.get("category_slug"):
             score += 3.0
-        if c.get("instructor", {}).get("name") == course.get("instructor", {}).get("name"):
+        instructor_a = course.get("instructor") or {}
+        instructor_b = c.get("instructor") or {}
+        if instructor_a.get("name") and instructor_b.get("name") == instructor_a.get("name"):
             score += 2.0
         title_a = set(course.get("title", "").lower().split())
         title_b = set(c.get("title", "").lower().split())
@@ -177,6 +179,7 @@ def _diversity_rerank(courses: list[dict], limit: int) -> list[dict]:
 
 
 def _format_course(course: dict) -> dict:
+    instructor = course.get("instructor") or {}
     return {
         "id": course["_id"],
         "title": course.get("title", ""),
@@ -186,7 +189,7 @@ def _format_course(course: dict) -> dict:
         "category_id": course.get("category_id", ""),
         "category_slug": course.get("category_slug", ""),
         "category_name": course.get("category_name", ""),
-        "instructor_name": course.get("instructor", {}).get("name", ""),
+        "instructor_name": instructor.get("name", ""),
         "lesson_count": course.get("lesson_count", 0),
         "outcome": course.get("outcome", []),
     }
