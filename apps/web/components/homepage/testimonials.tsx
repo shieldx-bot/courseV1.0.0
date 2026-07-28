@@ -8,7 +8,7 @@ async function getReviews() {
     const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/reviews`, {
       next: { revalidate: 60 },
     });
-    if (res.ok) return await res.json() as Review[];
+    if (res.ok) return (await res.json()).data as Review[] || [];
   } catch {}
   return [];
 }

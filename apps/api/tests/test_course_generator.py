@@ -1,6 +1,7 @@
 import os
 os.environ["MONGODB_URI"] = "memory://test"
 
+import asyncio
 import json
 from unittest.mock import patch, MagicMock
 
@@ -86,65 +87,60 @@ def test_generate_course_content_no_api_key():
     original_key = settings.openai_api_key
     settings.openai_api_key = ""
     try:
-        result = course_generator.generate_course_content(course)
+        result = asyncio.run(course_generator.generate_course_content(course))
         assert result["source"] in ("rule-based", "none")
         assert "short_description" in result
     finally:
         settings.openai_api_key = original_key
 
 
-@patch("app.services.course_generator.openai.OpenAI")
-def test_generate_course_content_with_openai(mock_openai):
-    mock_client = MagicMock()
-    mock_response = MagicMock()
-    mock_response.choices = [
-        MagicMock(message=MagicMock(content=json.dumps({
-            "short_description": "Learn Python for data science",
-            "long_description": "A comprehensive course on Python.",
-            "learning_outcomes": ["Write Python code", "Use NumPy", "Analyze data with Pandas",
-                                  "Create visualizations", "Build ML models"],
-            "thumbnail_prompt": "A clean thumbnail with Python logo and data charts",
-        })))
-    ]
-    mock_client.chat.completions.create.return_value = mock_response
-    mock_openai.return_value = mock_client
+@patch("app.services.course_generator.is_llm_available", return_value=True)
+@patch("app.services.course_generator.call_llm")
+def test_generate_course_content_with_openai(mock_call_llm, mock_is_available):
+    import asyncio
+
+    mock_call_llm.return_value = json.dumps({
+        "short_description": "Learn Python for data science",
+        "long_description": "A comprehensive course on Python.",
+        "learning_outcomes": ["Write Python code", "Use NumPy", "Analyze data with Pandas",
+                              "Create visualizations", "Build ML models"],
+        "thumbnail_prompt": "A clean thumbnail with Python logo and data charts",
+    })
 
     course = _make_course()
-    result = course_generator.generate_course_content(course)
+    result = asyncio.run(course_generator.generate_course_content(course))
 
-    assert result["source"] == "openai"
+    assert result["source"] == "llm"
     assert result["short_description"] == "Learn Python for data science"
     assert len(result["learning_outcomes"]) == 5
     assert "thumbnail_prompt" in result
-    mock_client.chat.completions.create.assert_called_once()
+    mock_call_llm.assert_called_once()
 
 
-@patch("app.services.course_generator.openai.OpenAI")
-def test_generate_course_content_openai_fallback_on_error(mock_openai):
-    mock_client = MagicMock()
-    mock_client.chat.completions.create.side_effect = Exception("API Error")
-    mock_openai.return_value = mock_client
+@patch("app.services.course_generator.is_llm_available", return_value=True)
+@patch("app.services.course_generator.call_llm")
+def test_generate_course_content_openai_fallback_on_error(mock_call_llm, mock_is_available):
+    import asyncio
+
+    mock_call_llm.side_effect = Exception("API Error")
 
     course = _make_course()
-    result = course_generator.generate_course_content(course)
+    result = asyncio.run(course_generator.generate_course_content(course))
 
     assert result["source"] == "rule-based"
     assert "error" in result
     assert "short_description" in result
 
 
-@patch("app.services.course_generator.openai.OpenAI")
-def test_generate_course_content_openai_fallback_on_invalid_json(mock_openai):
-    mock_client = MagicMock()
-    mock_response = MagicMock()
-    mock_response.choices = [
-        MagicMock(message=MagicMock(content="Not valid json at all"))
-    ]
-    mock_client.chat.completions.create.return_value = mock_response
-    mock_openai.return_value = mock_client
+@patch("app.services.course_generator.is_llm_available", return_value=True)
+@patch("app.services.course_generator.call_llm")
+def test_generate_course_content_openai_fallback_on_invalid_json(mock_call_llm, mock_is_available):
+    import asyncio
+
+    mock_call_llm.return_value = "Not valid json at all"
 
     course = _make_course()
-    result = course_generator.generate_course_content(course)
+    result = asyncio.run(course_generator.generate_course_content(course))
 
     assert result["source"] == "rule-based"
     assert "error" in result

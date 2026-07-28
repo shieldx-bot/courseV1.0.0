@@ -13,6 +13,7 @@ router = APIRouter()
 _user_token_count: dict[str, list[float]] = {}
 MAX_TOKENS_PER_HOUR = 10
 
+logger = __import__("logging").getLogger(__name__)
 
 def _cleanup_user_tokens(user_id: str):
     now = time.time()
@@ -44,18 +45,25 @@ def _trial_active(user: dict) -> bool:
 async def _has_access(user: dict, course: dict, lesson_index: int, db) -> bool:
     if user.get("role") == "admin":
         return True
+    if settings.bypass_subscription_check:
+        return True
     if _trial_active(user) and lesson_index < _trial_unlocked_count(course):
         return True
-    sub = await db.subscriptions.find_one({"user_id": user["id"], "status": "active"})
+    now_iso = datetime.now(timezone.utc).isoformat()
+    sub = await db.subscriptions.find_one({
+        "user_id": user["id"],
+        "status": "active",
+        "ends_at": {"$gt": now_iso},
+    })
     if not sub:
+        logger.info(
+            "Stream access denied: user=%s reason=no_active_subscription lesson_index=%s course=%s",
+            user.get("id"),
+            lesson_index,
+            course.get("_id"),
+        )
         return False
-    try:
-        ends_at = datetime.fromisoformat(sub["ends_at"])
-        if ends_at.tzinfo is None:
-            ends_at = ends_at.replace(tzinfo=timezone.utc)
-        return datetime.now(timezone.utc) < ends_at
-    except Exception:
-        return False
+    return True
 
 
 @router.post("/lessons/{lesson_id}/stream-token")

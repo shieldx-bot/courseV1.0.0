@@ -77,6 +77,8 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+      - NEXT_PUBLIC_SITE_URL=http://localhost:3000
     env_file:
       - .env
     depends_on:

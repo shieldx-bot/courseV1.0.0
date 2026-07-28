@@ -336,7 +336,7 @@ export default function AdminCourses() {
     try {
       const course = courses.find((c) => c.id === courseId);
       const lesson = course?.syllabus.find((l) => l.id === lessonId);
-      const result = await apiClient.admin.generateLessonCode(lessonId, {
+      const result = await apiClient.admin.generateLessonCode(courseId, lessonId, {
         title: lessonTitle,
         description: lesson?.title || "",
         language: "python",

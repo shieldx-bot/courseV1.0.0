@@ -5,11 +5,11 @@ const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://ascendly.io";
 async function fetchDynamic() {
   try {
     const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const [categories, courses] = await Promise.all([
+    const [categoriesRes, coursesRes] = await Promise.all([
       fetch(`${api}/api/v1/categories`, { next: { revalidate: 60 } }).then((r) => (r.ok ? r.json() : [])),
       fetch(`${api}/api/v1/courses`, { next: { revalidate: 60 } }).then((r) => (r.ok ? r.json() : [])),
     ]);
-    return { categories, courses };
+    return { categories: categoriesRes.data || [], courses: coursesRes.data || [] };
   } catch {
     return { categories: [], courses: [] };
   }

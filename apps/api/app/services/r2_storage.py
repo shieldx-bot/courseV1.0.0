@@ -91,7 +91,8 @@ class R2Storage:
         try:
             self.client.head_object(Bucket=settings.r2_bucket_name, Key=key)
             return True
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to check object existence %s: %s", key, exc)
             return False
 
     async def list_all(self) -> list[dict]:

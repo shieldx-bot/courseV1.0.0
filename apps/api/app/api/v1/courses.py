@@ -51,7 +51,7 @@ async def list_courses(
     category: str = "",
     sort_by: str = "",
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=100),
+    per_page: int = Query(10, ge=1, le=100),
     max_lesson_duration: int = Query(0, ge=0, description="Filter courses with lessons under N seconds (e.g. 600 for 10 min)"),
 ):
     if q and search_available:
@@ -64,14 +64,20 @@ async def list_courses(
                     "category_id": hit.get("category_id", ""),
                     "category_slug": hit.get("category_slug", ""),
                     "category_name": hit.get("category_name", ""),
-                    "title": hit.get("title", ""),
-                    "slug": hit.get("slug", ""),
+                    "title": hit["title"],
+                    "slug": hit["slug"],
                     "description": hit.get("description", ""),
                     "image_url": hit.get("image_url", ""),
                     "lesson_count": hit.get("lesson_count", 0),
                     "instructor_name": hit.get("instructor_name", ""),
                 })
-            return api_response(courses)
+            total = result.get("estimatedTotalHits", result.get("total", len(courses)))
+            return api_response(courses, meta={
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "total_pages": max(1, (total + per_page - 1) // per_page),
+            })
 
     db = get_read_db()
     query = {}
@@ -82,7 +88,9 @@ async def list_courses(
             {"title": {"$regex": q, "$options": "i"}},
             {"description": {"$regex": q, "$options": "i"}},
         ]
-    courses = await db.courses.find(query).to_list(100)
+    total = await db.courses.count_documents(query)
+    skip = (page - 1) * per_page
+    courses = await db.courses.find(query).sort("created_at", -1).skip(skip).limit(per_page).to_list(per_page)
     enriched = [_enrich_course(c) for c in courses]
     
     if max_lesson_duration > 0:
@@ -91,7 +99,12 @@ async def list_courses(
             if any(lesson.get("duration_seconds", 0) <= max_lesson_duration for lesson in c.get("syllabus", []))
         ]
     
-    return api_response(enriched)
+    return api_response(enriched, meta={
+        "page": page,
+        "per_page": per_page,
+        "total": total,
+        "total_pages": max(1, (total + per_page - 1) // per_page),
+    })
 
 
 @router.get("/courses/{slug}")

@@ -21,7 +21,7 @@ export default async function PricingPage() {
       `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/subscriptions/tiers`,
       { next: { revalidate: 60 } }
     );
-    if (res.ok) tiers = await res.json();
+    if (res.ok) tiers = (await res.json()).data || [];
   } catch {
     tiers = [];
   }

@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: { category: string 
   let category: Category | null = null;
   try {
     const res = await fetch(`${apiBase}/api/v1/categories/${params.category}`, { next: { revalidate: 60 } });
-    if (res.ok) category = await res.json();
+    if (res.ok) category = (await res.json()).data || null;
   } catch {}
 
   return makeMetadata({
@@ -52,8 +52,8 @@ export default async function CategoryPage({
       fetch(`${apiBase}/api/v1/categories/${params.category}`, { next: { revalidate: 60 } }),
       fetch(`${apiBase}/api/v1/courses?category=${params.category}&max_lesson_duration=${maxLessonDuration}`, { next: { revalidate: 60 } }),
     ]);
-    if (catRes.ok) category = await catRes.json();
-    if (courseRes.ok) courses = await courseRes.json();
+    if (catRes.ok) category = (await catRes.json()).data || null;
+    if (courseRes.ok) courses = (await courseRes.json()).data || [];
   } catch {
     category = null;
     courses = [];

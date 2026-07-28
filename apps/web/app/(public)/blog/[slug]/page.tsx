@@ -17,7 +17,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   let post: Post | null = null;
   try {
     const res = await fetch(`${apiBase}/api/v1/blog/${params.slug}`, { next: { revalidate: 60 } });
-    if (res.ok) post = await res.json();
+    if (res.ok) post = (await res.json()).data || null;
   } catch {}
 
   return makeMetadata({
@@ -35,7 +35,7 @@ export default async function BlogPostPage({ params }: { params: { slug: string 
       `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/blog/${params.slug}`,
       { next: { revalidate: 60 } }
     );
-    if (res.ok) post = await res.json();
+    if (res.ok) post = (await res.json()).data || null;
   } catch {
     post = null;
   }

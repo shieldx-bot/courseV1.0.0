@@ -20,7 +20,7 @@ interface Message {
   timestamp: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export function AiTutorTab({ courseId, lessonId }: AiTutorTabProps) {
   const { user } = useAuth();

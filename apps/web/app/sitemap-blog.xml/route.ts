@@ -6,7 +6,7 @@ async function fetchPosts() {
   try {
     const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
     const res = await fetch(`${api}/api/v1/blog`, { next: { revalidate: 60 } });
-    return res.ok ? await res.json() : [];
+    return res.ok ? (await res.json()).data || [] : [];
   } catch {
     return [];
   }

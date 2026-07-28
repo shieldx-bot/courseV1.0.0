@@ -157,7 +157,7 @@ async def analytics_summary():
     orders = await db.orders.find().to_list(10000)
 
     metrics = ai.build_metrics(users, progress, subscriptions, courses, orders)
-    llm = ai.summarize_with_llm(metrics)
+    llm = await ai.summarize_with_llm(metrics)
 
     job_id = await enqueue_task_with_retry("run_analytics_task", _max_retries=3, _job_timeout=600)
     WORKER_JOBS_ENQUEUED.labels(task="run_analytics_task").inc()
@@ -305,7 +305,7 @@ async def generate_course_ai_content(course_id: str):
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    content = course_generator.generate_course_content(course)
+    content = await course_generator.generate_course_content(course)
 
     if content.get("source") == "openai":
         await invalidate_pattern(f"course:{course_id}")

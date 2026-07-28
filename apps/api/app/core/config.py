@@ -38,6 +38,24 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = "https://api.groq.com/openai/v1"
     openai_model: str = "llama-3.3-70b-versatile"
+
+    # OpenRouter (free models available)
+    openrouter_api_key: str = ""
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_model: str = "nvidia/nemotron-3-super-120b-a12b:free"
+
+    # Google Gemini (free tier via Google AI Studio)
+    gemini_api_key: str = ""
+    gemini_model: str = "nvidia/nemotron-3-super-120b-a12b:free"
+
+    # Web search for AI content generation (optional but recommended)
+    # Tavily is recommended for AI/RAG: https://tavily.com
+    tavily_api_key: str = ""
+    # Google Custom Search + CSE ID (free tier available)
+    google_search_api_key: str = ""
+    google_search_cse_id: str = ""
+    # SerpAPI (Google search via API)
+    serpapi_api_key: str = ""
     google_oauth_client_id: str = ""
     google_oauth_client_secret: str = ""
 
@@ -65,9 +83,13 @@ class Settings(BaseSettings):
     # Security
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "*.ascendly.io"]
 
+    # Dev/test bypass for subscription checks on video streaming
+    bypass_subscription_check: bool = False
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "allow"
 
 
 settings = Settings()

@@ -89,9 +89,11 @@ async def get_queue_depth() -> int:
         import json as _json
         try:
             depth = await redis.llen("arq:queue")
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to read queue depth: %s", exc)
             depth = 0
         await redis.close()
         return depth
-    except Exception:
+    except Exception as exc:
+        logger.warning("Failed to connect to Redis for queue depth: %s", exc)
         return -1

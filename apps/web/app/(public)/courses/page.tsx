@@ -35,6 +35,7 @@ export default async function CoursesPage({
 }) {
   const search = typeof searchParams.search === "string" ? searchParams.search : "";
   const category = typeof searchParams.category === "string" ? searchParams.category : "";
+  const page = typeof searchParams.page === "string" ? Math.max(1, parseInt(searchParams.page, 10) || 1) : 1;
   const maxLessonDuration = typeof searchParams.max_lesson_duration === "string"
     ? parseInt(searchParams.max_lesson_duration, 10)
     : 0;
@@ -42,19 +43,32 @@ export default async function CoursesPage({
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   let courses: Course[] = [];
   let categories: Category[] = [];
+  let totalPages = 1;
+  let totalItems = 0;
 
   try {
     const params = new URLSearchParams();
     if (search) params.set("search", search);
     if (category) params.set("category", category);
     if (maxLessonDuration > 0) params.set("max_lesson_duration", String(maxLessonDuration));
+    params.set("page", String(page));
+    params.set("per_page", "10");
 
     const [coursesRes, catsRes] = await Promise.all([
       fetch(`${apiBase}/api/v1/courses?${params.toString()}`, { next: { revalidate: 60 } }),
       fetch(`${apiBase}/api/v1/categories`, { next: { revalidate: 60 } }),
     ]);
-    if (coursesRes.ok) courses = await coursesRes.json();
-    if (catsRes.ok) categories = await catsRes.json();
+    if (coursesRes.ok) {
+      const coursesJson = await coursesRes.json();
+      courses = Array.isArray(coursesJson?.data) ? coursesJson.data : [];
+      const meta = coursesJson?.meta || {};
+      totalPages = meta.total_pages ?? 1;
+      totalItems = meta.total ?? courses.length;
+    }
+    if (catsRes.ok) {
+      const catsJson = await catsRes.json();
+      categories = Array.isArray(catsJson?.data) ? catsJson.data : [];
+    }
   } catch {
     courses = [];
     categories = [];
@@ -67,15 +81,44 @@ export default async function CoursesPage({
     { value: 3600, label: "Under 1 hour" },
   ] as const;
 
+  const buildHref = (targetPage: number) => {
+    const href = new URL("/courses", "http://localhost:3000");
+    if (search) href.searchParams.set("search", search);
+    if (category) href.searchParams.set("category", category);
+    if (maxLessonDuration > 0) href.searchParams.set("max_lesson_duration", String(maxLessonDuration));
+    if (targetPage > 1) href.searchParams.set("page", String(targetPage));
+    return href.pathname + href.search;
+  };
+
+  const pageNumbers = (() => {
+    const pages: (number | "...")[] = [];
+    const maxVisible = 5;
+    if (totalPages <= maxVisible + 2) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      pages.push(1);
+      if (page > 3) pages.push("...");
+      const start = Math.max(2, page - 1);
+      const end = Math.min(totalPages - 1, page + 1);
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (page < totalPages - 2) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  })();
+
   return (
     <section className="py-12">
       <div className="mx-auto max-w-page px-6">
         <h1 className="text-3xl font-semibold text-primary-900">Course library</h1>
-        <p className="mt-2 text-neutral-600">{courses.length} courses included with every membership.</p>
+        <p className="mt-2 text-neutral-600">
+          {totalItems > 0 ? `${totalItems} course${totalItems !== 1 ? "s" : ""} available` : "Browse our course library"}
+        </p>
 
         <form className="mt-6 flex flex-col gap-3 sm:flex-row" action="/courses" method="GET">
           <Input name="search" defaultValue={search} placeholder="Search courses..." className="flex-1" />
           <input type="hidden" name="category" value={category} />
+          <input type="hidden" name="page" value="1" />
           
           <select
             name="max_lesson_duration"
@@ -165,6 +208,41 @@ export default async function CoursesPage({
             <BookOpen className="h-12 w-12 mx-auto text-neutral-300 mb-4" />
             <p>No courses found. Try adjusting your filters.</p>
           </div>
+        )}
+
+        {totalPages > 1 && (
+          <nav className="mt-10 flex items-center justify-center gap-2" aria-label="Course pagination">
+            <Link
+              href={buildHref(page - 1)}
+              className={`rounded-md border border-neutral-300 px-3 py-2 text-sm ${page <= 1 ? "pointer-events-none opacity-50" : "bg-white hover:bg-neutral-50"}`}
+            >
+              Previous
+            </Link>
+            <div className="flex items-center gap-1">
+              {pageNumbers.map((p, idx) =>
+                p === "..." ? (
+                  <span key={`ellipsis-${idx}`} className="px-2 text-sm text-neutral-500">...</span>
+                ) : (
+                  <Link
+                    key={p}
+                    href={buildHref(Number(p))}
+                    className={`flex h-9 w-9 items-center justify-center rounded-md text-sm ${
+                      page === Number(p) ? "bg-primary-700 text-white" : "bg-white border border-neutral-300 hover:bg-neutral-50"
+                    }`}
+                    aria-current={page === Number(p) ? "page" : undefined}
+                  >
+                    {p}
+                  </Link>
+                ),
+              )}
+            </div>
+            <Link
+              href={buildHref(page + 1)}
+              className={`rounded-md border border-neutral-300 px-3 py-2 text-sm ${page >= totalPages ? "pointer-events-none opacity-50" : "bg-white hover:bg-neutral-50"}`}
+            >
+              Next
+            </Link>
+          </nav>
         )}
       </div>
     </section>

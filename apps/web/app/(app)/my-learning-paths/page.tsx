@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
@@ -25,8 +26,11 @@ const GOAL_ICONS: Record<string, string> = {
 async function getMyPaths(): Promise<LearningPath[]> {
   const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   try {
+    const cookieStore = cookies();
+    const token = cookieStore.get("access_token")?.value;
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
     const res = await fetch(`${apiBase}/api/v1/learning-paths/my`, {
-      credentials: "include",
+      headers,
       next: { revalidate: 30 },
     });
     if (!res.ok) return [];

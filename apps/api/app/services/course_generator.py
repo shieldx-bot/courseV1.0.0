@@ -2,24 +2,53 @@ import json
 import logging
 import re
 from typing import Any
+
 from app.core.config import settings
+from app.services.llm import call_llm, is_llm_available
+from app.services.web_search import format_search_results_for_prompt, search_web
 
 logger = logging.getLogger(__name__)
 
+_CONTENT_TASK_PROVIDERS = ["openrouter"]
 
-def _build_summary_prompt(course: dict) -> str:
+
+async def _get_search_context(title: str, category: str) -> str:
+    """Retrieve web context to make generated content factually grounded."""
+    if not settings.tavily_api_key and not settings.google_search_api_key and not settings.serpapi_api_key:
+        return ""
+    try:
+        query = f"{title} {category} learning outcomes best practices"
+        results = await search_web(query, max_results=5)
+        if results:
+            return format_search_results_for_prompt(results)
+        return ""
+    except Exception as e:
+        logger.warning("Web search failed: %s", e)
+        return ""
+
+
+def _build_summary_prompt(course: dict, search_context: str = "") -> str:
     title = course.get("title", "")
     category = course.get("category_name", "")
     syllabus = course.get("syllabus", [])
     lesson_titles = "\n".join(f"- {l.get('title', '')}" for l in syllabus[:15])
 
-    return f"""Generate course content for an online learning platform.
+    research_section = ""
+    if search_context:
+        research_section = (
+            "\n=== RESEARCH CONTEXT FROM THE WEB (use for factual accuracy) ===\n"
+            f"{search_context}\n"
+            "=== END RESEARCH CONTEXT ===\n"
+        )
 
-Course title: {title}
-Category: {category}
-Lesson list:
+    return f"""You are an expert Curriculum Designer and Educational Content Specialist. Your task is to generate high-quality, factually accurate course content for an online learning platform using BOTH the provided course information AND web research context below.
+
+COURSE INFORMATION:
+- Course title: {title}
+- Category: {category}
+- Lesson list:
 {lesson_titles}
-
+{research_section}
 Return ONLY valid JSON (no markdown, no code fences):
 {{
   "short_description": "A compelling 2-3 sentence description (50-100 words) for the course card",
@@ -28,12 +57,13 @@ Return ONLY valid JSON (no markdown, no code fences):
   "thumbnail_prompt": "A detailed prompt for generating a course thumbnail image, describing style, colors, and subject matter"
 }}
 
-Rules:
+RULES:
 - short_description: concise, benefit-driven, suitable for a course card
-- long_description: detailed, persuasive, for course detail page
-- learning_outcomes: exactly 5 actionable outcomes, each starting with a verb
+- long_description: detailed, persuasive, for course detail page. MUST include 3 paragraphs: 1) course overview and value proposition, 2) target audience and prerequisites, 3) key benefits and career outcomes
+- learning_outcomes: exactly 5 actionable outcomes, each starting with a verb. Base them on real skills/competencies taught in this subject
 - thumbnail_prompt: describe a professional, clean thumbnail with course-relevant imagery
 - All content must be in Vietnamese
+- Use the RESEARCH CONTEXT above to make content factual and up-to-date. Do not invent facts, Dates, statistics, or tool names that are not supported by the research
 - Return ONLY valid JSON, no other text"""
 
 
@@ -48,41 +78,41 @@ def _build_thumbnail_prompt(course: dict) -> str:
     )
 
 
-def generate_course_content(course: dict) -> dict[str, Any]:
-    """Generate AI-powered content for a course using Groq LLM.
+async def generate_course_content(course: dict) -> dict[str, Any]:
+    """Generate AI-powered content for a course using multi-provider LLM.
 
+    Uses web search to ground content in factual information when available.
     Returns short_description, long_description, learning_outcomes,
     thumbnail_prompt.
     Falls back to rule-based content if LLM is unavailable.
     """
-    if not settings.openai_api_key:
+    if not is_llm_available():
         return _fallback_content(course)
 
     try:
-        import openai
+        title = course.get("title", "")
+        category = course.get("category_name", "")
+        search_context = await _get_search_context(title, category)
+        prompt = _build_summary_prompt(course, search_context=search_context)
 
-        client = openai.OpenAI(
-            api_key=settings.openai_api_key,
-            base_url=settings.openai_base_url,
-        )
-
-        prompt = _build_summary_prompt(course)
-
-        kwargs = {
-            "model": settings.openai_model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 1000,
-            "temperature": 0.7,
-        }
+        providers = _CONTENT_TASK_PROVIDERS
 
         try:
-            kwargs["response_format"] = {"type": "json_object"}
-            response = client.chat.completions.create(**kwargs)
+            response_format = {"type": "json_object"}
+            text = await call_llm(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1200,
+                temperature=0.7,
+                response_format=response_format,
+                provider_override=providers[0] if providers else None,
+            )
         except Exception:
-            kwargs.pop("response_format", None)
-            response = client.chat.completions.create(**kwargs)
+            text = await call_llm(
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1200,
+                temperature=0.7,
+            )
 
-        text = response.choices[0].message.content or ""
         text = re.sub(r'^```(?:json)?\s*', '', text.strip())
         text = re.sub(r'\s*```$', '', text)
 
@@ -95,7 +125,7 @@ def generate_course_content(course: dict) -> dict[str, Any]:
             "thumbnail_prompt": result.get(
                 "thumbnail_prompt", _build_thumbnail_prompt(course)
             ),
-            "source": "openai",
+            "source": "llm",
             "model": settings.openai_model,
         }
     except Exception as e:

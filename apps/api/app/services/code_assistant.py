@@ -9,6 +9,7 @@ import re
 from typing import Any
 
 from app.core.config import settings
+from app.services.llm import call_llm, is_llm_available
 
 logger = logging.getLogger(__name__)
 
@@ -68,25 +69,15 @@ def _strip_markdown(text: str) -> str:
 
 
 async def _call_llm(messages: list[dict[str, str]], max_tokens: int = 2000) -> str:
-    """Call the LLM (Groq/OpenAI-compatible) with the given messages."""
-    if not settings.openai_api_key:
-        raise ValueError("OpenAI/Groq API key not configured")
+    """Call the LLM (multi-provider) with the given messages."""
+    if not is_llm_available():
+        raise ValueError("No LLM provider configured")
 
-    import openai
-
-    client = openai.OpenAI(
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_base_url,
-    )
-
-    response = client.chat.completions.create(
-        model=settings.openai_model,
+    return await call_llm(
         messages=messages,
         max_tokens=max_tokens,
         temperature=0.2,
     )
-
-    return response.choices[0].message.content or ""
 
 
 async def generate_code(

@@ -135,7 +135,10 @@ async def verify_otp(body: OTPVerify, response: Response, request: Request, curr
     cache = await cache_service.get_cache()
     sanitized = "".join(c for c in body.phone if c.isdigit() or c == "+")
     stored = await cache.get(f"otp:{sanitized}")
-    if not stored or stored != body.code:
+    if not stored:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+    stored_code = stored.decode() if isinstance(stored, bytes) else str(stored)
+    if stored_code != body.code:
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
     db = get_db()

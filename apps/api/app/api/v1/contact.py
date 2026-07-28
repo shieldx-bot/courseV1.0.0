@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, EmailStr, Field
 from app.core.deps import require_admin
 from app.core.response import api_response
 from app.db.mongodb import get_db
@@ -9,10 +9,10 @@ router = APIRouter()
 
 
 class ContactIn(BaseModel):
-    name: str
-    email: str
-    subject: str
-    message: str
+    name: str = Field(min_length=1, max_length=100)
+    email: EmailStr
+    subject: str = Field(min_length=1, max_length=200)
+    message: str = Field(min_length=1, max_length=5000)
 
 
 @router.post("/contact")

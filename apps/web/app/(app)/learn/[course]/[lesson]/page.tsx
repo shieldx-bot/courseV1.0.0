@@ -16,18 +16,24 @@ export default async function CoursePlayerPage({ params }: { params: { course: s
     const res = await fetch(`${API_BASE}/api/v1/courses/${params.course}`, {
       next: { revalidate: 30 },
     });
-    if (res.ok) course = await res.json();
+    if (res.ok) course = (await res.json()).data || null;
   } catch {}
 
   if (token) {
     const headers = { Authorization: `Bearer ${token}` };
     try {
       const [progressRes, subRes] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/progress`, { headers, next: { revalidate: 15 } }),
-        fetch(`${API_BASE}/api/v1/subscriptions/me`, { headers, next: { revalidate: 30 } }),
+        fetch(`${API_BASE}/api/v1/progress`, { headers }),
+        fetch(`${API_BASE}/api/v1/subscriptions/me`, { headers }),
       ]);
-      if (progressRes.ok) progress = await progressRes.json();
-      if (subRes.ok) subscription = await subRes.json();
+      if (progressRes.ok) {
+        const progressJson = await progressRes.json();
+        progress = Array.isArray(progressJson?.data) ? progressJson.data : [];
+      }
+      if (subRes.ok) {
+        const subJson = await subRes.json();
+        subscription = subJson?.data || null;
+      }
     } catch {}
   }
 

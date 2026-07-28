@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.core.config import settings
+from app.services.llm import call_llm, is_llm_available
 from app.db.mongodb import get_db
 
 logger = logging.getLogger(__name__)
@@ -201,22 +202,12 @@ async def clear_chat_history(
 
 
 async def _call_llm(messages: list[dict[str, str]]) -> str:
-    """Call the LLM (Groq/OpenAI) with the given messages."""
-    if not settings.openai_api_key:
+    """Call the LLM (multi-provider) with the given messages."""
+    if not is_llm_available():
         return "AI Tutor is not available at the moment. Please try again later."
 
-    import openai
-
-    client = openai.OpenAI(
-        api_key=settings.openai_api_key,
-        base_url=settings.openai_base_url,
-    )
-
-    response = client.chat.completions.create(
-        model=settings.openai_model,
+    return await call_llm(
         messages=messages,
         max_tokens=500,
         temperature=0.3,
     )
-
-    return response.choices[0].message.content or ""

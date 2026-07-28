@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: { course: string } 
   let course: Course | null = null;
   try {
     const res = await fetch(`${apiBase}/api/v1/courses/${params.course}`, { next: { revalidate: 60 } });
-    if (res.ok) course = await res.json();
+    if (res.ok) course = (await res.json()).data || null;
   } catch {}
 
   return makeMetadata({
@@ -50,7 +50,7 @@ export default async function CourseDetailPage({ params }: { params: { category:
       </section>
     );
   }
-  const course: Course = await res.json();
+  const course: Course = (await res.json()).data;
 
   let subscription: Subscription | null = null;
   try {

@@ -4,6 +4,7 @@ from typing import Any
 from collections import defaultdict
 import numpy as np
 from app.core.config import settings
+from app.services.llm import call_llm, is_llm_available
 
 
 def _daily_totals(orders: list[dict]) -> list[float]:
@@ -399,23 +400,20 @@ def _rule_based_summary(metrics: dict[str, Any]) -> str:
     )
 
 
-def summarize_with_llm(metrics: dict[str, Any]) -> dict[str, Any]:
-    if settings.openai_api_key:
+async def summarize_with_llm(metrics: dict[str, Any]) -> dict[str, Any]:
+    if is_llm_available():
         try:
-            import openai
-            client = openai.OpenAI(api_key=settings.openai_api_key, base_url=settings.openai_base_url)
             prompt = (
                 "You are an expert ed-tech growth analyst. Based on these metrics, write a 2-3 sentence "
                 "executive summary and one actionable recommendation.\n\nMetrics:\n"
                 f"{metrics}"
             )
-            response = client.chat.completions.create(
-                model=settings.openai_model,
+            text = await call_llm(
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=200,
+                temperature=0.7,
             )
-            text = response.choices[0].message.content or ""
-            return {"summary": text.strip(), "model": settings.openai_model, "source": "openai"}
+            return {"summary": text.strip(), "model": settings.openai_model, "source": "llm"}
         except Exception as e:
             return {"summary": _rule_based_summary(metrics), "model": settings.openai_model, "source": "rule-based-fallback", "error": str(e)}
     return {"summary": _rule_based_summary(metrics), "model": settings.openai_model, "source": "rule-based"}

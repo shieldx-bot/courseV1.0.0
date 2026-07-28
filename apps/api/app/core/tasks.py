@@ -131,7 +131,7 @@ async def run_analytics_task(ctx: dict) -> dict:
         orders = await db.orders.find().to_list(10000)
 
         metrics = ai.build_metrics(users, progress, subscriptions, courses, orders)
-        llm = ai.summarize_with_llm(metrics)
+        llm = await ai.summarize_with_llm(metrics)
 
         doc = {
             "timestamp": datetime.now(timezone.utc).isoformat(),

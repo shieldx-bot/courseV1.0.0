@@ -170,7 +170,7 @@ const apiClient = {
     getByCategory: (categorySlug: string) =>
       typedRequest("get", "GET /courses" as any, { query: { category: categorySlug } }),
     recommendations: (limit?: number) =>
-      typedRequest("get", "GET /courses/recommendations" as any, { query: { limit } }),
+      typedRequest("get", "GET /recommendations" as any, { query: { limit } }),
     similar: (courseId: string, limit?: number) =>
       typedRequest("get", "GET /courses/{course_id}/similar" as any, { query: { limit } }),
   },
@@ -208,7 +208,7 @@ const apiClient = {
     list: () => typedRequest("get", "GET /certificates" as any),
     get: (certId: string) => typedRequest("get", "GET /certificates/{cert_id}" as any),
     downloadUrl: (certId: string) => `${API_BASE}/api/v1/certificates/${certId}/download`,
-    verify: (code: string) => typedRequest("get", "GET /certificates/verify/{code}" as any),
+    verify: (code: string) => typedRequest("get", "GET /verify/{code}" as any),
   },
   learningPaths: {
     list: (goal?: string) => typedRequest("get", "GET /learning-paths" as any, { query: { goal } }),
@@ -220,10 +220,9 @@ const apiClient = {
   experiments: {
     active: () => typedRequest("get", "GET /experiments/active" as any),
     variantMap: () => typedRequest("get", "GET /experiments/variant-map" as any),
-    track: (experimentSlug: string, eventType: string, metadata?: Record<string, unknown>) =>
+    track: (experimentSlug: string, eventType: string, variantName: string, variantIndex: number, metadata?: Record<string, unknown>) =>
       typedRequest("post", "POST /experiments/track" as any, {
-        query: { experiment_slug: experimentSlug },
-        body: { event_type: eventType, metadata } as any,
+        query: { experiment_slug: experimentSlug, variant_name: variantName, variant_index: variantIndex, event_type: eventType },
       }),
     admin: {
       list: () => typedRequest("get", "GET /admin/experiments" as any),
@@ -257,8 +256,11 @@ const apiClient = {
     },
   },
   admin: {
-    generateLessonCode: (lessonId: string, body: { title: string; description: string; language: string }) =>
-      typedRequest("post", "POST /admin/lessons/{lesson_id}/generate-code" as any, { body: body as any }),
+    generateLessonCode: (courseId: string, lessonId: string, body: { title: string; description: string; language: string }) =>
+      typedRequest("post", "POST /admin/courses/{course_id}/lessons/{lesson_id}/generate-code" as any, {
+        params: { course_id: courseId, lesson_id: lessonId },
+        body: body as any,
+      }),
   },
   discussions: {
     list: (courseId: string, lessonId: string, params?: { page?: number; per_page?: number; sort?: string }) => {

@@ -18,7 +18,7 @@ export default async function ReviewsPage() {
       `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/reviews`,
       { next: { revalidate: 60 } }
     );
-    if (res.ok) reviews = await res.json();
+    if (res.ok) reviews = (await res.json()).data || [];
   } catch {
     reviews = [];
   }
