@@ -84,6 +84,14 @@ class InMemoryCursor:
     def sort(self, *args, **kwargs):
         return self
 
+    def skip(self, n: int):
+        self.data = self.data[n:]
+        return self
+
+    def limit(self, n: int):
+        self.data = self.data[:n]
+        return self
+
 
 class InMemoryDB:
     def __init__(self):

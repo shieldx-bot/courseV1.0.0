@@ -13,8 +13,8 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     # Google Drive (legacy — used for migration only)
-    google_service_account_json: str = "/home/shieldx/Music/warm-rock-502600-j8-f32701103bbf.json"
-    drive_root_folder_id: str = "1_obpXZKZIUtIPHf__DCGvbmcEXv4QJg5"
+    google_service_account_json: str = ""
+    drive_root_folder_id: str = ""
 
     # Cloudflare R2 (primary video storage)
     r2_endpoint_url: str = ""
