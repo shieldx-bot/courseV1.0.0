@@ -72,6 +72,20 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
     "reply_votes": [
         IndexModel([("reply_id", ASCENDING), ("user_id", ASCENDING)], name="reply_id_1_user_id_1", unique=True),
     ],
+    "support_tickets": [
+        IndexModel([("user_id", ASCENDING), ("created_at", DESCENDING)], name="user_id_1_created_at_-1"),
+        IndexModel([("status", ASCENDING), ("priority", ASCENDING), ("created_at", DESCENDING)], name="status_1_priority_1_created_at_-1"),
+        IndexModel([("assigned_to", ASCENDING)], name="assigned_to_1"),
+        IndexModel([("category", ASCENDING)], name="category_1"),
+    ],
+    "ticket_messages": [
+        IndexModel([("ticket_id", ASCENDING), ("created_at", ASCENDING)], name="ticket_id_1_created_at_1"),
+    ],
+    "help_articles": [
+        IndexModel([("is_published", ASCENDING), ("category", ASCENDING)], name="is_published_1_category_1"),
+        IndexModel([("slug", ASCENDING)], name="slug_1", unique=True),
+        IndexModel([("tags", ASCENDING)], name="tags_1"),
+    ],
 }
 
 

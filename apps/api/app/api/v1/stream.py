@@ -13,6 +13,8 @@ router = APIRouter()
 _user_token_count: dict[str, list[float]] = {}
 MAX_TOKENS_PER_HOUR = 10
 
+DEMO_VIDEO_URL = "https://www.w3schools.com/html/mov_bbb.mp4"
+
 logger = __import__("logging").getLogger(__name__)
 
 def _cleanup_user_tokens(user_id: str):
@@ -112,7 +114,11 @@ async def create_stream_token(lesson_id: str, user: dict = Depends(get_current_u
             except Exception:
                 raise HTTPException(status_code=502, detail="Video migration from Drive failed")
         else:
-            raise HTTPException(status_code=404, detail="No video file associated with this lesson")
+            _user_token_count.setdefault(user["id"], []).append(time.time())
+            return {
+                "stream_url": DEMO_VIDEO_URL,
+                "expires_in": 86400,
+            }
 
     signed_url = await r2_storage.generate_signed_url(
         lesson_id, expires_in=settings.r2_signed_url_expiry_seconds

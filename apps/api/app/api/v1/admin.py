@@ -608,7 +608,7 @@ async def import_drive_course(body: DriveImportIn):
         for i in range(0, len(folder_ids), 30):
             chunk = folder_ids[i:i+30]
             parents_or = ' or '.join([f"'{fid}' in parents" for fid in chunk])
-            q = f"mimeType contains 'video/' and trashed = false and ({parents_or})"
+            q = f"(mimeType contains 'video/' or mimeType = 'application/vnd.google-apps.video') and trashed = false and ({parents_or})"
             page_token = None
             while True:
                 res = service.files().list(q=q, pageSize=200, fields='nextPageToken,files(id,name)',
@@ -646,6 +646,7 @@ async def import_drive_course(body: DriveImportIn):
         "lesson_count": len(syllabus),
         "syllabus": syllabus,
         "outcome": [],
+        "drive_folder_id": body.folder_id,
     }
 
     await db.courses.insert_one(course)
@@ -685,6 +686,37 @@ async def import_drive_courses_all(body: DriveImportAllIn):
                     except Exception:
                         pass
                 videos.sort(key=_video_sort_key)
+            else:
+                folder_ids = [item.folder_id]
+                queue = [item.folder_id]
+                for _ in range(500):
+                    if not queue:
+                        break
+                    fid = queue.pop(0)
+                    res = service.files().list(
+                        q=f"'{fid}' in parents and mimeType='application/vnd.google-apps.folder' and trashed = false",
+                        pageSize=200, fields='files(id)').execute()
+                    for sub in res.get('files', []):
+                        if sub['id'] not in folder_ids:
+                            folder_ids.append(sub['id'])
+                            queue.append(sub['id'])
+
+                all_videos = {}
+                for i in range(0, len(folder_ids), 30):
+                    chunk = folder_ids[i:i+30]
+                    parents_or = ' or '.join([f"'{fid}' in parents" for fid in chunk])
+                    q = f"(mimeType contains 'video/' or mimeType = 'application/vnd.google-apps.video') and trashed = false and ({parents_or})"
+                    page_token = None
+                    while True:
+                        res = service.files().list(q=q, pageSize=200, fields='nextPageToken,files(id,name)',
+                                                   pageToken=page_token).execute()
+                        for v in res.get('files', []):
+                            all_videos[v['id']] = v
+                        page_token = res.get('nextPageToken')
+                        if not page_token:
+                            break
+
+                videos = sorted(list(all_videos.values()), key=_video_sort_key)
 
             syllabus = []
             for i, v in enumerate(videos):
@@ -711,6 +743,7 @@ async def import_drive_courses_all(body: DriveImportAllIn):
                 "lesson_count": len(syllabus),
                 "syllabus": syllabus,
                 "outcome": [],
+                "drive_folder_id": item.folder_id,
             }
             await db.courses.insert_one(course_doc)
             results.append({"id": course_id, "title": title, "lesson_count": len(syllabus)})

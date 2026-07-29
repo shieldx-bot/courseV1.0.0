@@ -166,13 +166,13 @@ const apiClient = {
   },
   courses: {
     list: () => typedRequest("get", "GET /courses" as any),
-    get: (slug: string) => typedRequest("get", "GET /courses/{slug}" as any),
+    get: (slug: string) => typedRequest("get", "GET /courses/{slug}" as any, { params: { slug } }),
     getByCategory: (categorySlug: string) =>
       typedRequest("get", "GET /courses" as any, { query: { category: categorySlug } }),
     recommendations: (limit?: number) =>
       typedRequest("get", "GET /recommendations" as any, { query: { limit } }),
     similar: (courseId: string, limit?: number) =>
-      typedRequest("get", "GET /courses/{course_id}/similar" as any, { query: { limit } }),
+      typedRequest("get", "GET /courses/{course_id}/similar" as any, { params: { course_id: courseId }, query: { limit } }),
   },
   categories: {
     list: () => typedRequest("get", "GET /categories" as any),
@@ -180,18 +180,18 @@ const apiClient = {
   subscriptions: {
     me: () => typedRequest("get", "GET /subscriptions/me" as any),
     tiers: () => typedRequest("get", "GET /subscriptions/tiers" as any),
-    coupon: (code: string) => typedRequest("get", "GET /subscriptions/coupons/{code}" as any),
+    coupon: (code: string) => typedRequest("get", "GET /subscriptions/coupons/{code}" as any, { params: { code } }),
     cancel: () => typedRequest("post", "POST /subscriptions/cancel" as any),
   },
   progress: {
     list: () => typedRequest("get", "GET /progress" as any),
-    get: (lessonId: string) => typedRequest("get", "GET /progress/{lesson_id}" as any),
+    get: (lessonId: string) => typedRequest("get", "GET /progress/{lesson_id}" as any, { params: { lesson_id: lessonId } }),
     update: (lessonId: string, body: any) =>
-      typedRequest("put", "PUT /progress/{lesson_id}" as any, { body }),
+      typedRequest("put", "PUT /progress/{lesson_id}" as any, { params: { lesson_id: lessonId }, body }),
   },
   lessons: {
-    streamToken: (lessonId: string) =>
-      typedRequest("post", "POST /lessons/{lesson_id}/stream-token" as any),
+      streamToken: (lessonId: string) =>
+        typedRequest("post", "POST /lessons/{lesson_id}/stream-token" as any, { params: { lesson_id: lessonId } }),
   },
   checkout: {
     createSession: (body: any) =>
@@ -206,13 +206,13 @@ const apiClient = {
   },
   certificates: {
     list: () => typedRequest("get", "GET /certificates" as any),
-    get: (certId: string) => typedRequest("get", "GET /certificates/{cert_id}" as any),
+    get: (certId: string) => typedRequest("get", "GET /certificates/{cert_id}" as any, { params: { cert_id: certId } }),
     downloadUrl: (certId: string) => `${API_BASE}/api/v1/certificates/${certId}/download`,
-    verify: (code: string) => typedRequest("get", "GET /verify/{code}" as any),
+    verify: (code: string) => typedRequest("get", "GET /verify/{code}" as any, { params: { code } }),
   },
   learningPaths: {
     list: (goal?: string) => typedRequest("get", "GET /learning-paths" as any, { query: { goal } }),
-    get: (slug: string) => typedRequest("get", "GET /learning-paths/{slug}" as any),
+    get: (slug: string) => typedRequest("get", "GET /learning-paths/{slug}" as any, { params: { slug } }),
     my: () => typedRequest("get", "GET /learning-paths/my" as any),
     enroll: (pathId: string) =>
       typedRequest("post", "POST /learning-paths/enroll" as any, { query: { path_id: pathId } }),
@@ -229,8 +229,8 @@ const apiClient = {
       create: (data: Record<string, unknown>) =>
         typedRequest("post", "POST /admin/experiments" as any, { body: data as any }),
       update: (experimentId: string, data: Record<string, unknown>) =>
-        typedRequest("put", "PUT /admin/experiments/{experiment_id}" as any, { body: data as any }),
-      delete: (experimentId: string) => typedRequest("delete", "DELETE /admin/experiments/{experiment_id}" as any),
+        typedRequest("put", "PUT /admin/experiments/{experiment_id}" as any, { params: { experiment_id: experimentId }, body: data as any }),
+      delete: (experimentId: string) => typedRequest("delete", "DELETE /admin/experiments/{experiment_id}" as any, { params: { experiment_id: experimentId } }),
       stats: (experimentSlug?: string) =>
         typedRequest("get", "GET /admin/experiments/stats" as any, { query: { experiment_slug: experimentSlug } }),
     },
@@ -261,6 +261,16 @@ const apiClient = {
         params: { course_id: courseId, lesson_id: lessonId },
         body: body as any,
       }),
+    supportTickets: (filters?: { status?: string; category?: string; search?: string; assigned_to?: string }) =>
+      typedRequest("get", "GET /admin/support/tickets" as any, { query: filters }),
+    supportTicket: (ticketId: string) =>
+      typedRequest("get", "GET /admin/support/tickets/{ticket_id}" as any, { params: { ticket_id: ticketId } }),
+    supportTicketStatus: (ticketId: string, body: { status: string; note?: string }) =>
+      typedRequest("post", "POST /admin/support/tickets/{id}/status" as any, { params: { id: ticketId }, body: body as any }),
+    supportTicketAssign: (ticketId: string, body: { admin_id: string }) =>
+      typedRequest("post", "POST /admin/support/tickets/{id}/assign" as any, { params: { id: ticketId }, body: body as any }),
+    supportStats: () =>
+      typedRequest("get", "GET /admin/support/stats" as any),
   },
   discussions: {
     list: (courseId: string, lessonId: string, params?: { page?: number; per_page?: number; sort?: string }) => {
@@ -269,19 +279,21 @@ const apiClient = {
       if (params?.per_page) search.set("per_page", String(params.per_page));
       if (params?.sort) search.set("sort", params.sort);
       return typedRequest("get", "GET /courses/{course_id}/lessons/{lesson_id}/discussions" as any, {
+        params: { course_id: courseId, lesson_id: lessonId },
         query: Object.fromEntries(search.entries()),
       });
     },
     get: (courseId: string, lessonId: string, discussionId: string) =>
-      typedRequest("get", "GET /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any),
+      typedRequest("get", "GET /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any, { params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId } }),
     create: (courseId: string, lessonId: string, body: any) =>
-      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions" as any, { body }),
+      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions" as any, { params: { course_id: courseId, lesson_id: lessonId }, body }),
     update: (courseId: string, lessonId: string, discussionId: string, body: any) =>
-      typedRequest("put", "PUT /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any, { body }),
+      typedRequest("put", "PUT /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any, { params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId }, body }),
     delete: (courseId: string, lessonId: string, discussionId: string) =>
-      typedRequest("delete", "DELETE /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any),
+      typedRequest("delete", "DELETE /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}" as any, { params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId } }),
     vote: (courseId: string, lessonId: string, discussionId: string, vote: number) =>
       typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/vote" as any, {
+        params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId },
         body: { vote } as any,
       }),
     listReplies: (courseId: string, lessonId: string, discussionId: string, params?: { page?: number; per_page?: number }) => {
@@ -289,21 +301,23 @@ const apiClient = {
       if (params?.page) search.set("page", String(params.page));
       if (params?.per_page) search.set("per_page", String(params.per_page));
       return typedRequest("get", "GET /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies" as any, {
+        params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId },
         query: Object.fromEntries(search.entries()),
       });
     },
     createReply: (courseId: string, lessonId: string, discussionId: string, body: any) =>
-      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies" as any, { body }),
+      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies" as any, { params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId }, body }),
     updateReply: (courseId: string, lessonId: string, discussionId: string, replyId: string, body: any) =>
-      typedRequest("put", "PUT /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}" as any, { body }),
+      typedRequest("put", "PUT /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}" as any, { params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId, reply_id: replyId }, body }),
     deleteReply: (courseId: string, lessonId: string, discussionId: string, replyId: string) =>
-      typedRequest("delete", "DELETE /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}" as any),
+      typedRequest("delete", "DELETE /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}" as any, { params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId, reply_id: replyId } }),
     voteReply: (courseId: string, lessonId: string, discussionId: string, replyId: string, vote: number) =>
       typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}/vote" as any, {
+        params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId, reply_id: replyId },
         body: { vote } as any,
       }),
     markAnswer: (courseId: string, lessonId: string, discussionId: string, replyId: string) =>
-      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}/mark-answer" as any),
+      typedRequest("post", "POST /courses/{course_id}/lessons/{lesson_id}/discussions/{discussion_id}/replies/{reply_id}/mark-answer" as any, { params: { course_id: courseId, lesson_id: lessonId, discussion_id: discussionId, reply_id: replyId } }),
   },
   codeAssistant: {
     generate: (body: { task: string; language: string; context?: string; starter_code?: string }) =>
@@ -314,6 +328,33 @@ const apiClient = {
       typedRequest("post", "POST /code-assistant/review" as any, { body: body as any }),
     debug: (body: { code: string; language: string; error: string; task?: string }) =>
       typedRequest("post", "POST /code-assistant/debug" as any, { body: body as any }),
+  },
+  support: {
+    listTickets: () =>
+      typedRequest("get", "GET /support/tickets" as any),
+    getTicket: (ticketId: string) =>
+      typedRequest("get", "GET /support/tickets/{ticket_id}" as any, { params: { ticket_id: ticketId } }),
+    createTicket: (body: any) =>
+      typedRequest("post", "POST /support/tickets" as any, { body: body as any }),
+    addMessage: (ticketId: string, body: any) =>
+      typedRequest("post", "POST /support/tickets/{ticket_id}/messages" as any, { params: { ticket_id: ticketId }, body: body as any }),
+    rateTicket: (ticketId: string, body: { rating: number }) =>
+      typedRequest("post", "POST /support/tickets/{ticket_id}/satisfaction" as any, { params: { ticket_id: ticketId }, body: body as any }),
+  },
+  help: {
+    listArticles: (category?: string) =>
+      typedRequest("get", "GET /help/articles" as any, { query: category ? { category } : undefined }),
+    searchArticles: (query: string, category?: string) =>
+      typedRequest("get", "GET /help/articles/search" as any, { query: { q: query, ...(category ? { category } : {}) } }),
+    getArticle: (slug: string) =>
+      typedRequest("get", "GET /help/articles/{slug}" as any, { params: { slug } }),
+    getArticleById: (articleId: string) =>
+      typedRequest("get", "GET /help/articles/id/{article_id}" as any, { params: { article_id: articleId } }),
+    submitFeedback: (articleId: string, helpful: boolean) =>
+      typedRequest("post", "POST /help/articles/{id}/feedback" as any, {
+        params: { id: articleId },
+        body: { helpful: helpful } as any,
+      }),
   },
 };
 

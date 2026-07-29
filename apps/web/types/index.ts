@@ -219,5 +219,57 @@ export interface LearningPath {
   };
 }
 
+export interface SupportTicket {
+  id: string;
+  user_id: string;
+  user_email: string;
+  user_name: string;
+  category: "billing" | "technical" | "content" | "account" | "other";
+  priority: "P1" | "P2" | "P3";
+  subject: string;
+  status: "open" | "in_progress" | "waiting_user" | "resolved" | "closed";
+  ai_summary?: string;
+  created_at: string;
+  updated_at: string;
+  resolved_at?: string;
+  assigned_to?: string;
+  satisfaction_rating?: number;
+}
+
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  sender_type: "user" | "admin" | "ai";
+  sender_id: string;
+  sender_name: string;
+  content: string;
+  created_at: string;
+}
+
+export interface HelpArticle {
+  id: string;
+  slug: string;
+  title: string;
+  category: "billing" | "technical" | "content" | "account" | "general";
+  content?: string;
+  summary?: string;
+  tags?: string[];
+  is_published: boolean;
+  views: number;
+  helpful_count: number;
+  not_helpful_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupportStats {
+  total: number;
+  by_status: Record<string, number>;
+  by_category: Record<string, number>;
+  by_priority: Record<string, number>;
+  avg_resolution_hours?: number;
+  avg_satisfaction_rating?: number;
+}
+
 // Auto-generated types from OpenAPI schema (via openapi-typescript)
 export type { paths } from "./api";

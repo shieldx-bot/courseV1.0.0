@@ -10,6 +10,7 @@ const links = [
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/coupons", label: "Coupons" },
   { href: "/admin/contacts", label: "Messages" },
+  { href: "/admin/support", label: "Support" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
