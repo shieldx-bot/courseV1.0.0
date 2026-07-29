@@ -14,7 +14,8 @@ from app.core.ratelimit import limiter
 from app.core.response import api_response, error_response
 from app.db.mongodb import seed_db, get_db
 from app.db.indexes import create_indexes
-from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive
+from app.db.seed_concepts import seed_concepts
+from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive, adaptive
 from app.services.learning_paths import seed_learning_paths
 from app.services.r2_storage import r2_storage
 from app.services import search as search_service
@@ -65,6 +66,10 @@ async def lifespan(app: FastAPI):
     await search_service.init_search()
     await search_service.sync_all_courses()
     await seed_learning_paths()
+    try:
+        await seed_concepts()
+    except Exception as exc:
+        logger.warning("Concept seeding skipped: %s", exc)
     yield
     await close_redis_pool()
     logger.info("Shutdown complete — connections closed")
@@ -136,8 +141,11 @@ app.include_router(code_assistant.router, prefix="/api/v1", tags=["code-assistan
 app.include_router(support.router, prefix="/api/v1/support", tags=["support"])
 app.include_router(support.admin_router, prefix="/api/v1/admin/support", tags=["admin-support"])
 app.include_router(knowledge.router, prefix="/api/v1/help", tags=["help"])
+app.include_router(knowledge.admin_router, prefix="/api/v1/admin/help", tags=["admin-help"])
 app.include_router(proactive.router, prefix="/api/v1/proactive", tags=["proactive"])
 app.include_router(proactive.admin_router, prefix="/api/v1/admin/proactive", tags=["admin-proactive"])
+app.include_router(adaptive.router, prefix="/api/v1/adaptive", tags=["adaptive"])
+app.include_router(adaptive.admin_router, prefix="/api/v1/admin/adaptive", tags=["admin-adaptive"])
 
 
 @app.get("/api/v1/health")

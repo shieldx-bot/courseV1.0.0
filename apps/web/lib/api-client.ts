@@ -106,7 +106,6 @@ export async function typedRequest<
 
   let finalPath = path as string;
   
-  // Extract actual path if it includes method prefix (e.g., "GET /auth/me")
   if (finalPath.includes(' ')) {
     finalPath = finalPath.split(' ')[1];
   }
@@ -190,8 +189,8 @@ const apiClient = {
       typedRequest("put", "PUT /progress/{lesson_id}" as any, { params: { lesson_id: lessonId }, body }),
   },
   lessons: {
-      streamToken: (lessonId: string) =>
-        typedRequest("post", "POST /lessons/{lesson_id}/stream-token" as any, { params: { lesson_id: lessonId } }),
+    streamToken: (lessonId: string) =>
+      typedRequest("post", "POST /lessons/{lesson_id}/stream-token" as any, { params: { lesson_id: lessonId } }),
   },
   checkout: {
     createSession: (body: any) =>
@@ -261,6 +260,14 @@ const apiClient = {
         params: { course_id: courseId, lesson_id: lessonId },
         body: body as any,
       }),
+    helpArticles: () =>
+      typedRequest("get", "GET /admin/help/articles" as any),
+    createHelpArticle: (body: any) =>
+      typedRequest("post", "POST /admin/help/articles" as any, { body: body as any }),
+    updateHelpArticle: (articleId: string, body: any) =>
+      typedRequest("put", "PUT /admin/help/articles/{article_id}" as any, { params: { article_id: articleId }, body: body as any }),
+    deleteHelpArticle: (articleId: string) =>
+      typedRequest("delete", "DELETE /admin/help/articles/{article_id}" as any, { params: { article_id: articleId } }),
     supportTickets: (filters?: { status?: string; category?: string; search?: string; assigned_to?: string }) =>
       typedRequest("get", "GET /admin/support/tickets" as any, { query: filters }),
     supportTicket: (ticketId: string) =>
@@ -271,6 +278,22 @@ const apiClient = {
       typedRequest("post", "POST /admin/support/tickets/{id}/assign" as any, { params: { id: ticketId }, body: body as any }),
     supportStats: () =>
       typedRequest("get", "GET /admin/support/stats" as any),
+  },
+  adaptive: {
+    listConcepts: (courseId: string) =>
+      typedRequest("get", "GET /adaptive/concepts/{course_id}" as any, { params: { course_id: courseId } }),
+    weakConcepts: (courseId: string, threshold?: number) =>
+      typedRequest("get", "GET /adaptive/weak/{course_id}" as any, { params: { course_id: courseId }, query: threshold !== undefined ? { threshold } : undefined }),
+    strongConcepts: (courseId: string, threshold?: number) =>
+      typedRequest("get", "GET /adaptive/strong/{course_id}" as any, { params: { course_id: courseId }, query: threshold !== undefined ? { threshold } : undefined }),
+    remediation: (courseId: string) =>
+      typedRequest("get", "GET /adaptive/remediation/{course_id}" as any, { params: { course_id: courseId } }),
+    prerequisites: (courseId: string, conceptId: string) =>
+      typedRequest("get", "GET /adaptive/prerequisites/{course_id}/{concept_id}" as any, { params: { course_id: courseId, concept_id: conceptId } }),
+    generateQuiz: (courseId: string, lessonId: string, numQuestions?: number) =>
+      typedRequest("post", "POST /adaptive/quiz/{course_id}/generate" as any, { params: { course_id: courseId }, query: { lesson_id: lessonId, num_questions: numQuestions } }),
+    submitQuiz: (courseId: string, body: { quiz_id: string; answers: Record<number, number>; questions: any[] }) =>
+      typedRequest("post", "POST /adaptive/quiz/{course_id}/submit" as any, { params: { course_id: courseId }, body: body as any }),
   },
   discussions: {
     list: (courseId: string, lessonId: string, params?: { page?: number; per_page?: number; sort?: string }) => {

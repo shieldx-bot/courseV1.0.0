@@ -271,5 +271,110 @@ export interface SupportStats {
   avg_satisfaction_rating?: number;
 }
 
+export interface ConceptDefinition {
+  id: string;
+  course_id: string;
+  name: string;
+  slug: string;
+  description: string;
+  difficulty_base: number;
+  tags: string[];
+  lesson_ids: string[];
+  prerequisite_concepts: string[];
+  mastery_score: number;
+}
+
+export interface ConceptMastery {
+  id: string;
+  user_id: string;
+  course_id: string;
+  concept_id: string;
+  mastery_score: number;
+  attempts: number;
+  correct_attempts: number;
+  last_practiced_at?: string;
+  trend: "improving" | "declining" | "stable";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuizQuestion {
+  concept_id: string;
+  concept_name: string;
+  difficulty: number;
+  question: string;
+  options: string[];
+  correct: number;
+  explanation: string;
+}
+
+export interface AdaptiveQuiz {
+  quiz_id: string | null;
+  course_id: string;
+  lesson_id: string;
+  mode: string;
+  questions: QuizQuestion[];
+  total_questions: number;
+  message?: string;
+}
+
+export interface QuizResult {
+  quiz_id: string;
+  score: number;
+  total_questions: number;
+  score_pct: number;
+  passed: boolean;
+  results: Array<{
+    question_index: number;
+    concept_id: string;
+    correct: boolean;
+    selected_answer: number;
+    correct_answer: number;
+    explanation: string;
+    mastery_delta?: number;
+  }>;
+  concept_results: Array<{
+    concept_id: string;
+    concept_name: string;
+    mastery_before: number;
+    mastery_after: number;
+    mastery_delta: number;
+    correct: boolean;
+  }>;
+  weak_concepts: Array<{
+    concept_id: string;
+    concept_name: string;
+    mastery_after: number;
+  }>;
+}
+
+export interface RecommendedLessonSequence {
+  lesson_id: string;
+  title: string;
+  order: number;
+  status: "normal" | "remedial" | "ready-to-skip";
+  weak_concepts: string[];
+  strong_concepts: string[];
+}
+
+export interface RecommendedCourseSequence {
+  course_id: string;
+  sequence: RecommendedLessonSequence[];
+}
+
+export interface AdminAdaptiveStats {
+  course_id: string;
+  total_concepts: number;
+  avg_difficulty: number;
+  concepts: Array<{
+    id: string;
+    name: string;
+    difficulty_base: number;
+    avg_mastery: number;
+    student_count: number;
+    tags: string[];
+  }>;
+}
+
 // Auto-generated types from OpenAPI schema (via openapi-typescript)
 export type { paths } from "./api";

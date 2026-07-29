@@ -92,6 +92,20 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
     "user_behavior_events": [
         IndexModel([("user_id", ASCENDING), ("event_type", ASCENDING), ("created_at", DESCENDING)], name="user_id_1_event_type_1_created_at_-1"),
     ],
+    "concept_definitions": [
+        IndexModel([("course_id", ASCENDING), ("is_active", ASCENDING)], name="course_id_1_is_active_1"),
+        IndexModel([("slug", ASCENDING)], name="slug_1", unique=True),
+        IndexModel([("tags", ASCENDING)], name="tags_1"),
+    ],
+    "concept_mastery": [
+        IndexModel([("user_id", ASCENDING), ("course_id", ASCENDING), ("concept_id", ASCENDING)], name="user_id_1_course_id_1_concept_id_1", unique=True),
+        IndexModel([("user_id", ASCENDING), ("course_id", ASCENDING)], name="user_id_1_course_id_1"),
+        IndexModel([("concept_id", ASCENDING)], name="concept_id_1"),
+    ],
+    "quiz_attempts": [
+        IndexModel([("user_id", ASCENDING), ("course_id", ASCENDING), ("created_at", DESCENDING)], name="user_id_1_course_id_1_created_at_-1"),
+        IndexModel([("user_id", ASCENDING), ("lesson_id", ASCENDING)], name="user_id_1_lesson_id_1"),
+    ],
 }
 
 
