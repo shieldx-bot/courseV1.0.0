@@ -5,6 +5,13 @@ from typing import Any
 from app.core.config import settings
 from app.core.dlq import push_to_dlq
 from app.core.worker import MAX_RETRIES, exponential_backoff
+from app.services.proactive_support import (
+    detect_checkout_drop,
+    detect_learning_stall,
+    detect_quiz_low_score,
+    detect_video_rewatch,
+    track_event,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -231,4 +238,29 @@ async def migrate_video_task(ctx: dict, lesson_id: str, drive_file_id: str, wate
             redis = ctx.get("redis")
             if redis:
                 await push_to_dlq(redis, "migrate_video_task", (lesson_id, drive_file_id, watermark_text), {}, str(exc), retry_count)
+        raise
+
+
+async def run_proactive_support_checks(ctx: dict) -> dict:
+    retry_count = ctx.get("job_try", 0)
+    try:
+        from app.db.mongodb import get_db
+        db = get_db()
+        users = await db.users.find().to_list(5000)
+        interventions = []
+        for user in users:
+            uid = user["_id"]
+            stall = await detect_learning_stall(uid)
+            if stall:
+                interventions.append({"user_id": uid, **stall})
+        return {"checked": len(users), "interventions": interventions}
+    except Exception as exc:
+        if retry_count < MAX_RETRIES:
+            delay = exponential_backoff(retry_count)
+            logger.warning("Proactive support checks failed (try %d), retrying in %ds: %s", retry_count + 1, delay, exc)
+        else:
+            logger.error("Proactive support checks exhausted retries: %s", exc)
+            redis = ctx.get("redis")
+            if redis:
+                await push_to_dlq(redis, "run_proactive_support_checks", (), {}, str(exc), retry_count)
         raise

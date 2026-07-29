@@ -15,7 +15,9 @@ from app.services.support_tickets import (
     rate_ticket,
     update_ticket_status,
     assign_ticket as assign_ticket_svc,
+    send_ticket_notification,
 )
+from app.services.support_ai import chat as support_ai_chat, get_chat_history as get_support_chat_history, clear_chat_history as clear_support_chat_history
 from app.services.knowledge_base import (
     get_article,
     search_articles,
@@ -88,6 +90,10 @@ async def create_ticket_endpoint(body: TicketIn, user=Depends(get_current_user))
     )
     result = {k: v for k, v in ticket.items() if k != "_id"}
     result["id"] = ticket["_id"]
+    try:
+        await send_ticket_notification(ticket["_id"], f"Your ticket has been created: {body.subject}")
+    except Exception:
+        pass
     return api_response(result)
 
 
@@ -128,6 +134,28 @@ async def rate_ticket_endpoint(ticket_id: str, body: SatisfactionIn, user=Depend
     result = {k: v for k, v in ticket.items() if k != "_id"}
     result["id"] = ticket["_id"]
     return api_response(result)
+
+
+class ChatIn(BaseModel):
+    message: str = Field(min_length=1, max_length=2000)
+
+
+@router.post("/chat")
+async def support_chat(body: ChatIn, user=Depends(get_current_user)):
+    result = await support_ai_chat(user_id=user["id"], question=body.message)
+    return api_response(result)
+
+
+@router.get("/chat/history")
+async def support_chat_history(user=Depends(get_current_user)):
+    history = await get_support_chat_history(user["id"])
+    return api_response(history)
+
+
+@router.delete("/chat/history")
+async def support_chat_clear(user=Depends(get_current_user)):
+    ok = await clear_support_chat_history(user["id"])
+    return api_response({"cleared": ok})
 
 
 # ── Admin ticket endpoints ───────────────────────────────────────────────────
@@ -201,6 +229,10 @@ async def admin_update_status(ticket_id: str, body: AdminTicketStatusIn, _=Depen
             sender_name="Admin",
             content=body.note,
         )
+    try:
+        await send_ticket_notification(ticket_id, f"Ticket status updated to: {body.status}")
+    except Exception:
+        pass
     result = {k: v for k, v in ticket.items() if k != "_id"}
     result["id"] = ticket["_id"]
     return api_response(result)

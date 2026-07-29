@@ -8,6 +8,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
+from app.core.config import settings
 from app.db.mongodb import get_db
 
 logger = logging.getLogger(__name__)
@@ -223,3 +224,66 @@ async def get_stats() -> dict[str, Any]:
         "avg_resolution_hours": avg_resolution_hours,
         "avg_satisfaction_rating": avg_rating,
     }
+
+
+SLA_HOURS = {"P1": 4, "P2": 24, "P3": 72}
+
+
+async def check_sla_breaches() -> list[dict[str, Any]]:
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    open_tickets = await db.support_tickets.find({
+        "status": {"$nin": ["resolved", "closed"]},
+    }).to_list(1000)
+
+    breached = []
+    for t in open_tickets:
+        created = t.get("created_at")
+        if not created:
+            continue
+        try:
+            created_dt = datetime.fromisoformat(created)
+            if created_dt.tzinfo is None:
+                created_dt = created_dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+
+        priority = t.get("priority", "P3")
+        sla_hours = SLA_HOURS.get(priority, 72)
+        age_hours = (now - created_dt).total_seconds() / 3600
+
+        if age_hours > sla_hours:
+            breached.append({
+                "ticket_id": t["_id"],
+                "subject": t.get("subject", ""),
+                "priority": priority,
+                "sla_hours": sla_hours,
+                "age_hours": round(age_hours, 1),
+                "user_id": t.get("user_id"),
+                "user_email": t.get("user_email"),
+            })
+
+    return breached
+
+
+async def send_ticket_notification(ticket_id: str, message: str) -> None:
+    db = get_db()
+    ticket = await get_ticket(ticket_id)
+    if not ticket:
+        return
+    user_email = ticket.get("user_email")
+    if not user_email:
+        return
+    subject = f"Ticket update: {ticket.get('subject', '')}"
+    body = (
+        f"Hi {ticket.get('user_name', '')},\n\n"
+        f"{message}\n\n"
+        f"Ticket ID: {ticket_id}\n"
+        f"View your tickets: {settings.frontend_url}/support/tickets\n\n"
+        f"Thanks,\nAscendly Support Team"
+    )
+    try:
+        from app.services.email import _send
+        _send(to=user_email, subject=subject, body=body)
+    except Exception as exc:
+        logger.warning("Failed to send ticket notification to %s: %s", user_email, exc)

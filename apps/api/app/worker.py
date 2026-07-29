@@ -17,6 +17,7 @@ from app.core.tasks import (
     send_batch_renewal_reminders_task,
     run_email_campaigns_task,
     migrate_video_task,
+    run_proactive_support_checks,
 )
 from app.core.worker import MAX_RETRIES, KEEP_RESULT_SECONDS, POLL_DELAY
 
@@ -39,6 +40,7 @@ class WorkerSettings:
         send_batch_renewal_reminders_task,
         run_email_campaigns_task,
         migrate_video_task,
+        run_proactive_support_checks,
     ]
     redis_settings = RedisSettings.from_dsn(settings.redis_url)
     max_retries = MAX_RETRIES
@@ -51,6 +53,7 @@ class WorkerSettings:
     cron_jobs = [
         cron(run_email_campaigns_task, hour=None, minute=30, _job_timeout=300),
         cron(run_analytics_task, hour=2, minute=0, _job_timeout=600),
+        cron(run_proactive_support_checks, hour=3, minute=0, _job_timeout=600),
     ]
 
 

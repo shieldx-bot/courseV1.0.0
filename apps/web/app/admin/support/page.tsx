@@ -88,8 +88,8 @@ export default function AdminSupportPage() {
             </p>
           </Card>
           <Card className="p-4">
-            <p className="text-sm text-neutral-600">Open tickets</p>
-            <p className="text-2xl font-semibold text-neutral-900">{stats.by_status?.open || 0}</p>
+            <p className="text-sm text-neutral-600">SLA breaches</p>
+            <p className="text-2xl font-semibold text-neutral-900">{stats.sla_breached_count || 0}</p>
           </Card>
         </div>
       )}

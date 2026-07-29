@@ -340,6 +340,12 @@ const apiClient = {
       typedRequest("post", "POST /support/tickets/{ticket_id}/messages" as any, { params: { ticket_id: ticketId }, body: body as any }),
     rateTicket: (ticketId: string, body: { rating: number }) =>
       typedRequest("post", "POST /support/tickets/{ticket_id}/satisfaction" as any, { params: { ticket_id: ticketId }, body: body as any }),
+    chat: (body: { message: string }) =>
+      typedRequest("post", "POST /support/chat" as any, { body: body as any }),
+    chatHistory: () =>
+      typedRequest("get", "GET /support/chat/history" as any),
+    clearChatHistory: () =>
+      typedRequest("delete", "DELETE /support/chat/history" as any),
   },
   help: {
     listArticles: (category?: string) =>

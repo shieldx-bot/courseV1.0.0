@@ -86,6 +86,12 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("slug", ASCENDING)], name="slug_1", unique=True),
         IndexModel([("tags", ASCENDING)], name="tags_1"),
     ],
+    "support_conversations": [
+        IndexModel([("user_id", ASCENDING)], name="user_id_1", unique=True),
+    ],
+    "user_behavior_events": [
+        IndexModel([("user_id", ASCENDING), ("event_type", ASCENDING), ("created_at", DESCENDING)], name="user_id_1_event_type_1_created_at_-1"),
+    ],
 }
 
 

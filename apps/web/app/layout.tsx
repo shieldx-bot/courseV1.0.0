@@ -10,6 +10,7 @@ import { PWAProvider } from "@/components/pwa-provider";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { InstallPrompt } from "@/components/install-prompt";
 import { UpdatePrompt } from "@/components/update-prompt";
+import { SupportChatWidget } from "@/components/support/SupportChatWidget";
 import { makeMetadata, SITE_URL } from "@/lib/metadata";
 
 export const metadata: Metadata = {
@@ -85,6 +86,7 @@ export default function RootLayout({
                 <OfflineIndicator />
                 <InstallPrompt />
                 <UpdatePrompt />
+                <SupportChatWidget />
               </PWAProvider>
             </ToastProvider>
           </ThemeProvider>
