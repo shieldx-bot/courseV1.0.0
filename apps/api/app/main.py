@@ -15,12 +15,24 @@ from app.core.response import api_response, error_response
 from app.db.mongodb import seed_db, get_db
 from app.db.indexes import create_indexes
 from app.db.seed_concepts import seed_concepts
-from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive, adaptive
+from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive, adaptive, community, tournaments
+from app.api.v1.enterprise import router as enterprise_router
+from app.api.v1.exams import router as exam_router
+from app.api.v1 import error_log as error_log_module
 from app.services.learning_paths import seed_learning_paths
 from app.services.r2_storage import r2_storage
 from app.services import search as search_service
 from app.core.telemetry import setup_telemetry
 from app.core.worker import get_redis_pool, close_redis_pool
+from app.core.error_logger import (
+    get_error_logger,
+    SOURCE_BACKEND,
+    LEVEL_WARNING,
+    LEVEL_ERROR,
+    CATEGORY_HTTP,
+    CATEGORY_VALIDATION,
+    CATEGORY_SYSTEM,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,16 +119,49 @@ app.add_middleware(SlowAPIMiddleware)
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    await get_error_logger().log(
+        source=SOURCE_BACKEND,
+        level=LEVEL_WARNING if exc.status_code < 500 else LEVEL_ERROR,
+        category=CATEGORY_HTTP,
+        error_type="HTTPException",
+        message=str(exc.detail),
+        url=request.url.path,
+        method=request.method,
+        status_code=exc.status_code,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     return error_response(str(exc.detail), exc.status_code)
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    await get_error_logger().log(
+        source=SOURCE_BACKEND,
+        level=LEVEL_WARNING,
+        category=CATEGORY_VALIDATION,
+        error_type="RequestValidationError",
+        message=str(exc.errors()),
+        url=request.url.path,
+        method=request.method,
+        status_code=422,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        context={"errors": exc.errors()},
+    )
     return error_response(str(exc.errors()), 422)
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
+    await get_error_logger().log_exception(
+        exc,
+        source=SOURCE_BACKEND,
+        url=request.url.path,
+        method=request.method,
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+    )
     logger.exception("Unhandled exception")
     return error_response("Internal server error", 500)
 
@@ -134,6 +179,8 @@ app.include_router(worker.router, prefix="/api/v1", tags=["worker"])
 app.include_router(learning_paths.router, prefix="/api/v1", tags=["learning-paths"])
 app.include_router(certificates.router, prefix="/api/v1", tags=["certificates"])
 app.include_router(discussions.router, prefix="/api/v1", tags=["discussions"])
+app.include_router(community.router, prefix="/api/v1/community", tags=["community"])
+app.include_router(tournaments.router, prefix="/api/v1/tournaments", tags=["tournaments"])
 app.include_router(ai_tutor.router, prefix="/api/v1", tags=["ai-tutor"])
 app.include_router(affiliate.router, prefix="/api/v1", tags=["affiliate"])
 app.include_router(quiz.router, prefix="/api/v1", tags=["quiz"])
@@ -146,6 +193,10 @@ app.include_router(proactive.router, prefix="/api/v1/proactive", tags=["proactiv
 app.include_router(proactive.admin_router, prefix="/api/v1/admin/proactive", tags=["admin-proactive"])
 app.include_router(adaptive.router, prefix="/api/v1/adaptive", tags=["adaptive"])
 app.include_router(adaptive.admin_router, prefix="/api/v1/admin/adaptive", tags=["admin-adaptive"])
+app.include_router(enterprise_router.router, prefix="/api/v1/enterprise", tags=["enterprise"])
+app.include_router(exam_router.router, prefix="/api/v1/exams", tags=["exams"])
+app.include_router(error_log_module.public_router, prefix="/api/v1")
+app.include_router(error_log_module.admin_router, prefix="/api/v1/admin")
 
 
 @app.get("/api/v1/health")

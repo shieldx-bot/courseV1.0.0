@@ -106,6 +106,18 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("user_id", ASCENDING), ("course_id", ASCENDING), ("created_at", DESCENDING)], name="user_id_1_course_id_1_created_at_-1"),
         IndexModel([("user_id", ASCENDING), ("lesson_id", ASCENDING)], name="user_id_1_lesson_id_1"),
     ],
+    "error_logs": [
+        IndexModel([("timestamp", DESCENDING)], name="timestamp_-1"),
+        IndexModel([("source", ASCENDING), ("timestamp", DESCENDING)], name="source_1_timestamp_-1"),
+        IndexModel([("level", ASCENDING), ("timestamp", DESCENDING)], name="level_1_timestamp_-1"),
+        IndexModel([("fingerprint", ASCENDING)], name="fingerprint_1"),
+        IndexModel([("user_id", ASCENDING), ("timestamp", DESCENDING)], name="user_id_1_timestamp_-1"),
+        IndexModel([("resolved", ASCENDING), ("timestamp", DESCENDING)], name="resolved_1_timestamp_-1"),
+        IndexModel([("category", ASCENDING)], name="category_1"),
+        IndexModel([("service", ASCENDING)], name="service_1"),
+        IndexModel([("environment", ASCENDING)], name="environment_1"),
+        IndexModel([("id", ASCENDING)], name="id_1", unique=True),
+    ],
 }
 
 

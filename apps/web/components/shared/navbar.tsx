@@ -11,6 +11,7 @@ import { useTheme } from "@/components/theme-provider";
 const links = [
   { href: "/courses", label: "Courses" },
   { href: "/learning-paths", label: "Paths" },
+  { href: "/tournaments", label: "Arena" },
   { href: "/membership", label: "Membership" },
   { href: "/pricing", label: "Pricing" },
   { href: "/reviews", label: "Reviews" },

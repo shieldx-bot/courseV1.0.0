@@ -1,22 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MasteryRadar, type ConceptMastery } from "@/components/adaptive/MasteryRadar";
-import { ConceptCard } from "@/components/adaptive/ConceptCard";
 import { adaptiveClient } from "@/lib/adaptive-client";
-import { Button } from "@/components/ui/button";
+import { MasteryRadar } from "@/components/adaptive/MasteryRadar";
+import { ConceptCard } from "@/components/adaptive/ConceptCard";
 
-type ConceptWithMastery = ConceptMastery & {
-  description?: string;
-  lesson_ids?: string[];
-  prerequisite_concepts?: string[];
+type ConceptWithMastery = {
+  id: string;
+  course_id: string;
+  name: string;
+  mastery_score: number;
+  trend?: "improving" | "declining" | "stable";
 };
 
 export default function MasteryDashboard({ params }: { params: { course: string } }) {
   const [concepts, setConcepts] = useState<ConceptWithMastery[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [remediationConcepts, setRemediationConcepts] = useState<ConceptMastery[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,7 +27,6 @@ export default function MasteryDashboard({ params }: { params: { course: string 
         if (!cancelled) {
           const sorted = (data || []).sort((a, b) => (a.mastery_score ?? 0) - (b.mastery_score ?? 0));
           setConcepts(sorted);
-          setRemediationConcepts(sorted.filter((c) => (c.mastery_score ?? 0) < 3));
         }
       })
       .catch((e) => {
@@ -54,7 +53,7 @@ export default function MasteryDashboard({ params }: { params: { course: string 
     <div className="mx-auto max-w-4xl px-4 py-10">
       <h1 className="text-2xl font-semibold">Concept Mastery</h1>
       <p className="mt-1 text-sm text-neutral-600">
-        Course: {params.course} • {concepts.length} concepts tracked
+        Course: {params.course} • {concepts.length} concepts
       </p>
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
@@ -65,7 +64,7 @@ export default function MasteryDashboard({ params }: { params: { course: string 
               concepts={concepts.map((c) => ({
                 id: c.id,
                 name: c.name,
-                mastery_score: c.mastery_score,
+                mastery_score: c.mastery_score ?? 0,
                 trend: c.trend,
               }))}
               size={320}
@@ -74,13 +73,21 @@ export default function MasteryDashboard({ params }: { params: { course: string 
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-medium">Weak Concepts</h2>
+          <h2 className="text-lg font-medium">Concepts</h2>
           <div className="space-y-3">
-            {remediationConcepts.length === 0 && (
-              <p className="text-sm text-neutral-600">No weak concepts — keep it up!</p>
+            {concepts.length === 0 && (
+              <p className="text-sm text-neutral-600">No concepts yet.</p>
             )}
-            {remediationConcepts.map((concept) => (
-              <ConceptCard key={concept.id} concept={concept} />
+            {concepts.map((concept) => (
+              <ConceptCard
+                key={concept.id}
+                concept={{
+                  id: concept.id,
+                  name: concept.name,
+                  mastery_score: concept.mastery_score,
+                  trend: concept.trend,
+                }}
+              />
             ))}
           </div>
         </div>

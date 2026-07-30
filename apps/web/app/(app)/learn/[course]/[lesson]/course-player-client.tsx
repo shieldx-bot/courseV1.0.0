@@ -11,6 +11,7 @@ import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { WatermarkOverlay } from "@/components/shared/watermark-overlay";
 import { Course, Lesson, Progress, Subscription } from "@/types";
+import { adaptiveClient } from "@/lib/adaptive-client";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import { DiscussionTab } from "@/components/learn/DiscussionTab";
@@ -77,6 +78,22 @@ export function CoursePlayerClient({
   const isSubscriber = user?.role === "admin" || subscription?.status === "active";
 
   const [activeTab, setActiveTab] = useState<"notes" | "discussion" | "ai-tutor" | "code-assistant">("notes");
+  const [sequenceStatus, setSequenceStatus] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!user?.id || !course?.id) return;
+    adaptiveClient.getRecommendedSequence(course.id)
+      .then((data) => {
+        const map: Record<string, string> = {};
+        (data?.sequence || []).forEach((item: any) => {
+          if (item.lesson_id && !item.is_synthetic) {
+            map[item.lesson_id] = item.status;
+          }
+        });
+        setSequenceStatus(map);
+      })
+      .catch(() => {});
+  }, [user?.id, course?.id]);
 
   useEffect(() => {
     if (!current || !hasAccess(currentIndex)) return;
@@ -172,6 +189,16 @@ export function CoursePlayerClient({
     const pos = videoRef.current ? Math.floor(videoRef.current.currentTime) : 0;
     updateProgress(true, pos);
     toast("Lesson marked as complete", "success");
+  };
+
+  const skipCurrentLesson = async (lessonId: string) => {
+    try {
+      await adaptiveClient.skipLesson(course.id, lessonId);
+      setProgress((prev) => ({ ...prev, [lessonId]: { ...(prev[lessonId] || { lesson_id: lessonId }), skipped: true, mastery_skip: true } }));
+      toast("Lesson skipped", "success");
+    } catch {
+      toast("Unable to skip this lesson", "error");
+    }
   };
 
   if (loading) return <p className="py-20 text-center text-neutral-600">Loading course...</p>;
@@ -329,6 +356,12 @@ export function CoursePlayerClient({
                   <FileCode className="h-4 w-4 mr-2" />
                   Code Assistant
                 </Button>
+                <Link href="/ide">
+                  <Button variant="ghost" className="text-sm">
+                    <FileCode className="h-4 w-4 mr-2" />
+                    IDE
+                  </Button>
+                </Link>
               </div>
 
               {activeTab === "notes" && (
@@ -380,24 +413,38 @@ export function CoursePlayerClient({
               {course.syllabus.map((l, idx) => {
                 const locked = isLocked(l);
                 const completed = progress[l.id]?.completed;
-                const progressPct = !locked && !completed && l.duration_seconds > 0 && (progress[l.id]?.last_position_seconds ?? 0) > 0
+                const skipped = progress[l.id]?.skipped || progress[l.id]?.mastery_skip;
+                const seqStatus = sequenceStatus[l.id];
+                const progressPct = !locked && !completed && !skipped && l.duration_seconds > 0 && (progress[l.id]?.last_position_seconds ?? 0) > 0
                   ? Math.min(100, Math.round(((progress[l.id]?.last_position_seconds ?? 0) / l.duration_seconds) * 100))
                   : 0;
                 return (
                   <li key={l.id}>
                     <button
-                      onClick={() => goToLesson(l)}
-                      disabled={locked}
+                      onClick={() => skipped ? undefined : goToLesson(l)}
+                      disabled={locked || skipped}
                       className={cn(
                         "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors",
                         locked && "text-neutral-400 cursor-not-allowed",
-                        !locked && l.id === params.lesson && "bg-accent-100 font-medium text-accent-600",
-                        !locked && l.id !== params.lesson && "text-neutral-900 hover:bg-neutral-100"
+                        skipped && "text-neutral-400 line-through",
+                        !locked && !skipped && l.id === params.lesson && "bg-accent-100 font-medium text-accent-600",
+                        !locked && !skipped && l.id !== params.lesson && "text-neutral-900 hover:bg-neutral-100"
                       )}
                     >
                       <span className="truncate">{idx + 1}. {l.title}</span>
-                      {completed ? <Check className="h-4 w-4 shrink-0 text-success" /> : locked ? <Lock className="h-4 w-4 shrink-0 text-neutral-300" /> : null}
+                      {skipped ? (
+                      <span className="text-[10px] uppercase text-neutral-400">Skipped</span>
+                    ) : seqStatus === "ready-to-skip" ? (
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => skipCurrentLesson(l.id)}>Skip</Button>
+                    ) : completed ? (
+                      <Check className="h-4 w-4 shrink-0 text-success" />
+                    ) : locked ? (
+                      <Lock className="h-4 w-4 shrink-0 text-neutral-300" />
+                    ) : null}
                     </button>
+                    {seqStatus === "remedial" && !skipped && (
+                      <div className="mx-3 mt-1 text-[10px] uppercase text-amber-700">Remedial focus</div>
+                    )}
                     {progressPct > 0 && (
                       <div className="mx-3 mb-1 h-1 overflow-hidden rounded-full bg-neutral-100">
                         <div className="h-full rounded-full bg-accent-500 transition-all" style={{ width: `${progressPct}%` }} />

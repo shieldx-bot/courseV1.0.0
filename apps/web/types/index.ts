@@ -91,6 +91,8 @@ export interface Progress {
   completed: boolean;
   last_position_seconds: number;
   note?: string;
+  skipped?: boolean;
+  mastery_skip?: boolean;
   updated_at: string;
 }
 
@@ -360,6 +362,13 @@ export interface RecommendedLessonSequence {
 export interface RecommendedCourseSequence {
   course_id: string;
   sequence: RecommendedLessonSequence[];
+}
+
+export interface AdminPrerequisiteGap {
+  concept_id: string;
+  concept_name: string;
+  weak_prerequisites: string[];
+  suggestion: string;
 }
 
 export interface AdminAdaptiveStats {

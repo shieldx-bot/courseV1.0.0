@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { RemedialPanel } from "./RemedialPanel";
 
 export type QuizQuestion = {
   concept_id: string;
@@ -110,7 +111,8 @@ export function AdaptiveQuiz({ courseId, lessonId, userId }: AdaptiveQuizProps) 
   }
 
   if (result) {
-    const conceptMap = new Map(result.concept_results.map(cr => [cr.concept_id, cr]));
+    const weakest = result.weak_concepts[0] || result.concept_results.find((cr) => !cr.correct);
+
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-neutral-200 p-4">
@@ -137,6 +139,14 @@ export function AdaptiveQuiz({ courseId, lessonId, userId }: AdaptiveQuizProps) 
             </div>
           ))}
         </div>
+
+        {weakest && (
+          <RemedialPanel
+            courseId={courseId}
+            conceptId={weakest.concept_id}
+            conceptName={weakest.concept_name}
+          />
+        )}
 
         <div className="flex gap-2">
           <Button onClick={loadQuiz} disabled={loading}>Try again</Button>

@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     # Security
     allowed_hosts: list[str] = ["localhost", "127.0.0.1", "*.ascendly.io"]
 
+    # Error Logging
+    error_log_dir: str = "logs/errors"
+    error_log_max_file_size_mb: int = 100
+    error_log_retention_days: int = 30
+    error_log_to_mongodb: bool = True
+
     # Dev/test bypass for subscription checks on video streaming
     bypass_subscription_check: bool = False
 

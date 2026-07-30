@@ -58,6 +58,28 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
             },
         )
 
+        # Log 5xx responses as errors to error logger
+        if status >= 500:
+            try:
+                from app.core.error_logger import get_error_logger, SOURCE_BACKEND, LEVEL_ERROR, CATEGORY_HTTP
+                import asyncio
+                # Fire-and-forget: don't await to avoid blocking response
+                asyncio.create_task(get_error_logger().log(
+                    source=SOURCE_BACKEND,
+                    level=LEVEL_ERROR,
+                    category=CATEGORY_HTTP,
+                    error_type="HTTP5xx",
+                    message=f"HTTP {status} error",
+                    url=path,
+                    method=method,
+                    status_code=status,
+                    ip_address=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent"),
+                ))
+            except Exception:
+                # Don't let logging errors break the response
+                pass
+
         return response
 
 
