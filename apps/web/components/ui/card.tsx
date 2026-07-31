@@ -18,14 +18,15 @@ export function Card({
   clickable = false,
   onClick,
 }: CardProps) {
-    const baseClasses = "bg-white border border-neutral-200 rounded-xl shadow-sm transition-all duration-200 ease-out elevation-1 hover:elevation-2 dark:bg-slate-900 dark:border-slate-800";
+  // Premium card base styles with enhanced shadows and transitions
+  const baseClasses = "bg-neutral-0 border border-neutral-200 rounded-xl shadow-sm transition-all duration-300 ease-out elevation-1 hover:elevation-3 dark:bg-neutral-900 dark:border-neutral-800";
 
   const hoverClasses = hoverEffect
-    ? "hover:shadow-xl hover:shadow-slate-900/20 hover:translate-y-[-2px] hover:border-slate-700"
+    ? "hover:shadow-xl hover:shadow-primary-900/10 hover:-translate-y-1 hover:border-primary-300 dark:hover:border-primary-700 cursor-pointer"
     : "";
 
   const clickableClasses = clickable
-    ? "cursor-pointer active:translate-y-px active:shadow-lg"
+    ? "cursor-pointer active:translate-y-px active:shadow-md"
     : "";
 
   return (
@@ -45,7 +46,7 @@ interface CardHeaderProps {
 
 export function CardHeader({ children, className }: CardHeaderProps) {
   return (
-    <div className={cn("px-6 pt-6 pb-4 border-b border-neutral-200 dark:border-slate-800", className)}>
+    <div className={cn("px-6 pt-6 pb-4 border-b border-neutral-200 dark:border-neutral-800", className)}>
       {children}
     </div>
   );
@@ -58,7 +59,7 @@ interface CardTitleProps {
 
 export function CardTitle({ children, className }: CardTitleProps) {
   return (
-    <h3 className={cn("text-lg font-bold text-neutral-900 truncate dark:text-slate-100", className)}>
+    <h3 className={cn("text-lg font-bold text-neutral-900 truncate dark:text-neutral-100", className)}>
       {children}
     </h3>
   );
@@ -71,7 +72,7 @@ interface CardDescriptionProps {
 
 export function CardDescription({ children, className }: CardDescriptionProps) {
   return (
-    <p className={cn("text-sm text-neutral-600 mt-1 dark:text-slate-400", className)}>
+    <p className={cn("text-sm text-neutral-600 mt-1 dark:text-neutral-400", className)}>
       {children}
     </p>
   );
@@ -97,7 +98,7 @@ interface CardFooterProps {
 
 export function CardFooter({ children, className }: CardFooterProps) {
   return (
-    <div className={cn("px-6 py-4 border-t border-neutral-200 dark:border-slate-800", className)}>
+    <div className={cn("px-6 py-4 border-t border-neutral-200 dark:border-neutral-800", className)}>
       {children}
     </div>
   );
@@ -121,9 +122,9 @@ export function StatCard({
   className,
 }: StatCardProps) {
   const trendColors = {
-    up: "text-emerald-400",
-    down: "text-rose-400",
-    neutral: "text-slate-400",
+    up: "text-emerald-500",
+    down: "text-rose-500",
+    neutral: "text-neutral-400",
   };
 
   const trendIcons = {
@@ -136,13 +137,13 @@ export function StatCard({
     <Card className={cn("p-6 hoverEffect", className)}>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-neutral-600 font-medium dark:text-slate-400">{title}</p>
-          <p className="text-3xl font-bold text-neutral-900 mt-1 font-mono dark:text-slate-100">
+          <p className="text-sm text-neutral-600 font-medium dark:text-neutral-400">{title}</p>
+          <p className="text-3xl font-bold text-neutral-900 mt-1 font-mono dark:text-neutral-100">
             {value}
           </p>
         </div>
         {icon && (
-          <div className="w-12 h-12 bg-neutral-100 rounded-lg flex items-center justify-center dark:bg-slate-800">
+          <div className="w-12 h-12 bg-neutral-100 rounded-lg flex items-center justify-center dark:bg-neutral-800">
             {icon}
           </div>
         )}

@@ -1,26 +1,84 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ============================================
+   PREMIUM DESIGN SYSTEM - CSS Custom Properties
+   Inspired by Apple, Stripe, and Spotify
+   ============================================ */
 
 :root {
+  /* Brand Colors - Premium Blue Palette */
+  --primary-900: #0F1F33;
+  --primary-800: #1A2F4A;
+  --primary-700: #1E3A5F;
+  --primary-600: #254A7F;
+  --primary-500: #2E5A8F;
+  --primary-400: #4A6B9F;
+  --primary-300: #6A8BCF;
+  --primary-200: #8AB0DF;
+  --primary-100: #E4ECF5;
+  --primary-50: #F2F5FA;
+  
+  /* Accent Colors - Warm Amber */
+  --accent-600: #D68A0E;
+  --accent-500: #F5A623;
+  --accent-400: #FFB84D;
+  --accent-100: #FDF0DA;
+  
+  /* Neutral Colors - Sophisticated Grays */
+  --neutral-900: #1A1A18;
+  --neutral-800: #2D2D2A;
+  --neutral-700: #41403C;
+  --neutral-600: #5F5E5A;
+  --neutral-500: #7D7C78;
+  --neutral-400: #9B9A96;
+  --neutral-300: #B4B2A9;
+  --neutral-200: #D1D0CA;
+  --neutral-100: #F1EFE8;
+  --neutral-50: #F9F8F6;
+  --neutral-0: #FFFFFF;
+  
+  /* Semantic Colors */
+  --success: #3B6D11;
+  --success-light: #4CAF50;
+  --warning: #854F0B;
+  --warning-light: #F59E0B;
+  --error: #A32D2D;
+  --error-light: #EF4444;
+  
+  /* Base */
   --bg: #FFFFFF;
   --fg: #1A1A18;
-  --primary-700: #1E3A5F;
-  --accent-500: #F5A623;
-  --neutral-100: #F1EFE8;
+  
+  /* Elevation Shadows */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.10);
+  --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.12);
+  --shadow-2xl: 0 24px 48px rgba(0, 0, 0, 0.15);
+  
+  /* Focus Ring */
+  --focus-ring: 0 0 0 3px rgba(245, 166, 35, 0.4);
 }
 
 .dark {
   --bg: #0F1F33;
   --fg: #F1EFE8;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 16px 32px rgba(0, 0, 0, 0.6);
+  --shadow-2xl: 0 24px 48px rgba(0, 0, 0, 0.7);
 }
 
 body {
   background-color: var(--bg);
   color: var(--fg);
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 @layer utilities {

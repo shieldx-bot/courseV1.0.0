@@ -21,11 +21,21 @@ const links = [
 
 export function Navbar() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const pathname = usePathname();
   const menuRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+
+  // Detect scroll for navbar elevation
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 10);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -62,16 +72,32 @@ export function Navbar() {
   }, [open, close]);
 
   return (
-    <header className="sticky top-0 z-50 bg-primary-700 text-white">
+    <header 
+      className={`sticky top-0 z-50 transition-all duration-300 ease-out ${
+        scrolled 
+          ? "bg-primary-900/95 backdrop-blur-md shadow-lg elevation-2" 
+          : "bg-primary-700"
+      }`}
+    >
       <nav className="mx-auto flex max-w-page items-center justify-between px-6 py-4">
-        <Link href="/" className="text-xl font-semibold tracking-tight">
+        <Link 
+          href="/" 
+          className="text-xl font-bold tracking-tight text-white hover:text-neutral-100 transition-colors"
+        >
           Ascendly
         </Link>
 
         <ul className="hidden items-center gap-8 md:flex">
           {links.map((l) => (
             <li key={l.href}>
-              <Link href={l.href} className="text-sm text-neutral-100 hover:text-white">
+              <Link 
+                href={l.href} 
+                className={`text-sm font-medium transition-colors ${
+                  pathname === l.href 
+                    ? "text-white" 
+                    : "text-neutral-200 hover:text-white"
+                }`}
+              >
                 {l.label}
               </Link>
             </li>
@@ -81,7 +107,7 @@ export function Navbar() {
         <div className="hidden items-center gap-3 md:flex">
           <button
             onClick={toggle}
-            className="rounded-md p-2 hover:bg-white/10"
+            className="rounded-lg p-2 text-neutral-200 hover:bg-white/10 hover:text-white transition-all duration-200"
             aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
           >
             {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
@@ -122,7 +148,7 @@ export function Navbar() {
 
         <button
           ref={toggleRef}
-          className="md:hidden"
+          className="md:hidden text-white"
           onClick={() => setOpen(!open)}
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
@@ -148,29 +174,41 @@ export function Navbar() {
           open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
         }`}
       >
-        <div className="overflow-hidden min-h-0 border-t border-white/10 px-6 pb-4">
+        <div className="overflow-hidden min-h-0 border-t border-white/10 px-6 pb-4 bg-primary-800">
           <ul className="flex flex-col gap-4 pt-4">
             {links.map((l) => (
               <li key={l.href}>
-                <Link href={l.href}>{l.label}</Link>
+                <Link 
+                  href={l.href}
+                  className={`block py-2 ${
+                    pathname === l.href 
+                      ? "text-white font-semibold" 
+                      : "text-neutral-200"
+                  }`}
+                >
+                  {l.label}
+                </Link>
               </li>
             ))}
             <li>
-              <button onClick={toggle} className="flex items-center gap-2">
+              <button 
+                onClick={toggle} 
+                className="flex items-center gap-2 text-neutral-200 py-2"
+              >
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 {theme === "dark" ? "Light mode" : "Dark mode"}
               </button>
             </li>
             {user ? (
               <>
-                <li><Link href="/account">Account</Link></li>
-                {user.role === "admin" && <li><Link href="/admin">Admin</Link></li>}
-                <li><button onClick={logout}>Log out</button></li>
+                <li><Link href="/account" className="block py-2 text-neutral-200">Account</Link></li>
+                {user.role === "admin" && <li><Link href="/admin" className="block py-2 text-neutral-200">Admin</Link></li>}
+                <li><button onClick={logout} className="block py-2 text-neutral-200">Log out</button></li>
               </>
             ) : (
               <>
-                <li><Link href="/login">Log in</Link></li>
-                <li><Link href="/pricing" className="text-accent-500">Start learning</Link></li>
+                <li><Link href="/login" className="block py-2 text-neutral-200">Log in</Link></li>
+                <li><Link href="/pricing" className="block py-2 text-accent-500 font-semibold">Start learning</Link></li>
               </>
             )}
           </ul>
