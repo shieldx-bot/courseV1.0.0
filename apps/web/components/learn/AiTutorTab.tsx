@@ -117,7 +117,7 @@ export function AiTutorTab({ courseId, lessonId }: AiTutorTabProps) {
         };
         return updated;
       });
-      toast("Failed to get AI response", "error");
+      toast("Failed to get AI response", { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -135,9 +135,9 @@ export function AiTutorTab({ courseId, lessonId }: AiTutorTabProps) {
         }
       );
       setMessages([]);
-      toast("History cleared", "success");
+      toast("History cleared", { type: "success" });
     } catch {
-      toast("Failed to clear history", "error");
+      toast("Failed to clear history", { type: "error" });
     }
   };
 

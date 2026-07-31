@@ -19,7 +19,7 @@ export function RepeatedCTA({
       <div className="mx-auto max-w-page px-6">
         <h3 className="text-xl font-semibold text-primary-900 dark:text-white">{title}</h3>
         <Link href={href} className="mt-4 inline-block">
-          <Button size="lg" variant={variant} className={variant === "primary" ? "bg-accent-500 text-white hover:bg-accent-600" : ""} data-ab-variant="cta-repeated">
+          <Button size="lg" variant={variant === "primary" ? "checkout" : "secondary"} data-ab-variant="cta-repeated">
             {buttonText}
           </Button>
         </Link>

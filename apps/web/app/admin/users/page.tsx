@@ -71,7 +71,7 @@ export default function AdminUsers() {
         method: "POST",
         body: JSON.stringify({ tier_id: override.tier_id, duration_months: Number(override.duration_months) }),
       });
-      toast("Subscription granted", "success");
+      toast("Subscription granted", { type: "success" });
     } catch (e: any) {
       setError(e.message);
     }
@@ -81,7 +81,7 @@ export default function AdminUsers() {
     setError("");
     try {
       await apiFetch(`/admin/users/${userId}/subscription`, { method: "DELETE" });
-      toast("Subscription canceled", "success");
+      toast("Subscription canceled", { type: "success" });
     } catch (e: any) {
       setError(e.message);
     }

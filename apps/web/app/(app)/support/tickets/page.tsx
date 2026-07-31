@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { TicketCard } from "@/components/support/TicketDashboard";
+import { useToast } from "@/components/ui/toast";
 
 const CATEGORIES = ["billing", "technical", "content", "account", "other"];
 
@@ -18,6 +19,7 @@ export default function SupportTicketsPage() {
   const [message, setMessage] = useState("");
   const [category, setCategory] = useState("other");
   const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
 
   async function load() {
     setLoading(true);
@@ -29,10 +31,15 @@ export default function SupportTicketsPage() {
       setTickets(json.data || []);
     } catch (e: any) {
       setError(e.message);
+      toast(e.message, { type: "error" });
     } finally {
       setLoading(false);
     }
   }
+
+  useEffect(() => {
+    load();
+  }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,9 +56,11 @@ export default function SupportTicketsPage() {
       setSubject("");
       setMessage("");
       setShowForm(false);
+      toast("Ticket submitted successfully!", { type: "success" });
       await load();
     } catch (e: any) {
       setError(e.message);
+      toast(e.message, { type: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -81,10 +90,14 @@ export default function SupportTicketsPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700">Subject</label>
-              <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Brief summary" required />
-            </div>
+            <Input
+              label="Subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="Brief summary"
+              required
+              error={error}
+            />
             <div>
               <label className="block text-sm font-medium text-neutral-700">Message</label>
               <Textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Describe your issue..." rows={5} required />
@@ -97,7 +110,10 @@ export default function SupportTicketsPage() {
         {loading ? (
           <p className="text-neutral-600">Loading...</p>
         ) : tickets.length === 0 ? (
-          <p className="text-neutral-600">No tickets yet.</p>
+          <Card className="p-8 text-center text-neutral-600">
+            <p className="text-lg font-medium">No tickets yet</p>
+            <p className="text-sm mt-1">Create your first support ticket above.</p>
+          </Card>
         ) : (
           <ul className="space-y-4">
             {tickets.map((t) => (

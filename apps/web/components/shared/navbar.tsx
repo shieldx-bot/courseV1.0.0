@@ -100,7 +100,7 @@ export function Navbar() {
                   </Button>
                 </Link>
               )}
-              <Button variant="primary" className="bg-accent-500 text-white hover:bg-accent-600" onClick={logout}>
+              <Button variant="danger" onClick={logout}>
                 Log out
               </Button>
             </>
@@ -112,7 +112,7 @@ export function Navbar() {
                 </Button>
               </Link>
               <Link href="/pricing">
-                <Button variant="primary" className="bg-accent-500 text-white hover:bg-accent-600">
+                <Button variant="checkout">
                   Start learning
                 </Button>
               </Link>
@@ -131,13 +131,13 @@ export function Navbar() {
         </button>
       </nav>
 
-      <div
-        className={`fixed inset-0 z-40 bg-black/50 md:hidden transition-opacity duration-300 ease-in-out ${
-          open ? "opacity-100" : "opacity-0 pointer-events-none"
-        }`}
-        onClick={close}
-        aria-hidden="true"
-      />
+       {open && (
+         <div
+           className="fixed inset-0 z-40 bg-black/50 md:hidden transition-opacity duration-300 ease-in-out opacity-100"
+           onClick={close}
+           aria-hidden="true"
+         />
+       )}
 
       <div
         ref={menuRef}

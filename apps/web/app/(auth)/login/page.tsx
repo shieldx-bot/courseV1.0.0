@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { GoogleLogin } from "@react-oauth/google";
+import { useToast } from "@/components/ui/toast";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const router = useRouter();
   const { login } = useAuth();
+  const { toast } = useToast();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,9 +25,11 @@ export default function LoginPage() {
     try {
       const data = await apiClient.auth.login({ email, password });
       login(data.user);
+      toast("Welcome back!", { type: "success" });
       router.push("/learn");
     } catch (err: any) {
       setError(err.message);
+      toast(err.message, { type: "error" });
     }
   };
 
@@ -34,9 +38,11 @@ export default function LoginPage() {
     try {
       const data = await apiClient.auth.googleLogin({ token: credentialResponse.credential });
       login(data.user);
+      toast("Welcome back!", { type: "success" });
       router.push("/learn");
     } catch (err: any) {
       setError(err.message);
+      toast(err.message, { type: "error" });
     }
   };
 
@@ -45,15 +51,24 @@ export default function LoginPage() {
       <Card className="w-full max-w-md p-8">
         <h1 className="text-2xl font-semibold text-primary-900">Log in</h1>
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="login-email" className="block text-sm font-medium text-neutral-900">Email</label>
-            <Input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </div>
-          <div>
-            <label htmlFor="login-password" className="block text-sm font-medium text-neutral-900">Password</label>
-            <Input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </div>
-          {error && <p className="text-sm text-error" role="alert">{error}</p>}
+          <Input
+            id="login-email"
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            error={error}
+          />
+          <Input
+            id="login-password"
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            error={error}
+          />
           <Button type="submit" className="w-full">Log in</Button>
         </form>
 

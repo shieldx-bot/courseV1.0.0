@@ -48,7 +48,7 @@ export function DiscussionTab({ courseId, lessonId, courseSlug }: DiscussionTabP
       }
       setHasMore(page < data.total_pages);
     } catch (e) {
-      toast("Failed to load discussions", "error");
+      toast("Failed to load discussions", { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -70,9 +70,9 @@ export function DiscussionTab({ courseId, lessonId, courseSlug }: DiscussionTabP
       setDiscussions(prev => [discussion, ...prev]);
       setNewDiscussionTitle("");
       setNewDiscussionContent("");
-      toast("Discussion created", "success");
+      toast("Discussion created", { type: "success" });
     } catch (e) {
-      toast("Failed to create discussion", "error");
+      toast("Failed to create discussion", { type: "error" });
     } finally {
       setCreating(false);
     }
@@ -83,7 +83,7 @@ export function DiscussionTab({ courseId, lessonId, courseSlug }: DiscussionTabP
       const updated = await apiClient.discussions.vote(courseId, lessonId, discussionId, vote);
       setDiscussions(prev => prev.map(d => d.id === discussionId ? updated : d));
     } catch (e) {
-      toast("Failed to vote", "error");
+      toast("Failed to vote", { type: "error" });
     }
   };
 
@@ -92,7 +92,7 @@ export function DiscussionTab({ courseId, lessonId, courseSlug }: DiscussionTabP
       const data = await apiClient.discussions.listReplies(courseId, lessonId, discussionId);
       setReplies(prev => ({ ...prev, [discussionId]: data.items }));
     } catch (e) {
-      toast("Failed to load replies", "error");
+      toast("Failed to load replies", { type: "error" });
     }
   };
 
@@ -124,9 +124,9 @@ export function DiscussionTab({ courseId, lessonId, courseSlug }: DiscussionTabP
       ));
       setReplyContent(prev => ({ ...prev, [discussionId]: "" }));
       setReplyingTo(null);
-      toast("Reply posted", "success");
+      toast("Reply posted", { type: "success" });
     } catch (e) {
-      toast("Failed to post reply", "error");
+      toast("Failed to post reply", { type: "error" });
     }
   };
 
@@ -138,7 +138,7 @@ export function DiscussionTab({ courseId, lessonId, courseSlug }: DiscussionTabP
         [discussionId]: prev[discussionId]?.map(r => r.id === replyId ? updated : r) || [],
       }));
     } catch (e) {
-      toast("Failed to vote", "error");
+      toast("Failed to vote", { type: "error" });
     }
   };
 

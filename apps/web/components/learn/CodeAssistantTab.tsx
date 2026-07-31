@@ -87,7 +87,7 @@ export function CodeAssistantTab({
 
   const handleGenerate = async () => {
     if (!task.trim()) {
-      toast("Please describe what you want to build", "error");
+      toast("Please describe what you want to build", { type: "error" });
       return;
     }
 
@@ -102,7 +102,7 @@ export function CodeAssistantTab({
       });
       setResult(response.explanation || response.code || "No response");
     } catch (error: any) {
-      toast(error.message || "Code generation failed", "error");
+      toast(error.message || "Code generation failed", { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -110,7 +110,7 @@ export function CodeAssistantTab({
 
   const handleExplain = async () => {
     if (!codeToExplain.trim()) {
-      toast("Please paste code to explain", "error");
+      toast("Please paste code to explain", { type: "error" });
       return;
     }
 
@@ -124,7 +124,7 @@ export function CodeAssistantTab({
       });
       setResult(response.explanation || "No explanation returned");
     } catch (error: any) {
-      toast(error.message || "Code explanation failed", "error");
+      toast(error.message || "Code explanation failed", { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -132,7 +132,7 @@ export function CodeAssistantTab({
 
   const handleReview = async () => {
     if (!codeToReview.trim()) {
-      toast("Please paste code to review", "error");
+      toast("Please paste code to review", { type: "error" });
       return;
     }
 
@@ -146,7 +146,7 @@ export function CodeAssistantTab({
       });
       setResult(response.review || "No review returned");
     } catch (error: any) {
-      toast(error.message || "Code review failed", "error");
+      toast(error.message || "Code review failed", { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -154,7 +154,7 @@ export function CodeAssistantTab({
 
   const handleDebug = async () => {
     if (!codeToDebug.trim() || !errorMessage.trim()) {
-      toast("Please provide both code and error message", "error");
+      toast("Please provide both code and error message", { type: "error" });
       return;
     }
 
@@ -169,7 +169,7 @@ export function CodeAssistantTab({
       });
       setResult(response.debug_help || "No debug help returned");
     } catch (error: any) {
-      toast(error.message || "Debug help failed", "error");
+      toast(error.message || "Debug help failed", { type: "error" });
     } finally {
       setLoading(false);
     }

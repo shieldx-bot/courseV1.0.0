@@ -232,22 +232,22 @@ export function Terminal({
     []
   );
 
-  const handleDragMove = useCallback(
-    (clientY: number) => {
-      if (!isDragging) return;
-      const delta = dragStartY - clientY;
-      const newHeight = Math.max(80, dragStartHeight + delta);
-      const sizes: string[] = ["small", "medium", "large"];
-      const closest = sizes.reduce((a, b) =>
-        Math.abs(SIZE_HEIGHTS[b] - newHeight) <
-        Math.abs(SIZE_HEIGHTS[a] - newHeight)
-          ? b
-          : a
+      const handleDragMove = useCallback(
+        (clientY: number) => {
+          if (!isDragging) return;
+          const delta = dragStartY - clientY;
+          const newHeight = Math.max(80, dragStartHeight + delta);
+          const sizes: ("small" | "medium" | "large")[] = ["small", "medium", "large"];
+          const closest = sizes.reduce((a, b) =>
+            Math.abs(SIZE_HEIGHTS[b] - newHeight) <
+            Math.abs(SIZE_HEIGHTS[a] - newHeight)
+              ? b
+              : a
+          );
+          onResize(closest);
+        },
+        [isDragging, dragStartY, dragStartHeight, onResize]
       );
-      onResize(closest);
-    },
-    [isDragging, dragStartY, dragStartHeight, onResize]
-  );
 
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);

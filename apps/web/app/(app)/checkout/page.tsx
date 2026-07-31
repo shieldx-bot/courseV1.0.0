@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { apiClient } from "@/lib/api-client";
 import { SubscriptionTier, CheckoutSessionResponse } from "@/types";
+import { useToast } from "@/components/ui/toast";
 
 export default function CheckoutPage() {
   return (
@@ -24,6 +25,7 @@ function CheckoutInner() {
   const success = searchParams.get("success");
   const canceled = searchParams.get("canceled");
   const providerParam = searchParams.get("provider") as "stripe" | "paypal" | null;
+  const { toast } = useToast();
 
   const [tier, setTier] = useState<SubscriptionTier | null>(null);
   const [code, setCode] = useState("");
@@ -36,6 +38,45 @@ function CheckoutInner() {
   const [submitting, setSubmitting] = useState(false);
   const [captureFailed, setCaptureFailed] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const previousActiveElement = useRef<HTMLElement | null>(null);
+
+  // Focus trap for confirmation modal
+  useEffect(() => {
+    if (confirming && modalRef.current) {
+      previousActiveElement.current = document.activeElement as HTMLElement;
+      modalRef.current.focus();
+      
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Tab') {
+          const focusableElements = modalRef.current?.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          if (!focusableElements || focusableElements.length === 0) return;
+          
+          const firstElement = focusableElements[0];
+          const lastElement = focusableElements[focusableElements.length - 1];
+          
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
+        if (e.key === 'Escape') {
+          handleCancelConfirm();
+        }
+      };
+      
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('keydown', handleKeyDown);
+        previousActiveElement.current?.focus();
+      };
+    }
+  }, [confirming]);
 
   useEffect(() => {
     apiClient.subscriptions.tiers()
@@ -43,6 +84,19 @@ function CheckoutInner() {
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [tierId]);
+
+  // Forward declaration to avoid circular dependency
+  const verifyAndRedirect = async () => {
+    setVerifying(true);
+    try {
+      await apiClient.subscriptions.me();
+      const t = setTimeout(() => router.push("/learn"), 2000);
+      return () => clearTimeout(t);
+    } catch {
+      setError("Payment was processed but we could not verify your subscription. Please contact support.");
+      setVerifying(false);
+    }
+  };
 
   useEffect(() => {
     if (canceled) return;
@@ -71,28 +125,18 @@ function CheckoutInner() {
       verifyAndRedirect();
       return;
     }
-  }, [success, paypalOrderId, providerParam, canceled, router]);
-
-  const verifyAndRedirect = async () => {
-    setVerifying(true);
-    try {
-      await apiClient.subscriptions.me();
-      const t = setTimeout(() => router.push("/learn"), 2000);
-      return () => clearTimeout(t);
-    } catch {
-      setError("Payment was processed but we could not verify your subscription. Please contact support.");
-      setVerifying(false);
-    }
-  };
+  }, [success, paypalOrderId, providerParam, canceled, router, verifyAndRedirect]);
 
   const apply = async () => {
     setError("");
     try {
       const c = await apiClient.subscriptions.coupon(code);
       setCoupon(c);
+      toast("Coupon applied!", { type: "success" });
     } catch {
       setCoupon(null);
       setError("That code isn't valid or has expired.");
+      toast("That code isn't valid or has expired.", { type: "error" });
     }
   };
 
@@ -113,6 +157,7 @@ function CheckoutInner() {
     try {
       if (!tier?.id) {
         setError("Please select a subscription tier");
+        toast("Please select a subscription tier", { type: "error" });
         setSubmitting(false);
         return;
       }
@@ -129,6 +174,7 @@ function CheckoutInner() {
       }
     } catch (e: any) {
       setError(e.message);
+      toast(e.message, { type: "error" });
       setSubmitting(false);
     }
   };
@@ -273,7 +319,7 @@ function CheckoutInner() {
 
           {error && <p className="mt-3 text-sm text-error">{error}</p>}
 
-          <Button onClick={handleSubscribe} className="mt-6 w-full">
+          <Button variant="checkout" onClick={handleSubscribe} className="mt-6 w-full">
             Subscribe now
           </Button>
 
@@ -282,7 +328,7 @@ function CheckoutInner() {
 
         {confirming && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <Card className="mx-4 w-full max-w-md p-6">
+            <div ref={modalRef} tabIndex={-1} className="mx-4 w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
               <h2 className="text-xl font-semibold text-primary-900">Confirm your subscription</h2>
               <div className="mt-4 space-y-3">
                 <div className="flex justify-between text-sm">
@@ -312,11 +358,11 @@ function CheckoutInner() {
                 <Button variant="secondary" onClick={handleCancelConfirm} className="flex-1">
                   Go back
                 </Button>
-                <Button onClick={handleConfirm} className="flex-1">
+                <Button variant="checkout" onClick={handleConfirm} className="flex-1">
                   Confirm & pay
                 </Button>
               </div>
-            </Card>
+            </div>
           </div>
         )}
       </div>

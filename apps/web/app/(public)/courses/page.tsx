@@ -110,10 +110,10 @@ export default async function CoursesPage({
   return (
     <section className="py-12">
       <div className="mx-auto max-w-page px-6">
-        <h1 className="text-3xl font-semibold text-primary-900">Course library</h1>
-        <p className="mt-2 text-neutral-600">
-          {totalItems > 0 ? `${totalItems} course${totalItems !== 1 ? "s" : ""} available` : "Browse our course library"}
-        </p>
+         <h1 className="display-sm text-primary-900">Course library</h1>
+         <p className="mt-2 body-md text-neutral-600">
+           {totalItems > 0 ? `${totalItems} course${totalItems !== 1 ? "s" : ""} available` : "Browse our course library"}
+         </p>
 
         <form className="mt-6 flex flex-col gap-3 sm:flex-row" action="/courses" method="GET">
           <Input name="search" defaultValue={search} placeholder="Search courses..." className="flex-1" />
@@ -123,7 +123,7 @@ export default async function CoursesPage({
           <select
             name="max_lesson_duration"
             defaultValue={String(maxLessonDuration)}
-            className="w-full sm:w-56 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+            className="w-full sm:w-56 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
           >
             {durationOptions.map((opt) => (
               <option key={opt.value} value={String(opt.value)}>

@@ -115,7 +115,7 @@ export function MasteryRadar({ concepts, size = 280 }: MasteryRadarProps) {
             <Badge
               variant={
                 concept.mastery_score < 3
-                  ? "error"
+                  ? "danger"
                   : concept.mastery_score < 6
                     ? "warning"
                     : "success"

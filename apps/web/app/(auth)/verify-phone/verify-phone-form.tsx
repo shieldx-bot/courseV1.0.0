@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/components/ui/toast";
 
 export function VerifyPhoneForm() {
   const [phone, setPhone] = useState("");
@@ -19,6 +20,7 @@ export function VerifyPhoneForm() {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") || "/learn";
   const { login, user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (user?.phone_verified && user?.trial_active) {
@@ -53,8 +55,10 @@ export function VerifyPhoneForm() {
       await apiClient.auth.otpRequest({ phone });
       setSent(true);
       setResendCooldown(30);
+      toast("Code sent! Check your phone.", { type: "success" });
     } catch (e: any) {
       setError(e.message || "Could not send OTP. Please try again.");
+      toast(e.message || "Could not send OTP", { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -66,8 +70,10 @@ export function VerifyPhoneForm() {
     try {
       await apiClient.auth.otpRequest({ phone });
       setResendCooldown(30);
+      toast("Code resent!", { type: "success" });
     } catch (e: any) {
       setError(e.message || "Could not resend OTP. Please try again.");
+      toast(e.message || "Could not resend OTP", { type: "error" });
     }
   };
 
@@ -80,9 +86,11 @@ export function VerifyPhoneForm() {
       if (res.user) {
         login(res.user);
       }
+      toast("Phone verified! Welcome to Ascendly.", { type: "success" });
       router.push(next);
     } catch (e: any) {
       setError(e.message || "Invalid code. Please try again.");
+      toast(e.message || "Invalid code", { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -99,14 +107,15 @@ export function VerifyPhoneForm() {
         {!sent ? (
           <form onSubmit={requestOtp} className="mt-6 space-y-4">
             <Input
+              label="Phone number"
               type="tel"
               inputMode="numeric"
               placeholder="+1 (555) 000-0000"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               required
+              error={error}
             />
-            {error && <p className="text-sm text-error">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Sending..." : "Send code"}
             </Button>
@@ -114,10 +123,12 @@ export function VerifyPhoneForm() {
         ) : (
           <form onSubmit={verify} className="mt-6 space-y-4">
             <Input
+              label="Verification code"
               placeholder="6-digit code"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               required
+              error={error}
             />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Verifying..." : "Verify and start preview"}

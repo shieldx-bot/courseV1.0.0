@@ -190,7 +190,7 @@ export default function IDEPage() {
       );
     }
 
-    toast("File saved successfully", "success");
+      toast("File saved successfully", { type: "success" });
   }, [activeTabId, tabs, project.files, currentCode, toast]);
 
   const handleReset = useCallback(() => {
@@ -204,13 +204,13 @@ export default function IDEPage() {
       setTabs((prev) =>
         prev.map((t) => (t.id === activeTabId ? { ...t, isDirty: false } : t))
       );
-      toast("File reset to original content", "success");
+      toast("File reset to original content", { type: "success" });
     }
   }, [activeTabId, tabs, project.files, toast]);
 
   const handleRun = useCallback(async () => {
     if (!currentCode.trim()) {
-      toast("Nothing to run", "error");
+      toast("Nothing to run", { type: "error" });
       return;
     }
     if (isExecuting) return;
@@ -220,9 +220,9 @@ export default function IDEPage() {
     try {
       const result = executeCode(currentLanguage, currentCode);
       if (result.success) {
-        toast(`Execution completed in ${result.executionTime?.toFixed(2) ?? "?"}ms`, "success");
+        toast(`Execution completed in ${result.executionTime?.toFixed(2) ?? "?"}ms`, { type: "success" });
       } else {
-        toast(result.error || "Execution failed", "error");
+        toast(result.error || "Execution failed", { type: "error" });
       }
     } finally {
       setIsExecuting(false);
@@ -231,10 +231,10 @@ export default function IDEPage() {
 
   const handleSubmit = useCallback(() => {
     if (!currentCode.trim()) {
-      toast("No code to submit", "error");
+      toast("No code to submit", { type: "error" });
       return;
     }
-    toast("Code submitted successfully!", "success");
+      toast("Code submitted successfully!", { type: "success" });
   }, [currentCode, toast]);
 
   const handleChatMessage = useCallback(

@@ -47,16 +47,16 @@ export async function PricingTable({ variant = "full" }: PricingTableProps) {
       <div className="mx-auto max-w-page px-6 text-center">
         {variant === "full" && (
           <>
-            <h2 className="text-2xl font-semibold text-primary-900 dark:text-white">
+            <h2 className="h1 text-primary-900 dark:text-white">
               One price. No per-course surprises.
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-neutral-600 dark:text-neutral-400">
+            <p className="mx-auto mt-3 max-w-xl body-md text-neutral-600 dark:text-neutral-400">
               Every plan unlocks the full library — no tiers, no upsells.
             </p>
           </>
         )}
         {variant === "mini" && (
-          <h2 className="text-2xl font-semibold text-primary-900 dark:text-white">
+          <h2 className="h1 text-primary-900 dark:text-white">
             Pick the plan that fits you
           </h2>
         )}
@@ -69,13 +69,12 @@ export async function PricingTable({ variant = "full" }: PricingTableProps) {
           }`}
         >
           {tiers.map((tier) => (
-            <Card
-              key={tier.id}
-              highlighted={tier.recommended || tier.duration_months === 12}
-              className={`flex flex-col p-6 text-left ${
-                tier.recommended || tier.badge || tier.duration_months === 12 ? "relative" : ""
-              }`}
-            >
+              <Card
+                key={tier.id}
+                className={`flex flex-col p-6 text-left ${
+                  tier.recommended || tier.badge || tier.duration_months === 12 ? "relative" : ""
+                }`}
+              >
               {(tier.recommended || tier.duration_months === 12) && (
                 <Badge variant="accent" className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 max-w-[90%] truncate">
                   Best value

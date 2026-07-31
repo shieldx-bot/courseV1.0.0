@@ -67,7 +67,6 @@ export default async function PricingPage() {
             {tiers.map((tier) => (
               <Card
                 key={tier.id}
-                highlighted={tier.recommended}
                 className={`flex flex-col p-6 text-left ${tier.recommended || tier.badge ? "relative" : ""}`}
               >
                 {tier.recommended && (
@@ -94,7 +93,7 @@ export default async function PricingPage() {
                   <li className="flex items-center gap-2"><Check className="h-4 w-4 text-success" /> 7-day guarantee</li>
                 </ul>
                 <Link href={`/checkout?tier=${tier.id}`} className="mt-6">
-                  <Button variant={tier.recommended ? "primary" : "secondary"} className="w-full">
+                  <Button variant={tier.recommended ? "checkout" : "secondary"} className="w-full">
                     Subscribe
                   </Button>
                 </Link>

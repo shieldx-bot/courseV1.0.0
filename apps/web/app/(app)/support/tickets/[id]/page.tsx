@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
+import { useToast } from "@/components/ui/toast";
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-warning/10 text-warning",
@@ -30,6 +31,7 @@ export default function SupportTicketDetailPage() {
   const [error, setError] = useState("");
   const [reply, setReply] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
 
   async function load() {
     setLoading(true);
@@ -44,6 +46,7 @@ export default function SupportTicketDetailPage() {
       setMessages(json.data.messages || []);
     } catch (e: any) {
       setError(e.message);
+      toast(e.message, { type: "error" });
     } finally {
       setLoading(false);
     }
@@ -60,9 +63,11 @@ export default function SupportTicketDetailPage() {
       });
       if (!res.ok) throw new Error(await res.text());
       setReply("");
+      toast("Reply sent", { type: "success" });
       await load();
     } catch (e: any) {
       setError(e.message);
+      toast(e.message, { type: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -76,9 +81,11 @@ export default function SupportTicketDetailPage() {
         body: JSON.stringify({ rating: r }),
       });
       if (!res.ok) throw new Error(await res.text());
+      toast("Thank you for your feedback!", { type: "success" });
       await load();
     } catch (e: any) {
       setError(e.message);
+      toast(e.message, { type: "error" });
     }
   }
 

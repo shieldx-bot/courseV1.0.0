@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Lock, Paperclip, SkipBack, SkipForward, Clock, MessageSquare, FileText, Sparkles, FileCode } from "lucide-react";
+import { Check, Lock, Paperclip, SkipBack, SkipForward, Clock, MessageSquare, FileText, Sparkles, FileCode, HelpCircle } from "lucide-react";
 import { apiClient } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import { WatermarkOverlay } from "@/components/shared/watermark-overlay";
@@ -44,6 +44,7 @@ export function CoursePlayerClient({
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastUpdateRef = useRef<number>(0);
 
@@ -130,9 +131,9 @@ export function CoursePlayerClient({
         note,
       });
       setProgress((prev) => ({ ...prev, [current.id]: p }));
-      toast("Note saved", "success");
+      toast("Note saved", { type: "success" });
     } catch {
-      toast("Failed to save note", "error");
+      toast("Failed to save note", { type: "error" });
     }
     setSavingNote(false);
   };
@@ -179,6 +180,10 @@ export function CoursePlayerClient({
         case "M":
           if (videoRef.current) videoRef.current.muted = !videoRef.current.muted;
           break;
+        case "?":
+          e.preventDefault();
+          setShowKeyboardHelp(true);
+          break;
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -188,16 +193,16 @@ export function CoursePlayerClient({
   const markAsComplete = () => {
     const pos = videoRef.current ? Math.floor(videoRef.current.currentTime) : 0;
     updateProgress(true, pos);
-    toast("Lesson marked as complete", "success");
+      toast("Lesson marked as complete", { type: "success" });
   };
 
   const skipCurrentLesson = async (lessonId: string) => {
     try {
       await adaptiveClient.skipLesson(course.id, lessonId);
       setProgress((prev) => ({ ...prev, [lessonId]: { ...(prev[lessonId] || { lesson_id: lessonId }), skipped: true, mastery_skip: true } }));
-      toast("Lesson skipped", "success");
+      toast("Lesson skipped", { type: "success" });
     } catch {
-      toast("Unable to skip this lesson", "error");
+      toast("Unable to skip this lesson", { type: "error" });
     }
   };
 
@@ -223,7 +228,7 @@ export function CoursePlayerClient({
             <Button variant="secondary">See plans</Button>
           </Link>
           <Link href="/checkout">
-            <Button className="bg-accent-500 hover:bg-accent-600 text-white">Subscribe now</Button>
+            <Button variant="checkout">Subscribe now</Button>
           </Link>
         </div>
       </section>
@@ -303,6 +308,9 @@ export function CoursePlayerClient({
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => nextLesson && goToLesson(nextLesson)} disabled={!nextLesson || isLocked(nextLesson)} title="Next lesson (n)">
                   <SkipForward className="h-4 w-4" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowKeyboardHelp(true)} title="Keyboard shortcuts (?)">
+                  <HelpCircle className="h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -403,7 +411,8 @@ export function CoursePlayerClient({
               <p className="text-center text-xs text-neutral-400 mt-6">
                 <kbd className="rounded border border-neutral-300 px-1 font-mono text-neutral-500">n</kbd> next lesson &middot;
                 <kbd className="rounded border border-neutral-300 px-1 font-mono text-neutral-500">p</kbd> previous lesson &middot;
-                <kbd className="rounded border border-neutral-300 px-1 font-mono text-neutral-500">m</kbd> toggle mute
+                <kbd className="rounded border border-neutral-300 px-1 font-mono text-neutral-500">m</kbd> toggle mute &middot;
+                <kbd className="rounded border border-neutral-300 px-1 font-mono text-neutral-500">?</kbd> keyboard shortcuts
               </p>
             </div>
           </div>
@@ -457,6 +466,23 @@ export function CoursePlayerClient({
           </Card>
         </div>
       </div>
+      
+      {showKeyboardHelp && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-slide-in" onClick={() => setShowKeyboardHelp(false)}>
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full animate-slide-in-right" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+              <HelpCircle className="h-5 w-5" /> Keyboard Shortcuts
+            </h3>
+            <div className="space-y-2 text-sm text-slate-300">
+              <div className="flex justify-between"><kbd className="px-2 py-1 bg-slate-800 rounded">n</kbd><span>Next lesson</span></div>
+              <div className="flex justify-between"><kbd className="px-2 py-1 bg-slate-800 rounded">p</kbd><span>Previous lesson</span></div>
+              <div className="flex justify-between"><kbd className="px-2 py-1 bg-slate-800 rounded">m</kbd><span>Toggle mute</span></div>
+              <div className="flex justify-between"><kbd className="px-2 py-1 bg-slate-800 rounded">?</kbd><span>Show this help</span></div>
+            </div>
+            <button onClick={() => setShowKeyboardHelp(false)} className="mt-4 w-full py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition-colors">Got it</button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

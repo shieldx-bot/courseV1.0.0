@@ -8,6 +8,7 @@ import { Lock, Play, BookOpen, User, CheckCircle, Clock, Zap } from "lucide-reac
 import Image from "next/image";
 import { JsonLd } from "@/components/json-ld";
 import { makeMetadata, SITE_URL, API_BASE } from "@/lib/metadata";
+import { Breadcrumbs } from "@/components/ui/breadcrumbs";
 
 function formatDuration(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -119,7 +120,13 @@ export default async function CourseDetailPage({ params }: { params: { category:
       <JsonLd data={[courseSchema, breadcrumb]} />
       <section className="py-12">
         <div className="mx-auto max-w-page px-6">
-          <div className="grid gap-8 lg:grid-cols-3">
+          <Breadcrumbs items={[
+            { label: "Home", href: "/" },
+            { label: "Courses", href: "/courses" },
+            { label: course.category_name, href: `/courses/${course.category_slug}` },
+            { label: course.title }
+          ]} />
+          <div className="mt-6 grid gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <Badge variant="primary">{course.category_name}</Badge>
               <h1 className="mt-3 text-3xl font-semibold text-primary-900">{course.title}</h1>
@@ -172,7 +179,7 @@ export default async function CourseDetailPage({ params }: { params: { category:
                       {trialActive ? "You have a free preview of this course." : "You have full access to this course."}
                     </p>
                     <Link href={`/learn/${course.slug}/${firstLessonId}`}>
-                      <Button className="mt-5 bg-green-600 hover:bg-green-700 text-white">
+                      <Button variant="success" className="mt-5">
                         <Play className="mr-2 h-4 w-4" /> {trialActive ? "Start free preview" : "Continue learning"}
                       </Button>
                     </Link>
@@ -187,7 +194,7 @@ export default async function CourseDetailPage({ params }: { params: { category:
                       Verify your phone number to preview 10% of this course free for 3 days — no card required.
                     </p>
                     <Link href={`/verify-phone?next=/learn/${course.slug}/${firstLessonId}`}>
-                      <Button className="mt-5 bg-accent-500 hover:bg-accent-600 text-white">
+                      <Button variant="checkout" className="mt-5">
                         <Play className="mr-2 h-4 w-4" /> Start free preview
                       </Button>
                     </Link>

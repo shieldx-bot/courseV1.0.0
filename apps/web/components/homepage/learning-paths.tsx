@@ -55,7 +55,7 @@ export async function LearningPathsSection() {
           {paths.slice(0, 6).map((path) => (
             <Link key={path.id} href={`/learning-paths/${path.slug}`}>
               <Card className="h-full overflow-hidden transition-colors hover:border-accent-500">
-                <div className="aspect-[3/1] bg-gradient-to-br from-primary-100 to-primary-200 flex items-center justify-center">
+                 <div className="aspect-[3/1] bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center">
                   <span className="text-3xl">{GOAL_ICONS[path.goal] || "📚"}</span>
                 </div>
                 <div className="p-5">

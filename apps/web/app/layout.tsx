@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { Navbar } from "@/components/shared/navbar";
 import { Footer } from "@/components/shared/footer";
@@ -43,21 +44,27 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{
-          __html: `
-            (function() {
-              try {
-                var theme = localStorage.getItem("ascendly-theme");
-                if (!theme) {
-                  theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-                }
-                if (theme === "dark") {
-                  document.documentElement.classList.add("dark");
-                }
-              } catch(e) {}
-            })();
-          `
-        }} />
+        <Script
+          id="theme-script"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var theme = localStorage.getItem("ascendly-theme");
+                  if (!theme) {
+                    theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+                  }
+                  if (theme === "dark") {
+                    document.documentElement.classList.add("dark");
+                  } else {
+                    document.documentElement.classList.remove("dark");
+                  }
+                } catch(e) {}
+              })();
+            `
+          }}
+        />
         <JsonLd data={organizationSchema} />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#d97706" media="(prefers-color-scheme: light)" />

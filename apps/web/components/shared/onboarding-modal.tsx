@@ -24,7 +24,10 @@ export function OnboardingModal() {
         const courseList = courses as Course[];
         if (courseList.length > 0) {
           setFirstCourse(courseList[0]);
-          setOpen(true);
+          // Only show onboarding on learn page, not on homepage
+          if (typeof window !== 'undefined' && window.location.pathname.includes('/learn')) {
+            setOpen(true);
+          }
         }
       })
       .catch(() => {});

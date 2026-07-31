@@ -534,20 +534,20 @@ export function CodeEditor({
   useEffect(() => {
     let cancelled = false;
 
-    async function loadMonaco() {
-      try {
-        const mod = await import("@monaco-editor/react");
-        if (!cancelled) {
-          setMonacoComponent(() => mod.default || mod.Editor || mod.MonacoEditor);
-          setMonacoLoaded(true);
+        async function loadMonaco() {
+          try {
+            const mod = await import("@monaco-editor/react");
+            if (!cancelled) {
+              setMonacoComponent(() => mod.default || mod.Editor);
+              setMonacoLoaded(true);
+            }
+          } catch {
+            if (!cancelled) {
+              setMonacoError(true);
+              setMonacoLoaded(true);
+            }
+          }
         }
-      } catch {
-        if (!cancelled) {
-          setMonacoError(true);
-          setMonacoLoaded(true);
-        }
-      }
-    }
 
     loadMonaco();
     return () => {

@@ -10,6 +10,7 @@ import { apiFetch } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-context";
 import type { User } from "@/types";
 import { GoogleLogin } from "@react-oauth/google";
+import { useToast } from "@/components/ui/toast";
 
 export default function SignupPage() {
   const [name, setName] = useState("");
@@ -19,12 +20,14 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const router = useRouter();
   const { login } = useAuth();
+  const { toast } = useToast();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (password !== confirm) {
       setError("Passwords do not match");
+      toast("Passwords do not match", { type: "error" });
       return;
     }
     try {
@@ -33,9 +36,11 @@ export default function SignupPage() {
         body: JSON.stringify({ name, email, password }),
       });
       login(data.user);
+      toast("Account created! Please verify your phone.", { type: "success" });
       router.push("/verify-phone");
     } catch (err: any) {
       setError(err.message);
+      toast(err.message, { type: "error" });
     }
   };
 
@@ -47,9 +52,11 @@ export default function SignupPage() {
         body: JSON.stringify({ token: credentialResponse.credential }),
       });
       login(data.user);
+      toast("Account created! Please verify your phone.", { type: "success" });
       router.push("/verify-phone");
     } catch (err: any) {
       setError(err.message);
+      toast(err.message, { type: "error" });
     }
   };
 
@@ -58,29 +65,48 @@ export default function SignupPage() {
       <Card className="w-full max-w-md p-8">
         <h1 className="text-2xl font-semibold text-primary-900">Create your free account</h1>
         <form onSubmit={submit} className="mt-6 space-y-4">
-          <div>
-            <label htmlFor="signup-name" className="block text-sm font-medium text-neutral-900">Name</label>
-            <Input id="signup-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
-          </div>
-          <div>
-            <label htmlFor="signup-email" className="block text-sm font-medium text-neutral-900">Email</label>
-            <Input id="signup-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </div>
-          <div>
-            <label htmlFor="signup-password" className="block text-sm font-medium text-neutral-900">Password</label>
-            <Input id="signup-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          </div>
-          <div>
-            <label htmlFor="signup-confirm" className="block text-sm font-medium text-neutral-900">Confirm password</label>
-            <Input id="signup-confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
-          </div>
-          {error && <p className="text-sm text-error" role="alert">{error}</p>}
+          <Input
+            id="signup-name"
+            label="Name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your name"
+            error={error}
+          />
+          <Input
+            id="signup-email"
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            error={error}
+          />
+          <Input
+            id="signup-password"
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            error={error}
+          />
+          <Input
+            id="signup-confirm"
+            label="Confirm password"
+            type="password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            required
+            error={error}
+          />
           <Button type="submit" className="w-full">Create account</Button>
         </form>
 
         <div className="my-4 text-center text-sm text-neutral-600">or</div>
         <div className="flex justify-center">
-          <GoogleLogin onSuccess={handleGoogle} onError={() => setError("Google sign-in failed")} text="signup_with" />
+          <GoogleLogin onSuccess={handleGoogle} onError={() => { setError("Google sign-in failed"); toast("Google sign-in failed", { type: "error" }); }} text="signup_with" />
         </div>
 
         <p className="mt-4 text-center text-sm text-neutral-600">

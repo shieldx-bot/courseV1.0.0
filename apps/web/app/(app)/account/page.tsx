@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Clock } from "lucide-react";
 import type { Subscription } from "@/types";
+import { useToast } from "@/components/ui/toast";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function AccountPage() {
   const [pwdError, setPwdError] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
+  const { toast } = useToast();
 
   const trialActive = !!user?.trial_active && !!user?.trial_expires && new Date(user.trial_expires) > new Date();
   let trialDaysLeft = 0;
@@ -56,9 +58,9 @@ export default function AccountPage() {
     try {
       const updated = await apiClient.auth.updateProfile({ name });
       updateUser(updated as Partial<User>);
-      setMessage("Profile updated.");
+      toast("Profile updated.", { type: "success" });
     } catch (e: any) {
-      setMessage(e.message);
+      toast(e.message, { type: "error" });
     } finally {
       setSaving(false);
     }
@@ -69,14 +71,16 @@ export default function AccountPage() {
     setPwdError("");
     if (pwd.new !== pwd.confirm) {
       setPwdError("Passwords do not match");
+      toast("Passwords do not match", { type: "error" });
       return;
     }
     try {
       await apiClient.auth.changePassword({ old_password: pwd.old, new_password: pwd.new });
       setPwd({ old: "", new: "", confirm: "" });
-      setMessage("Password updated.");
+      toast("Password updated.", { type: "success" });
     } catch (e: any) {
       setPwdError(e.message);
+      toast(e.message, { type: "error" });
     }
   };
 
@@ -86,9 +90,9 @@ export default function AccountPage() {
       await apiClient.subscriptions.cancel();
       setSub(null);
       setCancelConfirm(false);
-      setMessage("Subscription canceled.");
+      toast("Subscription canceled.", { type: "success" });
     } catch (e: any) {
-      setMessage(e.message);
+      toast(e.message, { type: "error" });
     } finally {
       setCancelling(false);
     }
@@ -131,7 +135,7 @@ export default function AccountPage() {
                   <div className="flex items-center gap-2">
                     <p className="text-sm text-error">Are you sure?</p>
                     <Button size="sm" variant="secondary" onClick={() => setCancelConfirm(false)}>Keep</Button>
-                    <Button size="sm" onClick={cancelSubscription} disabled={cancelling}>
+                    <Button size="sm" variant="danger" onClick={cancelSubscription} disabled={cancelling}>
                       {cancelling ? "Cancelling..." : "Confirm cancel"}
                     </Button>
                   </div>
@@ -141,7 +145,7 @@ export default function AccountPage() {
           ) : (
             <div>
               <p className="text-neutral-600">No active membership.</p>
-              <a href="/pricing" className="mt-2 inline-block text-primary-700 hover:underline">View plans</a>
+              <Link href="/pricing" className="mt-2 inline-block text-primary-700 hover:underline">View plans</Link>
             </div>
           )}
         </Card>
@@ -149,25 +153,18 @@ export default function AccountPage() {
         <Card className="mt-6 p-6">
           <h2 className="font-semibold text-primary-900">Profile</h2>
           <form onSubmit={saveProfile} className="mt-4 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-900">Email</label>
-              <Input value={user?.email} disabled aria-label="Email" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-900">Name</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" aria-label="Name" />
-            </div>
+            <Input label="Email" value={user?.email} disabled />
+            <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
             <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save profile"}</Button>
-            {message && <p className="text-sm text-success">{message}</p>}
           </form>
         </Card>
 
         <Card className="mt-6 p-6">
           <h2 className="font-semibold text-primary-900">Change password</h2>
           <form onSubmit={changePassword} className="mt-4 space-y-4">
-            <Input type="password" value={pwd.old} onChange={(e) => setPwd({ ...pwd, old: e.target.value })} placeholder="Current password" required aria-label="Current password" />
-            <Input type="password" value={pwd.new} onChange={(e) => setPwd({ ...pwd, new: e.target.value })} placeholder="New password" required aria-label="New password" />
-            <Input type="password" value={pwd.confirm} onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} placeholder="Confirm new password" required aria-label="Confirm new password" />
+            <Input label="Current password" type="password" value={pwd.old} onChange={(e) => setPwd({ ...pwd, old: e.target.value })} required />
+            <Input label="New password" type="password" value={pwd.new} onChange={(e) => setPwd({ ...pwd, new: e.target.value })} required />
+            <Input label="Confirm new password" type="password" value={pwd.confirm} onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })} required />
             <Button type="submit">Update password</Button>
             {pwdError && <p className="text-sm text-error">{pwdError}</p>}
           </form>
@@ -198,6 +195,7 @@ function ReviewForm() {
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
+  const { toast } = useToast();
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -207,8 +205,10 @@ function ReviewForm() {
       await apiClient.reviews.create(form);
       setDone(true);
       setForm({ name: "", role: "", rating: 5, outcome: "", quote: "" });
+      toast("Thank you! Your review has been submitted.", { type: "success" });
     } catch (e: any) {
       setErr(e.message);
+      toast(e.message, { type: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -219,14 +219,8 @@ function ReviewForm() {
   return (
     <form onSubmit={submit} className="mt-4 space-y-4">
       <div className="grid gap-4 md:grid-cols-2">
-        <div>
-          <label className="block text-sm font-medium text-neutral-900">Name</label>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Your name" aria-label="Review name" />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-neutral-900">Role</label>
-          <Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} required placeholder="e.g. Data Analyst" aria-label="Review role" />
-        </div>
+        <Input label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required placeholder="Your name" />
+        <Input label="Role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} required placeholder="e.g. Data Analyst" />
       </div>
       <div>
         <label className="block text-sm font-medium text-neutral-900">Rating</label>
@@ -244,14 +238,8 @@ function ReviewForm() {
           ))}
         </div>
       </div>
-      <div>
-        <label className="block text-sm font-medium text-neutral-900">Outcome</label>
-        <Input value={form.outcome} onChange={(e) => setForm({ ...form, outcome: e.target.value })} required placeholder="What did you achieve?" aria-label="Review outcome" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-neutral-900">Quote</label>
-        <Input value={form.quote} onChange={(e) => setForm({ ...form, quote: e.target.value })} required placeholder="Share your experience..." aria-label="Review quote" />
-      </div>
+      <Input label="Outcome" value={form.outcome} onChange={(e) => setForm({ ...form, outcome: e.target.value })} required placeholder="What did you achieve?" />
+      <Input label="Quote" value={form.quote} onChange={(e) => setForm({ ...form, quote: e.target.value })} required placeholder="Share your experience..." />
       <Button type="submit" disabled={submitting}>{submitting ? "Submitting..." : "Submit review"}</Button>
       {err && <p className="text-sm text-error">{err}</p>}
     </form>
