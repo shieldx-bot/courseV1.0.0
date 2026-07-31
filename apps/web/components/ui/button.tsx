@@ -32,13 +32,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     };
     const handleKeyUp = () => setIsPressed(false);
 
-    const baseStyles = "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950 disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none hover:shadow-lg hover:shadow-slate-900/20 active:translate-y-px elevation-1 hover:elevation-2 active:elevation-1";
+    // Premium base styles with enhanced transitions
+    const baseStyles = "relative inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-0 dark:focus-visible:ring-offset-neutral-900 disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none hover:shadow-lg active:translate-y-px elevation-1 hover:elevation-2 active:elevation-1";
 
     const variantStyles = {
-      primary: "bg-primary-700 text-white hover:bg-primary-500 active:bg-primary-900 shadow-lg shadow-primary-700/25 hover:shadow-primary-700/40 active:scale-[0.98]",
-      secondary: "bg-slate-800 text-slate-100 border border-slate-700 hover:bg-slate-700 hover:border-slate-600 active:scale-[0.98]",
-      ghost: "bg-transparent text-slate-300 hover:bg-slate-800/50 active:scale-[0.98]",
-      outline: "bg-transparent text-slate-300 border-2 border-slate-700 hover:border-slate-500 hover:bg-slate-800/50 active:scale-[0.98]",
+      primary: "bg-primary-700 text-white hover:bg-primary-600 active:bg-primary-800 shadow-lg shadow-primary-700/25 hover:shadow-primary-700/40 active:scale-[0.98]",
+      secondary: "bg-neutral-100 text-neutral-900 border border-neutral-200 hover:bg-neutral-200 hover:border-neutral-300 active:scale-[0.98] dark:bg-neutral-800 dark:text-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-700",
+      ghost: "bg-transparent text-neutral-700 hover:bg-neutral-100 active:scale-[0.98] dark:text-neutral-300 dark:hover:bg-neutral-800/50",
+      outline: "bg-transparent text-neutral-700 border-2 border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50 active:scale-[0.98] dark:text-neutral-300 dark:border-neutral-700 dark:hover:border-neutral-600 dark:hover:bg-neutral-800/50",
       danger: "bg-error text-white hover:bg-red-600 shadow-lg shadow-error/25 hover:shadow-error/40 active:scale-[0.98]",
       success: "bg-success text-white hover:bg-emerald-600 shadow-lg shadow-success/25 hover:shadow-success/40 active:scale-[0.98]",
       checkout: "bg-accent-500 text-white hover:bg-accent-600 shadow-lg shadow-accent-500/25 hover:shadow-accent-500/40 active:scale-[0.98]",
@@ -78,10 +79,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             <span className="truncate">{children}</span>
             {rightIcon && <span className="flex-shrink-0" aria-hidden="true">{rightIcon}</span>}
           </>
-        )}
-        {/* Ripple effect */}
-        {!loading && !disabled && (
-          <span className="absolute inset-0 bg-white/20 animate-ripple pointer-events-none" aria-hidden="true" />
         )}
       </button>
     );
