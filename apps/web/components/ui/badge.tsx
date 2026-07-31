@@ -23,14 +23,14 @@ export function Badge({
   const baseStyles = "inline-flex items-center gap-1.5 font-medium rounded-full transition-all duration-200 ease-out";
 
   const variantStyles = {
-    primary: "bg-rose-500/10 text-rose-400 border border-rose-500/20",
-    secondary: "bg-slate-700/20 text-slate-300 border border-slate-700/30",
-    success: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
-    warning: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
-    danger: "bg-red-500/10 text-red-400 border border-red-500/20",
-    info: "bg-blue-500/10 text-blue-400 border border-blue-500/20",
-    outline: "bg-transparent text-slate-300 border border-slate-700",
-    accent: "bg-accent-500/10 text-accent-400 border border-accent-500/20",
+    primary: "bg-primary-100 text-primary-700 border border-primary-200 dark:bg-primary-900/30 dark:text-primary-300 dark:border-primary-700",
+    secondary: "bg-neutral-100 text-neutral-700 border border-neutral-200 dark:bg-neutral-800/50 dark:text-neutral-300 dark:border-neutral-700",
+    success: "bg-emerald-100 text-emerald-700 border border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-700",
+    warning: "bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-700",
+    danger: "bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-700",
+    info: "bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700",
+    outline: "bg-transparent text-neutral-600 border border-neutral-300 dark:text-neutral-400 dark:border-neutral-700",
+    accent: "bg-accent-100 text-accent-700 border border-accent-200 dark:bg-accent-900/30 dark:text-accent-300 dark:border-accent-700",
   };
 
   const sizeStyles = {
@@ -62,17 +62,17 @@ export function StatusDot({ status, size = "md", className }: StatusDotProps) {
   };
 
   const statusColors = {
-    active: "bg-emerald-400",
-    inactive: "bg-slate-500",
+    active: "bg-emerald-500",
+    inactive: "bg-neutral-400",
     pending: "bg-amber-400",
-    success: "bg-emerald-400",
+    success: "bg-emerald-500",
     warning: "bg-amber-400",
-    error: "bg-rose-400",
+    error: "bg-rose-500",
   };
 
   const pulseClasses = {
     active: "animate-pulse",
-    pending: "animate-thinking",
+    pending: "",
     success: "",
     warning: "",
     error: "animate-pulse",
@@ -93,7 +93,7 @@ interface PillProps {
 
 export function Pill({ children, className }: PillProps) {
   return (
-    <span className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/50 border border-slate-700/30 text-slate-300 text-sm font-medium transition-all duration-200 hover:bg-slate-700/30", className)}>
+    <span className={cn("inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-700 text-sm font-medium transition-all duration-200 hover:bg-neutral-200 dark:bg-neutral-800/50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-700/50", className)}>
       {children}
     </span>
   );
