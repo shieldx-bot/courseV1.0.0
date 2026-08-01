@@ -1,2 +1,3 @@
-ascendly-runtime deployed: worker + cron schedulers running.
-Get status: kubectl -n ascendly get deploy ascendly-worker ascendly-cron
+ascendly-runtime v{{ .Chart.Version }} (app {{ .Chart.AppVersion }}) deployed.
+Status: kubectl -n ascendly get deploy ascendly-worker ascendly-cron
+Rollback: helm rollback ascendly-{{ .Chart.AppVersion }} <rev> -n ascendly

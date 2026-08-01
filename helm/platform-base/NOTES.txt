@@ -1,1 +1,2 @@
-platform-base deployed. Apply in isolation (foundation before workloads).
+platform-base v{{ .Chart.Version }} deployed (app {{ .Chart.AppVersion }}).
+Apply first (foundation). Rollback: helm rollback platform-base <rev> -n ascendly

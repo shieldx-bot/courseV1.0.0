@@ -99,3 +99,28 @@ Parameterize ONLY: image repository/tag, resources, replicas, ingress host, env,
 
 ## DoD
 3 charts ✓ values minimal ✓ no subcharts/dependencies ✓ same image/process/namespace ✓ docs updated ✓
+
+---
+
+# RELEASE ENGINEERING (L3.2) — design-only release model
+
+Full model in RELEASE_MODEL.md. No CI/GitOps implemented.
+
+## Versioning (SemVer everywhere)
+- Application: `1.0.0` baseline → all 3 charts `appVersion: "1.0.0"` (verified)
+- Image: `ascendly-api:<app-version>` / `ascendly-web:<app-version>` (immutable; latest = dev only)
+- Chart: per-chart `version` independent of app; now `1.0.0` (verified)
+- Helm release: `ascendly-<app-version>`; git tag: `v<app-version>`
+
+## Release metadata
+- Labels `app.kubernetes.io/version` on all charts (verified in 3 helpers)
+- NOTES.txt expose release/rollback commands (verified in 3 NOTES)
+- Provenance labels (org.opencontainers.image.*) + assently.io build annotations — defined in model, injected by future CI
+
+## Guarantees
+- Patch: always compatible. Minor: additive only, upgrade api→worker→cron. Major: breaking, migration window + cron paused first.
+- Rollback: `helm rollback ascendly-<version> <rev> -n ascendly` or image fallback. No data rollback (forward-fix).
+- Promotion: dev→staging→prod via values-<env>.yaml (image.tag only), gated by rollout status.
+
+## Scope check
+Only charts (Chart.yaml/_helpers.tpl/NOTES.txt) + docs changed. No Python/Dockerfile/CI/runtime/API/DB.

@@ -1,1 +1,3 @@
-ascendly-api deployed. Get status: kubectl -n ascendly get deploy ascendly-api
+ascendly-api v{{ .Chart.Version }} (app {{ .Chart.AppVersion }}) deployed.
+Status: kubectl -n ascendly get deploy ascendly-api
+Rollback: helm rollback ascendly-{{ .Chart.AppVersion }} <rev> -n ascendly
