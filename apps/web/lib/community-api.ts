@@ -1,5 +1,6 @@
 import type {
-  Skill, Challenge, ChallengeAttempt, MentorAnalysis, ActivityEvent, CreatorProfile,
+  Skill, Challenge, ChallengeAttempt, MentorAnalysis, ActivityEvent, CreatorProfile, CommunityHubData,
+  ArenaLeaderboardData, ArenaLiveBattle, ArenaMatch, ArenaPlayer,
 } from "../types/community";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
@@ -125,6 +126,51 @@ export const communityApi = {
 
   unfollowCreator: (creatorId: string) =>
     request<{ success: boolean }>(`/creators/follow/${creatorId}`, { method: "DELETE" }),
+
+  // Community Hub
+  getCommunityHub: (params?: { feed_limit?: number; discussions_limit?: number; members_limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.feed_limit) q.set("feed_limit", String(params.feed_limit));
+    if (params?.discussions_limit) q.set("discussions_limit", String(params.discussions_limit));
+    if (params?.members_limit) q.set("members_limit", String(params.members_limit));
+    const qs = q.toString();
+    return request<CommunityHubData>(`/community/hub${qs ? `?${qs}` : ""}`);
+  },
+
+  getCommunityFeed: (limit = 30) =>
+    request<{ events: ActivityEvent[] }>(`/community/feed?limit=${limit}`),
+
+  // Arena
+  getArenaMe: () => request<{ me: ArenaPlayer }>("/arena/me"),
+
+  getArenaLeaderboard: (params?: { scope?: string; period?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.scope) q.set("scope", params.scope);
+    if (params?.period) q.set("period", params.period);
+    if (params?.limit) q.set("limit", String(params.limit));
+    return request<ArenaLeaderboardData>(`/arena/leaderboard?${q}`);
+  },
+
+  getArenaLive: (limit = 10) =>
+    request<{ battles: ArenaLiveBattle[] }>(`/arena/live?limit=${limit}`),
+
+  getArenaStats: () =>
+    request<{ battles_today: number; players_total: number; matches_total: number; live_battles: number }>("/arena/stats"),
+
+  getArenaMatches: (limit = 50) =>
+    request<{ matches: ArenaMatch[] }>(`/arena/matches?limit=${limit}`),
+
+  createArenaBattle: (body: { topic: string; challenge_id: string; mode?: string }) =>
+    request<{ battle_id: string; status: string }>("/arena/battles", { method: "POST", body: JSON.stringify(body) }),
+
+  joinArenaBattle: (battleId: string) =>
+    request<{ battle_id: string; status: string; participants: unknown[] }>(`/arena/battles/${battleId}/join`, { method: "POST" }),
+
+  submitArenaBattle: (battleId: string, answer: unknown, time_seconds?: number) =>
+    request<{ battle_id: string; correct: boolean; status: string; challenge_title: string; rating_after?: number | null; rating_delta?: number | null }>(
+      `/arena/battles/${battleId}/submit`,
+      { method: "POST", body: JSON.stringify({ answer, time_seconds }) }
+    ),
 
   // Admin challenge management
   adminListChallenges: (params?: { search?: string; status?: string; difficulty?: string; source?: string; sort?: string; page?: number; per_page?: number }) => {

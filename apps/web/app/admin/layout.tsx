@@ -12,6 +12,7 @@ const links = [
   { href: "/admin/coupons", label: "Coupons" },
   { href: "/admin/contacts", label: "Messages" },
   { href: "/admin/support", label: "Support" },
+  { href: "/admin/moderation", label: "Moderation" },
   { href: "/admin/adaptive-mastery", label: "Adaptive Mastery" },
   { href: "/admin/enterprise", label: "Enterprise" },
 ];

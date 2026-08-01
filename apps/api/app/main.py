@@ -15,7 +15,9 @@ from app.core.response import api_response, error_response
 from app.db.mongodb import seed_db, get_db
 from app.db.indexes import create_indexes
 from app.db.seed_concepts import seed_concepts
-from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive, adaptive, community, tournaments
+from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive, adaptive, community, community_hub, tournaments, arena
+from app.api.v1 import ecosystem as ecosystem_module
+from app.api.v1 import notifications as notifications_module
 from app.api.v1 import challenges as challenges_module
 from app.services.skill_graph import seed_skills as seed_skill_taxonomy
 from app.api.v1.enterprise import router as enterprise_router
@@ -209,6 +211,11 @@ app.include_router(challenges_module.activity_router, prefix="/api/v1", tags=["a
 app.include_router(challenges_module.creators_router, prefix="/api/v1", tags=["creators"])
 app.include_router(challenges_module.mentor_router, prefix="/api/v1", tags=["mentor"])
 app.include_router(challenges_module.admin_router, prefix="/api/v1", tags=["admin-challenges"])
+app.include_router(community_hub.router, prefix="/api/v1", tags=["community-hub"])
+app.include_router(arena.router, prefix="/api/v1/arena", tags=["arena"])
+app.include_router(ecosystem_module.router, prefix="/api/v1", tags=["ecosystem"])
+app.include_router(ecosystem_module.admin_router, prefix="/api/v1", tags=["admin-ecosystem"])
+app.include_router(notifications_module.router, prefix="/api/v1", tags=["notifications"])
 
 
 @app.get("/api/v1/health")

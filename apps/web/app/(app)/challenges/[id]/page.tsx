@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { communityApi } from "../../../../lib/community-api";
 import { useAuth } from "../../../../lib/auth-context";
-import type { Challenge, MentorAnalysis, ChallengeAttempt } from "../../../../types/community";
+import { useToast } from "@/components/ui/toast";
+import type { Challenge, MentorAnalysis, ChallengeAttempt, CreatorProfile } from "../../../../types/community";
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   easy: "bg-emerald-100 text-emerald-700",
@@ -31,6 +33,11 @@ export default function ChallengeDetailPage() {
   const [ratingLoading, setRatingLoading] = useState(false);
   const [isCreator, setIsCreator] = useState(false);
   const [isPublished, setIsPublished] = useState(true);
+  const [related, setRelated] = useState<Challenge[]>([]);
+  const [creator, setCreator] = useState<CreatorProfile | null>(null);
+  const [nextRecommended, setNextRecommended] = useState<Challenge[]>([]);
+
+  const { toast } = useToast();
 
   const loadAttempts = () => {
     communityApi.getAttempts(id).then((d) => {
@@ -43,6 +50,21 @@ export default function ChallengeDetailPage() {
       setChallenge(d.challenge);
       setIsPublished(d.challenge.status === "published");
       setLoading(false);
+
+      // Related challenges from the same skill family
+      const skillId = d.challenge.skills?.[0];
+      if (skillId) {
+        communityApi.getSkillChallenges(skillId, 3)
+          .then((r) => setRelated((r.challenges || []).filter((c) => c._id !== d.challenge._id)))
+          .catch(() => {});
+      }
+
+      // Creator showcase
+      if (d.challenge.creator_id) {
+        communityApi.getCreatorProfile(d.challenge.creator_id)
+          .then((p) => setCreator(p))
+          .catch(() => {});
+      }
     }).catch(() => setLoading(false));
 
     communityApi.getBookmarked(100)
@@ -73,10 +95,15 @@ export default function ChallengeDetailPage() {
           setAnalysis(a);
           setAnalysisLoading(false);
         }).catch(() => setAnalysisLoading(false));
+      } else {
+        // Keep the momentum going — suggest the next challenge
+        communityApi.getRecommended(3)
+          .then((r) => setNextRecommended((r.challenges || []).filter((c) => c._id !== id)))
+          .catch(() => {});
       }
       loadAttempts();
     } catch (e: any) {
-      alert(e.message);
+      toast(e.message || "Could not submit", { type: "error" });
     } finally {
       setSubmitting(false);
     }
@@ -94,7 +121,7 @@ export default function ChallengeDetailPage() {
         setBookmarked(true);
       }
     } catch (e: any) {
-      alert(e.message);
+      toast(e.message || "Could not update bookmark", { type: "error" });
     } finally {
       setBookmarkLoading(false);
     }
@@ -108,7 +135,7 @@ export default function ChallengeDetailPage() {
       setRating(value);
       setChallenge((prev) => prev ? { ...prev, stats: { ...prev.stats, avg_rating: res.avg_rating } } : prev);
     } catch (e: any) {
-      alert(e.message);
+      toast(e.message || "Could not rate", { type: "error" });
     } finally {
       setRatingLoading(false);
     }
@@ -120,17 +147,17 @@ export default function ChallengeDetailPage() {
       setIsPublished(res.status === "published");
       setChallenge((prev) => prev ? { ...prev, status: res.status } : prev);
     } catch (e: any) {
-      alert(e.message);
+      toast(e.message || "Could not publish", { type: "error" });
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm("Bạn có chắc muốn xóa challenge này?")) return;
+    if (!confirm("Are you sure you want to delete this challenge?")) return;
     try {
       await communityApi.deleteChallenge(id);
       window.location.href = "/challenges";
     } catch (e: any) {
-      alert(e.message);
+      toast(e.message || "Could not delete", { type: "error" });
     }
   };
 
@@ -306,6 +333,25 @@ export default function ChallengeDetailPage() {
               </div>
             )}
 
+            {result.is_correct && nextRecommended.length > 0 && (
+              <div className="mt-6 bg-indigo-50 border border-indigo-100 rounded-xl p-5">
+                <h4 className="font-semibold mb-3">🚀 Nâng cấp liền — challenge tiếp theo của bạn</h4>
+                <div className="space-y-2">
+                  {nextRecommended.slice(0, 2).map((r) => (
+                    <Link key={r._id} href={`/challenges/${r._id}`} className="flex items-center justify-between bg-white rounded-lg p-3 hover:shadow transition-shadow">
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{r.title}</p>
+                        <p className="text-xs text-gray-500 truncate">{(r.skills_raw || []).join(" · ")}</p>
+                      </div>
+                      <span className={`ml-3 shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold ${DIFFICULTY_COLORS[r.difficulty] || "bg-gray-100"}`}>
+                        {r.difficulty}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-6 flex gap-3">
               <button onClick={() => window.location.reload()} className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Làm lại</button>
               <a href="/challenges" className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Xem challenges khác</a>
@@ -379,6 +425,60 @@ export default function ChallengeDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Creator profile */}
+      {creator && (
+        <div className="mt-4 bg-white rounded-2xl shadow-sm p-6">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">👑 Challenge creator</h3>
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="h-12 w-12 rounded-full bg-indigo-100 text-lg font-bold text-indigo-700 flex items-center justify-center">
+              {((creator as any).name || "C").charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold">{(creator as any).name || "Community creator"}</p>
+              <p className="text-xs text-gray-500">{(creator as any).title || (creator as any).bio || "Passionate about teaching"}</p>
+            </div>
+            <div className="ml-auto flex gap-3 text-center">
+              {((creator as any).challenges_created ?? (creator as any).stats?.challenges_created ?? 0) > 0 && (
+                <div>
+                  <p className="font-bold">{(creator as any).challenges_created ?? (creator as any).stats?.challenges_created ?? 0}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Challenges</p>
+                </div>
+              )}
+              {((creator as any).followers ?? (creator as any).stats?.followers ?? 0) > 0 && (
+                <div>
+                  <p className="font-bold">{(creator as any).followers ?? (creator as any).stats?.followers ?? 0}</p>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Followers</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Related challenges */}
+      {related.length > 0 && (
+        <div className="mt-4 bg-white rounded-2xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">🧩 Challenges liên quan</h3>
+            <Link href="/challenges" className="text-sm font-medium text-indigo-600 hover:underline">Xem tất cả →</Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {related.map((r) => (
+              <Link key={r._id} href={`/challenges/${r._id}`} className="group border border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-md transition-all">
+                <div className="flex items-center justify-between gap-2">
+                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${DIFFICULTY_COLORS[r.difficulty] || "bg-gray-100"}`}>{r.difficulty}</span>
+                  <span className="text-xs text-gray-400">★ {r.stats?.avg_rating?.toFixed(1) || "—"}</span>
+                </div>
+                <p className="mt-2 font-semibold line-clamp-2 group-hover:text-indigo-700">{r.title}</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {Math.round((r.stats?.completion_rate || 0) * 100)}% hoàn thành · {r.stats?.attempts || 0} lượt
+                </p>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

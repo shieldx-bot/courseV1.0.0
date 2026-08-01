@@ -101,5 +101,127 @@ export interface CreatorProfile {
   avg_completion_rate: number;
   avg_rating: number;
   followers_count: number;
+  following_count?: number;
   badges: string[];
+  // Optional public identity fields (enriched when available)
+  display_name?: string;
+  avatar_url?: string;
+  bio?: string;
+  title?: string;
+  location?: string;
+  languages?: string[];
+  website?: string;
+  social?: { twitter?: string; github?: string; linkedin?: string; youtube?: string };
+  verified?: boolean;
+  is_verified?: boolean;
+  rank?: string;
+  rating?: number;
+  competitive_rating?: number;
+  total_xp?: number;
+  xp?: number;
+  current_streak?: number;
+  longest_streak?: number;
+  reputation?: number;
+  contribution_score?: number;
+  creator_score?: number;
+  joined_at?: string;
+  created_at?: string;
+  stats?: Record<string, any>;
+}
+
+/* ── Community Hub ───────────────────────────────────────────── */
+
+export interface CommunityHubStats {
+  members: number;
+  events_last_24h: number;
+  challenges_solved_24h: number;
+  discussions_total: number;
+  challenges_published: number;
+  active_members_24h: number;
+}
+
+export interface CommunityHubDiscussion {
+  id: string;
+  lesson_id: string;
+  course_id: string;
+  course_title: string | null;
+  user_id: string;
+  user_name: string;
+  title: string;
+  excerpt: string;
+  reply_count: number;
+  vote_score: number;
+  user_vote: number;
+  is_pinned: boolean;
+  is_locked: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommunityHubMember {
+  user_id: string;
+  user_name: string;
+  role: string;
+  level: string;
+  level_score: number;
+  published_challenges: number;
+  followers: number;
+  avg_rating: number;
+  badges: string[];
+}
+
+export interface CommunityHubData {
+  feed: ActivityEvent[];
+  stats: CommunityHubStats;
+  discussions: CommunityHubDiscussion[];
+  members: CommunityHubMember[];
+}
+
+/* ── Arena ──────────────────────────────────────────────────── */
+
+export interface ArenaPlayer {
+  user_id: string;
+  user_name?: string;
+  country?: string;
+  company?: string;
+  university?: string;
+  rating: number;
+  rank: string;
+  provisional: boolean;
+  matches: number;
+  wins: number;
+  losses: number;
+  season_points: number;
+  peak_rating: number;
+  updated_at: string | null;
+}
+
+export interface ArenaLeaderboardData {
+  scope: string;
+  period: string;
+  players: ArenaPlayer[];
+  my_rank: number | null;
+}
+
+export interface ArenaLiveBattle {
+  id: string;
+  mode: string;
+  topic: string;
+  status: "lobby" | "live";
+  participants: { user_id: string; user_name: string; rating_before?: number }[];
+  created_at: string;
+}
+
+export interface ArenaMatch {
+  id: string;
+  topic: string;
+  mode: string;
+  created_at: string;
+  won: boolean;
+  rating_delta: number | null;
+  rating_after: number | null;
+  score: number | null;
+  time_seconds: number | null;
+  summary: { winner: string; winner_score: number; loser: string; loser_score: number; text: string } | null;
+  opponent: { user_id: string; user_name: string; rating_before?: number };
 }

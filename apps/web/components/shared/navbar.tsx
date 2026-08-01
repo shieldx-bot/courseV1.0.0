@@ -8,6 +8,7 @@ import { Menu, X, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/components/theme-provider";
 import { isOnboardingSkipped } from "@/lib/onboarding-data";
+import { NotificationBell } from "@/components/ecosystem/notification-bell";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -15,7 +16,9 @@ const links = [
   { href: "/learning-paths", label: "Paths" },
   { href: "/challenges", label: "Challenges" },
   { href: "/skills", label: "Skills" },
-  { href: "/tournaments", label: "Arena" },
+  { href: "/arena", label: "Arena" },
+  { href: "/events", label: "Events" },
+  { href: "/creator", label: "Creator" },
   { href: "/activity", label: "Activity" },
   { href: "/membership", label: "Membership" },
   { href: "/pricing", label: "Pricing" },
@@ -119,6 +122,7 @@ export function Navbar() {
           </button>
           {user ? (
             <>
+              <NotificationBell />
               {isOnboardingSkipped(user.onboarding) && (
                 <Link href="/onboarding">
                   <Button
