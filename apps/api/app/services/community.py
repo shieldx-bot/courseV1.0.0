@@ -77,16 +77,23 @@ async def submit_challenge(
         "stats.attempts": attempts, "stats.completion_rate": round(cr, 3),
     }})
 
-    # Update creator stats
-    creator_id = challenge.get("creator_id")
-    if creator_id:
-        await _update_creator_stats(creator_id)
-
-    if result["is_correct"]:
-        await create_activity(user_id, "challenge_completed", {
-            "challenge_id": challenge_id, "challenge_title": challenge.get("title", ""),
+    # Publish domain event — listeners react to activity feed, creator stats,
+    # and (future) notifications independently. This decouples the submission
+    # flow from cross-cutting systems.
+    from app.core.events import Event, bus
+    await bus.publish(Event(
+        name="ChallengeCompleted",
+        producer="community.submit_challenge",
+        payload={
+            "user_id": user_id,
+            "challenge_id": challenge_id,
+            "challenge_title": challenge.get("title", ""),
             "difficulty": challenge.get("difficulty", "medium"),
-        })
+            "is_correct": result["is_correct"],
+            "attempt_id": attempt_id,
+            "creator_id": challenge.get("creator_id"),
+        },
+    ))
 
     return {
         "attempt_id": attempt_id,

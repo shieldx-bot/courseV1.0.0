@@ -24,6 +24,8 @@ from app.api.v1.enterprise import router as enterprise_router
 from app.api.v1.exams import router as exam_router
 from app.api.v1 import error_log as error_log_module
 from app.services.learning_paths import seed_learning_paths
+from app.services.event_handlers import register_default_handlers
+from app.core.events import bus as event_bus
 from app.services.r2_storage import r2_storage
 from app.services import search as search_service
 from app.core.telemetry import setup_telemetry
@@ -90,6 +92,8 @@ async def lifespan(app: FastAPI):
         await seed_skill_taxonomy()
     except Exception as exc:
         logger.warning("Skill taxonomy seeding skipped: %s", exc)
+    register_default_handlers(event_bus)
+    logger.info("Domain event handlers registered: %s events", len(event_bus.stats))
     yield
     await close_redis_pool()
     logger.info("Shutdown complete — connections closed")

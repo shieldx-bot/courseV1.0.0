@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Query
 
 from app.core.deps import get_current_user, require_admin, get_optional_user
-from app.core.response import api_response, error_response
+from app.core.response import api_response, service_response
 from app.services import ecosystem as eco
 
 router = APIRouter(prefix="/ecosystem", tags=["ecosystem"])
@@ -15,11 +15,10 @@ UserDep = Depends(get_current_user)
 AdminDep = Depends(require_admin)
 
 
-def _or_error(result: dict):
-    """Return a proper 4xx JSONResponse when a service returns an error dict."""
-    if result.get("error"):
-        return error_response(result.get("message", "Request failed"), 404 if "not found" in str(result.get("message", "")).lower() else 400)
-    return api_response(result)
+# `service_response` (from core) replaces per-router `_or_error`:
+# it converts {"error": True, "message": "..."} service results into
+# proper 4xx HTTP errors, preventing the HTTP 200 fake-success bug class.
+_or_error = service_response
 
 
 # ── Creator Economy ───────────────────────────────────────────────────────────
@@ -89,7 +88,7 @@ async def my_collections(limit: int = Query(50, ge=1, le=100), user: dict = User
 @router.post("/collections/{collection_id}/bookmark")
 async def bookmark_collection(collection_id: str, user: dict = UserDep):
     result = await eco.bookmark_collection(user["id"], collection_id)
-    return _or_error(result)
+    return service_response(result)
 
 
 # ── Challenge Versioning ──────────────────────────────────────────────────────
@@ -98,7 +97,7 @@ async def bookmark_collection(collection_id: str, user: dict = UserDep):
 async def create_version(challenge_id: str, body: dict, user: dict = UserDep):
     """Snapshot a challenge version and log change note."""
     result = await eco.create_challenge_version(user["id"], challenge_id, body)
-    return _or_error(result)
+    return service_response(result)
 
 
 @router.get("/challenges/{challenge_id}/versions")
@@ -131,7 +130,7 @@ async def list_events(
 @router.post("/events/{event_id}/join")
 async def join_event(event_id: str, user: dict = UserDep):
     result = await eco.join_event(user["id"], event_id)
-    return _or_error(result)
+    return service_response(result)
 
 
 @router.post("/events/{event_id}/leave")
@@ -146,7 +145,7 @@ async def leave_event(event_id: str, user: dict = UserDep):
 async def submit_report(body: dict, user: dict = UserDep):
     """Report inappropriate content / behavior."""
     result = await eco.submit_report(user["id"], body)
-    return _or_error(result)
+    return service_response(result)
 
 
 # ── Platform Intelligence ─────────────────────────────────────────────────────
@@ -170,7 +169,7 @@ async def moderation_queue(status: str = "pending", limit: int = Query(50, ge=1,
 async def resolve_report(report_id: str, body: dict, user: dict = AdminDep):
     """Resolve a report: warn | remove | ban | dismiss."""
     result = await eco.resolve_report(user["id"], report_id, body.get("action", "dismiss"), body.get("note", ""))
-    return _or_error(result)
+    return service_response(result)
 
 
 @admin_router.get("/moderation/stats")
@@ -183,4 +182,4 @@ async def moderation_stats(user: dict = AdminDep):
 async def review_creator_verification(creator_id: str, body: dict, user: dict = AdminDep):
     """Approve / reject a creator verification request."""
     result = await eco.review_creator_verification(user["id"], creator_id, body.get("approve", False), body.get("note", ""))
-    return _or_error(result)
+    return service_response(result)

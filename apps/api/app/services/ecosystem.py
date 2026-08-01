@@ -515,18 +515,21 @@ async def create_event(user_id: str, body: dict) -> dict:
     }
     await db.events.insert_one(doc)
 
-    # Track events hosted by creator
-    if body.get("host_id") == user_id:
-        profile = await get_or_create_creator_profile(user_id)
-        await db.creator_profiles.update_one({"_id": profile["_id"]}, {"$inc": {"events_hosted": 1}})
-        await refresh_achievements(user_id)
-    await create_activity(user_id, "event_created", {"event_id": eid, "event_title": doc["title"]})
-    # Notify followers of the host
-    try:
-        from app.services.notifications import notify_followers
-        await notify_followers(user_id, {"event_title": doc["title"], "event_id": eid})
-    except Exception:
-        pass
+    # Publish domain event — Creator/Community/Notification domains react
+    # independently (events_hosted tracking, public feed, follower fan-out).
+    from app.core.events import Event, bus
+    await bus.publish(Event(
+        name="EventCreated",
+        producer="ecosystem.create_event",
+        payload={
+            "event_id": eid,
+            "event_title": doc["title"],
+            "host_id": user_id,
+            "requested_host_id": body.get("host_id"),
+            "event_type": event_type,
+        },
+    ))
+
     return {"event_id": eid, "event": doc}
 
 
@@ -623,18 +626,26 @@ async def list_moderation_queue(status: str = "pending", limit: int = 50) -> lis
     if status:
         query["status"] = status
     docs = await db.moderation_reports.find(query).sort("created_at", 1).to_list(length=limit)
+    reporters = await _load_users_batch(db, [d.get("reporter_id") for d in docs])
+    challenge_targets = await _load_challenges_batch(db, [d.get("target_id") for d in docs if d.get("target_type") == "challenge"])
+    user_targets = await _load_users_batch(db, [d.get("target_id") for d in docs if d.get("target_type") == "user"])
+    discussion_ids = [d.get("target_id") for d in docs if d.get("target_type") == "discussion"]
+    discussions = {}
+    if discussion_ids:
+        ddocs = await db.discussions.find({"$or": [{"_id": c} for c in discussion_ids]}).to_list(length=len(discussion_ids))
+        discussions = {d["_id"]: d for d in ddocs}
     out = []
     for d in docs:
-        reporter = await db.users.find_one({"_id": d.get("reporter_id")})
+        reporter = reporters.get(d.get("reporter_id"))
         target = None
         if d.get("target_type") == "challenge":
-            target = await db.challenges.find_one({"_id": d.get("target_id")})
-            target = {"id": d["target_id"], "title": target.get("title", "") if target else "Unknown", "creator_id": target.get("creator_id") if target else None} if target else {"id": d["target_id"], "title": "Unknown"}
+            target_doc = challenge_targets.get(d.get("target_id"))
+            target = {"id": d["target_id"], "title": target_doc.get("title", "") if target_doc else "Unknown", "creator_id": target_doc.get("creator_id") if target_doc else None} if target_doc else {"id": d["target_id"], "title": "Unknown"}
         elif d.get("target_type") == "user":
-            t = await db.users.find_one({"_id": d.get("target_id")})
+            t = user_targets.get(d.get("target_id"))
             target = {"id": d["target_id"], "title": t.get("name", "Unknown") if t else "Unknown"}
         elif d.get("target_type") == "discussion":
-            t = await db.discussions.find_one({"_id": d.get("target_id")})
+            t = discussions.get(d.get("target_id"))
             target = {"id": d["target_id"], "title": t.get("title", "Unknown") if t else "Unknown"}
         out.append({
             "id": d["_id"],

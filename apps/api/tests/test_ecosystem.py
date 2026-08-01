@@ -89,6 +89,32 @@ def test_error_responses_return_proper_http_status():
         assert res.json()["success"] is False
 
 
+def test_service_response_guardrail_contract():
+    """Shared helper must produce correct HTTP envelopes for service results."""
+    from fastapi.testclient import TestClient
+    from app.core.response import service_response
+
+    # Success -> plain dict (200 envelope)
+    ok = service_response({"success": True, "data": "x"})
+    assert ok["success"] is True
+
+    # Not-found style message -> JSONResponse 404 + success:false
+    nf = service_response({"error": True, "message": "Event not found."})
+    assert nf.status_code == 404
+    assert nf.body
+    import json as _json
+    assert _json.loads(nf.body)["success"] is False
+
+    # Other errors -> 400 + success:false
+    bad = service_response({"error": True, "message": "Invalid category."})
+    assert bad.status_code == 400
+    assert _json.loads(bad.body)["success"] is False
+
+    # Extra keywords also yield 404
+    nf2 = service_response({"error": True, "message": "Collection is missing."})
+    assert nf2.status_code == 404
+
+
 def test_creator_verification_flow():
     with TestClient(app) as client:
         token = _login(client)
