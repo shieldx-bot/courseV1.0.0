@@ -94,6 +94,23 @@ Pagination defaults: `limit=50`, `max=100`. Payload budgets: challenge lists ~10
 - **Publish from services:** `await bus.publish(Event(name="ChallengeCompleted", producer="...", payload={...}))` — never call handlers directly.
 - **Event naming:** `PascalCase` domain nouns (`ChallengeCompleted`, `CreatorVerified`, `EventCreated`). Version field defaults to 1 for backward-compat.
 
+### Event Governance Rules
+
+- **Every event has exactly one business meaning.** Past-tense PascalCase name (`ChallengeCompleted`, `EventCreated`).
+- **Events are immutable.** Handlers never mutate `event.payload` — they copy what they need.
+- **Handlers never publish recursive copies of the same event** (the bus dedup prevents same-correlation loops; never re-publish the same name+payload).
+- **Events must be documented before use** via `EventSpec` passed to `bus.register(..., spec=...)`. The Event Catalog + dependency graph + diagnostics are **DERIVED from registrations** — never maintained manually.
+- **Breaking payload changes require version bump** (`version+1`). Producers and consumers evolve independently; old payloads remain parseable.
+- **Registration:** always use `bus.register(handler, domain=..., event_name=..., spec=...)` — never bare `subscribe` (leaves the event undocumented and orphaned).
+
+### Admin Event Governance Endpoints
+
+- `GET /api/v1/admin/events/catalog` — Event Catalog: name, version, description, producer, payload schema, side-effects, idempotency, example payload, consumers, published/failed counts.
+- `GET /api/v1/admin/events/dependencies` — dependency graph (event → consumer domains/handlers).
+- `GET /api/v1/admin/events/diagnostics` — health: most active events, slowest handlers, failures, unused events, orphan listeners.
+
+Own the rule: **a new event is "shipped" only when its spec is registered, its readers are documented, and its diagnostics show no orphans.**
+
 ### Migrations so far (why, what removed)
 
 1. **`ChallengeCompleted`** — `submit_challenge` no longer directly calls activity feed + creator stats. Listeners: activity, creator stats. Removed 2 cross-domain calls.

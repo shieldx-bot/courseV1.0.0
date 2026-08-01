@@ -18,6 +18,7 @@ from app.db.seed_concepts import seed_concepts
 from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive, adaptive, community, community_hub, tournaments, arena
 from app.api.v1 import ecosystem as ecosystem_module
 from app.api.v1 import notifications as notifications_module
+from app.api.v1 import events_governance as events_governance_module
 from app.api.v1 import challenges as challenges_module
 from app.services.skill_graph import seed_skills as seed_skill_taxonomy
 from app.api.v1.enterprise import router as enterprise_router
@@ -220,6 +221,7 @@ app.include_router(arena.router, prefix="/api/v1/arena", tags=["arena"])
 app.include_router(ecosystem_module.router, prefix="/api/v1", tags=["ecosystem"])
 app.include_router(ecosystem_module.admin_router, prefix="/api/v1", tags=["admin-ecosystem"])
 app.include_router(notifications_module.router, prefix="/api/v1", tags=["notifications"])
+app.include_router(events_governance_module.router, prefix="/api/v1", tags=["admin-events"])
 
 
 @app.get("/api/v1/health")

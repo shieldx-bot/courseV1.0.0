@@ -1,15 +1,19 @@
-"""Domain Event Handlers — decoupled listeners that react to business events.
+"""Domain Event Handlers — decoupled, self-documented listeners.
 
 Each handler knows only about the Event (name + payload), never the producer.
 Handlers are failure-isolated by the bus: one failing never blocks others.
 Handlers must be idempotent — duplicate events never double side-effects.
+
+Every event is documented via an immutable EventSpec passed to bus.register().
+The Event Catalog + dependency graph + diagnostics are DERIVED from these
+registrations at runtime — never maintained manually.
 
 Registered in main.py at startup via `register_default_handlers()`.
 """
 
 import logging
 
-from app.core.events import Event, EventBus
+from app.core.events import Event, EventBus, EventSpec
 from app.services.community import create_activity
 
 logger = logging.getLogger(__name__)
@@ -28,13 +32,12 @@ def _log_finished(name: str, outcome: str = "ok") -> None:
 # ── ChallengeCompleted listeners ─────────────────────────────────────────────
 
 async def _on_challenge_completed__activity(event: Event) -> None:
-    """Reactivity: append to the user's public activity feed (supports feed tabs)."""
+    """Community domain: append to the user's public activity feed."""
     _log_started(event.name, event.producer)
     payload = event.payload
     user_id = payload.get("user_id")
     if not user_id:
         return
-    # Idempotent: activity per attempt is unique because the payload carries attempt_id.
     await create_activity(
         user_id,
         "challenge_completed",
@@ -51,12 +54,7 @@ async def _on_challenge_completed__activity(event: Event) -> None:
 
 
 async def _on_challenge_completed__creator_stats(event: Event) -> None:
-    """Reactivity: recompute the challenge author's creator reputation/level.
-
-    Uses the existing stats engine (`_update_creator_stats`) so behavior is
-    identical to the pre-event direct call; the producer is no longer coupled
-    to this side-effect.  Idempotent: recomputation is deterministic per state.
-    """
+    """Creator domain: recompute the challenge author's reputation/level."""
     _log_started(event.name, event.producer)
     payload = event.payload
     creator_id = payload.get("creator_id")
@@ -67,13 +65,11 @@ async def _on_challenge_completed__creator_stats(event: Event) -> None:
     _log_finished(event.name)
 
 
-async def _on_challenge_completed__notification(event: Event) -> None:
-    """Reactivity: send a 'skill milestone' style notification is deferred.
+async def _on_challenge_completed__reserved(event: Event) -> None:
+    """Reserved: future notification listener (currently a NOOP).
 
-    This listener is intentionally disabled by default — the existing
-    notification path is already wired from the core submission which owns
-    the challenge/attempt lifecycle inline.  Keeping it un-registered avoids
-    duplicate notifications while preserving the event for future use.
+    Registered with documentation so the catalog reflects the intended
+    notification consumer without emitting duplicate notifications today.
     """
     _log_started(event.name, event.producer)
     _log_finished(event.name, outcome="noop")
@@ -82,12 +78,7 @@ async def _on_challenge_completed__notification(event: Event) -> None:
 # ── EventCreated listeners ───────────────────────────────────────────────────
 
 async def _on_event_created__creator_tracking(event: Event) -> None:
-    """Creator domain: increment events_hosted + refresh achievements.
-
-    Preserves the original guard semantics: tracking only occurs when the
-    client requested the authenticated user as host (body host_id matches).
-    Idempotent: events_hosted increments are owned by the event doc.
-    """
+    """Creator domain: increment events_hosted + refresh achievements."""
     _log_started(event.name, event.producer)
     host_id = event.payload.get("host_id")
     requested_host = event.payload.get("requested_host_id")
@@ -130,20 +121,67 @@ async def _on_event_created__notify_followers(event: Event) -> None:
     _log_finished(event.name)
 
 
+# ── Event Catalog entries ─────────────────────────────────────────────────────
+
+CHALLENGE_COMPLETED_SPEC = EventSpec(
+    name="ChallengeCompleted",
+    version=1,
+    description="A user submitted an attempt to a challenge (correct or incorrect).",
+    producer="community.submit_challenge",
+    payload_schema={
+        "user_id": "str — the solver",
+        "challenge_id": "str — the challenge",
+        "challenge_title": "str — display title",
+        "difficulty": "str — easy|medium|hard|expert",
+        "is_correct": "bool — grading result",
+        "attempt_id": "str — unique attempt (idempotency key)",
+        "creator_id": "str|null — challenge author",
+    },
+    side_effects=("community feed event", "creator stats recomputation"),
+    idempotency="attempt_id unique; duplicate publishes skipped by correlation+payload",
+    example_payload={
+        "user_id": "u-1", "challenge_id": "ch-1", "challenge_title": "chmod",
+        "difficulty": "easy", "is_correct": True, "attempt_id": "att-u1-ch1-123", "creator_id": "u-2",
+    },
+    related_events=("EventCreated",),
+)
+
+EVENT_CREATED_SPEC = EventSpec(
+    name="EventCreated",
+    version=1,
+    description="A community event (challenge, AMA, hackathon...) was created.",
+    producer="ecosystem.create_event",
+    payload_schema={
+        "event_id": "str — new event id (idempotency key)",
+        "event_title": "str — display title",
+        "host_id": "str — authenticated host",
+        "requested_host_id": "str|null — client-supplied host (guard)",
+        "event_type": "str — weekly_challenge|ama|...",
+    },
+    side_effects=("creator events_hosted+achievements", "community feed event", "follower notifications"),
+    idempotency="event_id unique; host-guard prevents accidental tracking",
+    example_payload={
+        "event_id": "evt-code-123", "event_title": "Weekly Code",
+        "host_id": "u-1", "requested_host_id": "u-1", "event_type": "weekly_challenge",
+    },
+    related_events=("ChallengeCompleted",),
+)
+
+
 # ── Registration ─────────────────────────────────────────────────────────────
 
 def register_default_handlers(bus: EventBus) -> None:
-    """Register all default listeners.
+    """Register all default listeners with their EventSpec documentation.
 
     Called once at application startup (see app/main.py lifespan).
     """
-    bus.subscribe("ChallengeCompleted", _on_challenge_completed__activity)
-    bus.subscribe("ChallengeCompleted", _on_challenge_completed__creator_stats)
-    # NOTE: notification listener intentionally not registered yet —
-    # keeps the migration incremental and avoids duplicate notifications.
-    bus.subscribe("ChallengeCompleted", _on_challenge_completed__notification)
 
-    # EventCreated — decoupled consumers: creator tracking, feed, notifications
-    bus.subscribe("EventCreated", _on_event_created__creator_tracking)
-    bus.subscribe("EventCreated", _on_event_created__activity)
-    bus.subscribe("EventCreated", _on_event_created__notify_followers)
+    # ChallengeCompleted — producers: community.submit_challenge
+    bus.register(_on_challenge_completed__activity, domain="community", event_name="ChallengeCompleted", spec=CHALLENGE_COMPLETED_SPEC)
+    bus.register(_on_challenge_completed__creator_stats, domain="creator", event_name="ChallengeCompleted", spec=None)
+    bus.register(_on_challenge_completed__reserved, domain="notifications", event_name="ChallengeCompleted", spec=None)
+
+    # EventCreated — producers: ecosystem.create_event
+    bus.register(_on_event_created__creator_tracking, domain="creator", event_name="EventCreated", spec=EVENT_CREATED_SPEC)
+    bus.register(_on_event_created__activity, domain="community", event_name="EventCreated", spec=None)
+    bus.register(_on_event_created__notify_followers, domain="notifications", event_name="EventCreated", spec=None)
