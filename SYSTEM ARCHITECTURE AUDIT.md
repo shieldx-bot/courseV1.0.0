@@ -398,3 +398,234 @@ Each item above **extends an existing module** — none requires new infrastruct
 **Items marked "Needs further inspection" (honest gaps from incomplete exploration):** exact `schema.sql` table list contents, migration file internals beyond names, enterprise/exam router depth, search engine internals, LLM provider configuration details, frontend per-route inventory beyond the listed directories, and the current presence of the `_safe` dead helper. The rest of this report is grounded in source read directly.
 
 — End of CTO System Architecture Audit. No code or design changes were made.
+
+---
+
+# ADDENDUM — CHIEF ARCHITECT 14-STEP REVIEW (v2)
+
+*Consolidates and extends the audit above. Derived from source; no code changed.*
+
+## IA — SYSTEM INVENTORY (per-subsystem)
+
+| Subsystem | Owner(s) | Inputs | Outputs | API group | DB entities | Events |
+|---|---|---|---|---|---|---|
+| Auth/Identity | auth router, core/deps | credentials | JWT, user session | /api/v1/auth | users | (future UserRegistered) |
+| Courses/Learning | courses, progress, quiz, adaptive, ai_tutor | content, enrol | progress, quizzes | /api/v1/courses,… | courses, progress, quizzes | — |
+| Challenges | community.py, challenges router | submissions | attempts, grades, stats | /api/v1/challenges | challenges, challenge_attempts, challenge_versions, ratings, bookmarks | ChallengeCompleted |
+| Skill Graph | skill_graph.py | attempts | mastery scores, recs | /api/v1/skills | skills, user_skills | consumed by rec engine |
+| Arena | arena, tournaments | competition | rankings | /api/v1/arena | arena_players, tournaments state | — |
+| Community | community.py, community_hub, discussions | activity, discussions | feed, hub | /api/v1/community | activity_events, discussions | consumed ChallengeCompleted |
+| Creator | ecosystem.py, creators router | content/events | profiles, trust, analytics | /api/v1/ecosystem | creator_profiles, badges, achievements | consumed EventCreated |
+| Marketplace | ecosystem.py | collections | bundles/kits | /ecosystem/collections | collections, collection_bookmarks | — |
+| Events | ecosystem.py | event CRUD | events, attendees | /ecosystem/events | events | EventCreated |
+| Notifications | notifications.py | triggers | notifications, prefs | /api/v1/notifications | notifications, notification_preferences | consumed many |
+| Moderation | ecosystem.py | reports | queue, resolve | /admin/ecosystem | moderation_reports | consumed by intelligence backlog |
+| AI | llm.py + ai_tutor, code_assistant, community_ai | prompts/attempts | mentor, tutor, gen | various | (external LLM) | — |
+| Certificates/Career | certificates, learning_paths | progress | certs, verify | /api/v1/certificates | certificates | — |
+| Enterprise/Exams | enterprise, exams routers | B2B | exams | /api/v1/enterprise, /exams | *Needs further inspection* | — |
+| Intelligence | intelligence.py | all collections (read) | KPIs, signals, recs | /admin/intelligence | — (pure reads) | — |
+| Platform Ops | platform_ops.py | intelligence recs, admin | tasks, audit | /admin/ops | ops_tasks | consumed via notify |
+| Events Bus/Governance | core/events.py, event_handlers, governance router | registers, publishes | catalog, deps, diag | /admin/events | event bus (in-mem) | 2 published events |
+| Core/Infra | core/*, db/* | — | envelopes, limits, logging | — | — | — |
+| Web App | apps/web | API | PWA UI | — | — | — |
+
+## II — DOMAIN MAPPING (overlap/boundary check)
+
+| Domain | Responsibility clarity | Overlap | Boundary correct? | Size risk | Keep independent? |
+|---|---|---|---|---|---|
+| Auth | ✅ crisp | none | ✅ | small | yes |
+| Skills | ✅ | overlaps rec engine (§X) | ⚠️ mastery vs recommendation duality | growing | yes |
+| Challenges | ✅ | creator content + marketplace both touch challenges | ✅ | ✅ large but cohesive | yes |
+| Community | ✅ | feed overlaps activity/social | ⚠️ "activity" appears in challenges+community+hub routers | large | yes, but consolidate feed access |
+| Creator | ✅ | ecosystem owns creator + events + mod + marketplace | ⚠️ ecosystem.py is a **god service** (4 domains) | **too large** | split into creator / marketplace / events / trust modules |
+| Notifications | ✅ | none | ✅ | ✅ | yes |
+| Intelligence | ✅ | reads everything read-only | ✅ read-model | ✅ | yes |
+| Ops | ✅ | overlaps moderation tasks | ✅ | ✅ | yes |
+| Payments | **absent** | — | — | — | separate domain when monetization arrives |
+| Recruitment | **absent** (enterprise only) | — | — | — | future domain |
+
+## III — BOUNDED CONTEXT FINDINGS
+
+- **Source of truth owners:** users→Auth; challenges/attempts→Challenges; creator_profiles→Creator; events→Events; reports→Moderation; notifications→Notifications; ops_tasks→Platform Ops.
+- **Should never belong here:** marketplace/event/moderation logic inside `ecosystem.py`; activity-feed writes in `community.py` while hub/feed reads live in separate routers (responsibility split, not ownership violation).
+- **Violation (minor):** `intelligence.py` reaches into 6 collections by name (read-only replica) — acceptable read-model but no contract.
+- **Violation (medium):** `ecosystem.py` god service holds 4 bounded contexts (creator, marketplace, events, moderation) — the largest maintainability risk.
+
+## IV — DEPENDENCY GRAPH
+
+```
+core/* ──────────────► all services (envelope, events, deps, limit)
+db/mongodb ──────────► all services (get_db/get_read_db)
+community.py ────────► skill_graph, llm, core.events
+ecosystem.py ────────► community.create_activity, notifications.create_notification, core.events
+event_handlers ──────► community, ecosystem, notifications   (event consumer hub)
+intelligence.py ─────► db (read model, direct collection names)
+platform_ops.py ─────► intelligence, notifications
+certificates/paths ──► progress, skill_graph
+web ─────────────────► API only
+```
+- Direct: 9 edges. Indirect: community→skill_graph→db; ecosystem→community→skill_graph.
+- Circular: **none**.
+- Hidden coupling: intelligence↔collection names; ecosystem↔community (benign function reuse).
+- Excessive coupling: **ecosystem.py** (4 domains), **event_handlers** (3 service imports — acceptable, it's the consumer hub).
+
+## V — DATA FLOW (workflows traced)
+
+- **Register:** auth register → users insert → (future) UserRegistered → onboarding.
+- **Solve challenge:** submit → grade → skill update (milestone→activity) → attempt insert → stats update → ChallengeCompleted → [feed, creator_stats] → return.
+- **Publish challenge:** publish_challenge → status=published → _update_creator_stats → create_activity(challenge_created) → (future ChallengePublished).
+- **Join event:** join_event → capacity check → attendee_ids push → notification confirmation → (future EventJoined).
+- **Creator verification:** request → pending → admin review → verified/rejected → notifications + activity (verified) or notification (rejected).
+- **Moderation:** submit_report → pending → queue → resolve (warn/remove/ban/dismiss) → target mutation (challenge status removed, user restricted, discussion locked).
+- **Arena battle:** (tournaments/arena router) → ranking change → leaderboard → (future BattleWon).
+- **Intelligence→Task:** recs → sync_from_intelligence → dedupe check → create_task → notify watcher → admin transitions → audit history → completed.
+
+## VI — EVENT ARCHITECTURE (deep)
+
+- **Registered events:** ChallengeCompleted (3 consumers incl. reserved-notifications), EventCreated (3 consumers).
+- **Idempotency:** attempt_id / event_id + bus correlation+payload dedup. **Ordering:** handler registration order (deterministic). **Failure handling:** per-handler isolation (logged, others continue); no retry store (resync is source of truth). **Governance:** catalog/deps/diagnostics auto-derived; orphan detection.
+- **Chains:** single hop only. **Storm risk:** none (max 3 handlers/event; handlers never re-publish).
+- **Missing events** (8+): ChallengePublished, CreatorFollowed, CreatorVerified, RatingChanged, CertificateIssued, ReportSubmitted, ModerationCompleted, SkillMastered, UserRegistered, EventJoined, BattleWon. Each has a built trigger site.
+- **Unused:** none. **Duplicate:** none (names unique).
+
+## VII — DATABASE REVIEW
+
+| Collection | Owner | Hot/Cold | Write pattern | Read pattern | Notes |
+|---|---|---|---|---|---|
+| users | Auth | hot | register/update | auth+profile+creator enrich | |
+| challenges | Creator | hot | CRUD/version/stats | lists, arena, intel | large doc (content+skills+versions refs) |
+| challenge_attempts | Learner | hot | append | user/analytics/intel | **top growth collection** |
+| activity_events | Community | hot | append | feed, DAU/WAU | append-only, no TTL |
+| notifications | Notifications | hot | insert | unread badge, list | 500 cap/user |
+| creator_profiles | Creator | warm | lazily create/update | leaderboard, trust | embeds followers/badges |
+| collections | Marketplace | cold | create/bookmark | browse | |
+| events | Events | warm | CRUD/join | calendar | embeds attendee_ids |
+| moderation_reports | Moderation | cold | insert/resolve | queue, intel | |
+| ops_tasks | Platform Ops | cold | create/transition | overview | embeds history array |
+| certificates | Career | cold | issue | verify | |
+| arena_players | Arena | warm | join/matches | leaderboards | |
+| ratings/bookmarks/versions | misc | cold | append | aggregates | |
+- **Duplication/denorm:** stats on challenges (attempts, completion_rate, avg_rating, bookmarks) are denormalized counters — consistent via inline updates; challenge_attempts + stats both count attempts (dual-source risk).
+- **Consistency risk:** attempts counter (stats) vs challenge_attempts count; follower count (embedded) vs users collection — both single-writer, acceptable.
+- **Indexes:** migration 002 defines indexes; in-memory DB lacks index support (warn on create).
+- **Future partitioning:** attempts + activity_events are the shard-candidates; no TTL on activity_events (retention risk).
+
+## VIII — API REVIEW
+
+| API group | Version | Consistency | Auth | Pagination | Errors |
+|---|---|---|---|---|---|
+| /auth | v1 | ✅ | public | n/a | envelope |
+| /courses,/progress,/quiz,/adaptive | v1 | ✅ | mixed | ✅ limit | envelope |
+| /challenges,/skills | v1 | ✅ | owner-guarded | ✅ | 400/404 via service_response |
+| /ecosystem | v1 | ✅ | user/admin split | ✅ limit (max 100) | ✅ (error contract fixed) |
+| /notifications | v1 | ✅ | user | ✅ | envelope |
+| /admin/* (events, intelligence, ops) | v1 | ✅ | require_admin | ✅ | envelope |
+- **Naming/REST:** consistent `resource/{id}/action`; **versioning:** single `/api/v1` prefix (additive only — documented).
+- **Duplicate endpoints:** none observed. **Unused:** none observed. **Missing:** no public recommendation endpoint, no public intelligence (admin only) — by design; notifications lacks push/email endpoints (preferences exist, transport future).
+
+## IX — FRONTEND ARCHITECTURE
+
+- **Framework:** Next.js App Router + Tailwind + TS; PWA (offline SW).
+- **Layouts:** root layout (providers, theme, PWA), (app) authenticated shell w/ shared navbar, (public) marketing shell.
+- **Pages:** dashboard, courses, learning-paths, challenges, skills, arena, events, creator, activity, membership, pricing, reviews, leaderboard, community, profile/[userId], admin (moderation), notifications, verify, auth (login/register), offline.
+- **Components:** organized per-domain (dashboard/, learn/, arena/, community/, ecosystem/, profile/, homepage/, adaptive/, learning-paths/, onboarding/, support/, ide/, shared/, ui/).
+- **State:** auth-context (JWT user), react hooks (useExperiments, useOfflineCache); no global store — server components + fetch clients.
+- **API layer:** lib/api-client (env-backed), domain clients (community-api, ecosystem-api, notifications-api, adaptive-client); **caching:** PWA offline-db; **loading:** skeletons per-domain; **a11y:** aria-labels, focus trap in navbar; **nav:** shared navbar with desktop/mobile.
+- **Gaps:** no data-fetching cache layer (React Query absent), no server-component streaming usage observed, no per-route loading boundaries inventory (**Needs inspection**).
+
+## X — PLATFORM MATURITY (5 levels)
+
+| Subsystem | Level | Why |
+|---|---|---|
+| Auth/Identity | L4 | JWT, roles, rate-limited, guarded deps |
+| Courses/Learning | L3 | functional+broad; adaptive adds personalization |
+| Challenges | L4 | versioning, stats, events, ratings |
+| Arena | L3 | rankings/tournaments; no battle events |
+| Community | L3 | feed+discussions+hub; feed N+1 earlier removed |
+| Creator | L4 | verification, trust, analytics, leaderboard |
+| Marketplace | L2 | collections only; no payments/premium rails |
+| Events | L3 | CRUD+join+recurrence, event-driven fan-out |
+| Notifications | L4 | typed, prefs, quiet hours, fan-out |
+| Moderation | L3 | queue+actions+signals; no auto-escalation |
+| AI | L3 | mentor/tutor/adaptive; LLM-dependent |
+| Certificates | L2 | issue+verify; not "living" |
+| Intelligence | L3 | real KPIs/recs; **request-time, not self-renewing** (L5 requires scheduler) |
+| Platform Ops | L3 | real tasks+audit+automation; outcome measurement absent |
+| Event Architecture | L4 | governed, catalogued, isolated |
+| Frontend | L3 | broad PWA; no hosted data cache |
+
+## XI — ARCHITECTURE SCORECARD (0-10)
+
+| Dimension | Score | Reasoning |
+|---|---|---|
+| Modularity | 9 | clean router→service→db; new domains trivial |
+| Coupling | 6 | ecosystem god-service + intelligence collection-name coupling |
+| Cohesion | 8 | domain services cohesive; ecosystem 4-in-1 |
+| Maintainability | 8 | playbook, guardrails, governance |
+| Readability | 8 | consistent naming; some large routers |
+| Performance | 6 | N+1 fixed; request-time intelligence; no cache layer |
+| Scalability | 5 | read/write split + batching; no TTL, no scheduler, sync fan-out |
+| Security | 7 | JWT/roles/limits/envelope; CSRF+audit partial |
+| Developer Experience | 8 | playbook, self-documenting catalog, tsc/py_compile |
+| Testing | 6 | 17 API files; shared-rate-limit breakage; py3.14 gaps |
+| Observability | 7 | error logger, health, telemetry, prometheus, event diag |
+| Extensibility | 9 | events auto-register; ops categories; new routers |
+| Platform Intelligence | 6 | real but request-time reads |
+| Operational Excellence | 6 | tasks/audit exist; no measurement loop |
+| Event Architecture | 9 | governed, isolated, idempotent |
+| **Overall** | **7.2** | strong foundation + differentiating self-governance; docked on scheduling, coupling, test isolation |
+
+## XII — TECHNICAL DEBT (ranked by impact)
+
+1. **CRITICAL — Test isolation (shared rate limiter → 429 in combined runs).** Impact: CI false-red. Fix: test fixture resets limiter. Effort: S.
+2. **HIGH — god service `ecosystem.py` (creator+marketplace+events+moderation).** Impact: 4 domains changing one 700+ line file. Fix: split services; keep router shim for back-compat. Effort: M.
+3. **HIGH — Request-time intelligence scans (200k docs, no TTL on activity_events).** Impact: admin latency + DB load + unbounded append. Fix: scheduler + snapshot + TTL. Effort: M-L.
+4. **HIGH — In-memory DB `$push` parity gap.** Impact: silent dev/test divergence. Fix: mutation helper + parity test. Effort: M.
+5. **MED — Python-3.14 test breakage (`get_event_loop`).** Fix: asyncio.run. Effort: S.
+6. **MED — Intelligence collection-name coupling.** Fix: readonly contract module. Effort: S.
+7. **MED — Pydantic v2 `Config` deprecations.** Effort: S.
+8. **MED — No transport for notifications (email/push missing, prefs exist).** N/A until transport.
+9. **LOW — Dead `_safe` helper + unused imports (intelligence.py) (verify).** Effort: S.
+10. **LOW — Deprecation warnings (slowapi, worker pool aclose).** Effort: S.
+
+## XIII — EVOLUTION ROADMAP (ROI-ordered, no implementation)
+
+1. **CI/Test reliability fix.** Problem: shared limiter, py3.14, $push parity. Impact: false red; future risk: eroded velocity. Benefit: trusted CI. Difficulty: low; complexity: S; deps: none; rollback: revert fixture.
+2. **Worker-scheduled intelligence + ops sync.** Problem: request-time reads. Impact: latency/load; future risk: stalls at volume. Benefit: L5 self-improving, trend detection. Difficulty: medium; complexity: M; deps: worker; rollback: keep request fallback.
+3. **Split ecosystem god service into creator/marketplace/events/trust modules** (router-shim back-compat). Benefit: maintainability + 4 owned contexts. Difficulty: medium; rollback: keep shim, invert.
+4. **Publish the 8 missing domain events** (verification, follows, ratings, certificates, reports). Benefit: completes event mesh → intelligence/ops automation feed. Difficulty: low each; rollback: one event at a time.
+5. **Unify recommendations** (skill_graph + adaptive + trends). Benefit: personalization; difficulty: medium; depends on 2.
+6. **Knowledge graph (cross-entity) + living credentials.** Benefit: career/company stage; difficulty: M-L; depends on 4.
+7. **Experiments/decision history** to close the OS loop. Benefit: outcome measurement; difficulty: L.
+
+## XIV — CTO REPORT (extended)
+
+**Executive Summary:** Ascendly is a differentiated Modular-Monolith-with-Events competitive-learning OS. It has moved from feature breadth to platform self-governance: event-governed backbone, self-observing intelligence, and an ops task engine. The next era is **reliability + the unclosed loops** (recommendations, knowledge, career, measurement).
+
+**Platform Map:** 22 domains across 2 deployables (FastAPI+Mongo/Redis; Next.js PWA), Docker/K8s/Prometheus/Grafana infra. (See IA-IV.)
+
+**Database Map:** 17+ collections; hot: users, challenges, attempts, activity, notifications. (See VII.)
+
+**API Map:** single v1; consistent envelope + error contract; 6 admin groups. (See VIII.)
+
+**Frontend Map:** Next.js App-Router PWA, domain-organized components, auth-context state, env-backed API clients, offline cache. (See IX.)
+
+**Architecture Risks:** (R1) god-service ecosystem.py; (R2) request-time intelligence + unbounded activity; (R3) test isolation; (R4) sync fan-out with a future slow consumer; (R5) schema coupling in intelligence.
+
+**Technical Debt:** 1 critical, 3 high, 4 medium, 2 low (see XII).
+
+**Performance Risks:** intelligence scans; no TTL; no query cache layer on web; sync event handlers.
+
+**Security Risks:** partial audit trail (ops only); CSRF posture for cookie flows unverified (**Needs inspection**); LLM prompt-injection surface unmitigated (AI domains).
+
+**Operational Risks:** no scheduler; no feature flags; no structured experiment measurement; fan-out cap (500) notification etiquette.
+
+**Architecture Maturity:** Late Series-A/Early Series-B, **~68%** overall. Event mesh L4, Intelligence L3→5 target, Ops L3→5 target, Frontend L3.
+
+**Recommended Evolution Plan:** 1) Fix CI; 2) Scheduled intelligence+ops; 3) Split ecosystem; 4) Publish missing events; 5) Unified recommendations; 6) Knowledge graph + living credentials; 7) Experiments/measurement.
+
+**Long-Term Vision:** Remain a modular monolith with in-process events; add a job boundary (worker), read-model snapshots, optional domain read-replicas. **No microservices.** Career/company stage is the natural next evolution.
+
+**Overall Score: 7.6/10** (architecture 3.9/5; scorecard 7.2/10). Differentiated in self-governance; the path to 9+ runs through CI reliability, scheduled intelligence, and closing the recommendation/knowledge/measurement loops.
+
+*Items still needing inspection: enterprise/exam router depth, search internals, LLM provider config, cookie-vs-bearer CSRF posture, frontend per-route loading boundaries, `_safe` dead-code presence.*
