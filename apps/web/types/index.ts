@@ -29,6 +29,13 @@ export interface Instructor {
   bio?: string;
 }
 
+export interface Chapter {
+  id: string;
+  title: string;
+  order: number;
+  lessons: Lesson[];
+}
+
 export interface Course {
   id: string;
   category_id: string;
@@ -41,6 +48,7 @@ export interface Course {
   instructor?: Instructor;
   lesson_count: number;
   syllabus: Lesson[];
+  chapters?: Chapter[];
   outcome: string[];
   total_duration_seconds?: number;
 }

@@ -217,34 +217,72 @@ export default async function CourseDetailPage({ params }: { params: { category:
             <div>
               <Card className="p-5">
                 <h2 className="font-semibold text-primary-900">Syllabus</h2>
-                <ul className="mt-4 space-y-3">
-                  {course.syllabus.map((lesson, idx) => (
-                    <li key={lesson.id} className="flex items-center justify-between text-sm">
-                      <span className="text-neutral-600">
-                        {idx + 1}. {lesson.title}
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {lesson.duration_seconds > 0 && (
-                          <span className="flex items-center gap-1 text-xs text-neutral-500">
-                            <Clock className="h-3 w-3" />
-                            {formatDuration(lesson.duration_seconds)}
-                          </span>
-                        )}
-                        {lesson.duration_seconds > 0 && lesson.duration_seconds <= 600 && (
-                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                            <Zap className="h-2.5 w-2.5 inline mr-0.5" />
-                            Micro
-                          </span>
-                        )}
-                        {hasAccess ? (
-                          <Play className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <Lock className="h-4 w-4 text-neutral-300" />
-                        )}
+                {course.chapters && course.chapters.length > 0 ? (
+                  <div className="mt-4 space-y-4">
+                    {course.chapters.map((chapter) => (
+                      <div key={chapter.id}>
+                        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary-700">{chapter.title}</p>
+                        <ul className="space-y-3">
+                          {chapter.lessons.map((lesson, idx) => (
+                            <li key={lesson.id} className="flex items-center justify-between text-sm">
+                              <span className="text-neutral-600">
+                                {idx + 1}. {lesson.title}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {lesson.duration_seconds > 0 && (
+                                  <span className="flex items-center gap-1 text-xs text-neutral-500">
+                                    <Clock className="h-3 w-3" />
+                                    {formatDuration(lesson.duration_seconds)}
+                                  </span>
+                                )}
+                                {lesson.duration_seconds > 0 && lesson.duration_seconds <= 600 && (
+                                  <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                                    <Zap className="h-2.5 w-2.5 inline mr-0.5" />
+                                    Micro
+                                  </span>
+                                )}
+                                {hasAccess ? (
+                                  <Play className="h-4 w-4 text-green-500" />
+                                ) : (
+                                  <Lock className="h-4 w-4 text-neutral-300" />
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
-                    </li>
-                  ))}
-                </ul>
+                    ))}
+                  </div>
+                ) : (
+                  <ul className="mt-4 space-y-3">
+                    {course.syllabus.map((lesson, idx) => (
+                      <li key={lesson.id} className="flex items-center justify-between text-sm">
+                        <span className="text-neutral-600">
+                          {idx + 1}. {lesson.title}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {lesson.duration_seconds > 0 && (
+                            <span className="flex items-center gap-1 text-xs text-neutral-500">
+                              <Clock className="h-3 w-3" />
+                              {formatDuration(lesson.duration_seconds)}
+                            </span>
+                          )}
+                          {lesson.duration_seconds > 0 && lesson.duration_seconds <= 600 && (
+                            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                              <Zap className="h-2.5 w-2.5 inline mr-0.5" />
+                              Micro
+                            </span>
+                          )}
+                          {hasAccess ? (
+                            <Play className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Lock className="h-4 w-4 text-neutral-300" />
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
                 {hasAccess ? (
                   <Link href={`/learn/${course.slug}/${firstLessonId}`} className="mt-6 block">
                     <Button className="w-full">{trialActive ? "Start free preview" : "Go to course"}</Button>

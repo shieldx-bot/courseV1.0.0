@@ -2,6 +2,9 @@
 
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { EditorOrchestrator } from "./editors/editor-orchestrator";
+import type { EditorEngineId } from "@/lib/external-ide/types";
+import { pickDefaultEngine } from "@/lib/external-ide/providers";
 
 type EditorTheme = "vs-dark" | "light";
 
@@ -518,93 +521,33 @@ export function CodeEditor({
   onChange,
   readOnly = false,
   theme = "vs-dark",
-}: CodeEditorProps) {
-  const [MonacoComponent, setMonacoComponent] = useState<React.ComponentType<{
-    value: string;
-    language: string;
-    theme: string;
-    onChange: (value: string | undefined) => void;
-    readOnly?: boolean;
-    height?: string | number;
-    options?: Record<string, unknown>;
-  }> | null>(null);
-  const [monacoLoaded, setMonacoLoaded] = useState(false);
-  const [monacoError, setMonacoError] = useState(false);
+  engine,
+  files,
+  onEngineFallback,
+}: CodeEditorProps & {
+  engine?: EditorEngineId;
+  files?: React.ComponentProps<typeof EditorOrchestrator>["files"];
+  onEngineFallback?: (failed: EditorEngineId) => void;
+}) {
+  const [activeEngine, setActiveEngine] = useState<EditorEngineId>(
+    () => engine || (typeof window !== "undefined" ? pickDefaultEngine() : "codemirror-cdn")
+  );
 
   useEffect(() => {
-    let cancelled = false;
-
-        async function loadMonaco() {
-          try {
-            const mod = await import("@monaco-editor/react");
-            if (!cancelled) {
-              setMonacoComponent(() => mod.default || mod.Editor);
-              setMonacoLoaded(true);
-            }
-          } catch {
-            if (!cancelled) {
-              setMonacoError(true);
-              setMonacoLoaded(true);
-            }
-          }
-        }
-
-    loadMonaco();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  if (monacoLoaded && MonacoComponent && !monacoError) {
-    return (
-      <div className="h-full w-full">
-        <MonacoComponent
-          value={content}
-          language={language}
-          theme={theme}
-          onChange={(value) => onChange(value || "")}
-          readOnly={readOnly}
-          height="100%"
-          options={{
-            readOnly,
-            minimap: { enabled: true },
-            fontSize: 13,
-            fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
-            fontLigatures: true,
-            lineNumbers: "on",
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 4,
-            wordWrap: "on",
-            wrappingStrategy: "advanced",
-            cursorBlinking: "smooth",
-            cursorSmoothCaretAnimation: "on",
-            smoothScrolling: true,
-            formatOnPaste: true,
-            formatOnType: false,
-            padding: { top: 8, bottom: 8 },
-            overviewRulerBorder: false,
-            hideCursorInOverviewRuler: true,
-            overviewRulerLanes: 0,
-            scrollbar: {
-              vertical: "auto",
-              horizontal: "auto",
-              verticalScrollbarSize: 8,
-              horizontalScrollbarSize: 8,
-            },
-          }}
-        />
-      </div>
-    );
-  }
+    if (engine) setActiveEngine(engine);
+  }, [engine]);
 
   return (
-    <CodeEditorFallback
+    <EditorOrchestrator
+      engine={activeEngine}
+      files={files || []}
+      fileId={fileId}
       content={content}
       language={language}
       onChange={onChange}
       readOnly={readOnly}
       theme={theme}
+      onEngineFallback={onEngineFallback}
     />
   );
 }

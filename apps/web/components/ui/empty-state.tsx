@@ -26,15 +26,15 @@ export function EmptyState({
   return (
     <div className={cn("text-center py-12 px-4", className)}>
       {icon && (
-        <div className="mx-auto mb-4 text-slate-400 dark:text-slate-600 transition-all duration-200 hover:scale-110 hover:text-slate-300">
+        <div className="mx-auto mb-4 text-neutral-400 transition-all duration-200 hover:scale-110 hover:text-neutral-600 dark:text-slate-400 dark:hover:text-slate-300">
           {icon}
         </div>
       )}
-      <h3 className="text-xl font-bold text-slate-100 dark:text-slate-100 mb-2">
+      <h3 className="text-xl font-bold text-neutral-900 mb-2 dark:text-slate-100">
         {title}
       </h3>
       {description && (
-        <p className="mt-2 text-sm text-slate-400 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+        <p className="mt-2 text-sm text-neutral-600 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
           {description}
         </p>
       )}
@@ -44,7 +44,7 @@ export function EmptyState({
             variant={action.variant || "primary"} 
             onClick={action.onClick}
             size="lg"
-            className="transition-all duration-200 hover:shadow-xl hover:shadow-rose-500/20"
+            className="transition-all duration-200"
           >
             {action.label}
           </Button>

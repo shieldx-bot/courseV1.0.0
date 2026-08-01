@@ -15,6 +15,13 @@ from app.services.watermark import migrate_drive_to_r2
 from app.services import search as search_service
 from app.services import course_generator
 from app.services.cache import invalidate_pattern
+from app.services.course_structure import (
+    ensure_chapters,
+    sync_syllabus_from_chapters,
+    update_lesson as update_lesson_in_course,
+    remove_lesson as remove_lesson_from_course,
+    group_videos_into_chapters,
+)
 
 router = APIRouter()
 
@@ -53,6 +60,13 @@ class InstructorIn(BaseModel):
     bio: str | None = None
 
 
+class ChapterIn(BaseModel):
+    id: str | None = None
+    title: str
+    order: int = 1
+    lessons: List[LessonIn] = Field(default_factory=list)
+
+
 class CourseIn(BaseModel):
     category_id: str
     title: str
@@ -61,6 +75,7 @@ class CourseIn(BaseModel):
     image_url: str | None = None
     instructor: InstructorIn | None = None
     syllabus: List[LessonIn] = Field(default_factory=list)
+    chapters: List[ChapterIn] | None = None
     outcome: List[str] = Field(default_factory=list)
 
 
@@ -227,6 +242,7 @@ async def create_course(body: CourseIn):
     if await db.courses.find_one({"_id": course_id}):
         raise HTTPException(status_code=400, detail="Course slug already exists")
 
+    syllabus = [{"id": f"{course_id}-lesson-{i+1}", **s.model_dump()} for i, s in enumerate(body.syllabus)]
     course = {
         "_id": course_id,
         "category_id": body.category_id,
@@ -237,10 +253,22 @@ async def create_course(body: CourseIn):
         "description": body.description,
         "image_url": body.image_url or "",
         "instructor": body.instructor.model_dump() if body.instructor else None,
-        "lesson_count": len(body.syllabus),
-        "syllabus": [{"id": f"{course_id}-lesson-{i+1}", **s.model_dump()} for i, s in enumerate(body.syllabus)],
+        "lesson_count": len(syllabus),
+        "syllabus": syllabus,
+        "chapters": ensure_chapters({"id": course_id, "syllabus": syllabus, "chapters": None})
+        if not body.chapters
+        else [
+            {
+                "id": ch.id or f"{course_id}-chapter-{ci}",
+                "title": ch.title,
+                "order": ch.order or ci,
+                "lessons": [{"id": f"{course_id}-lesson-{ci}-{li+1}", **l.model_dump()} for li, l in enumerate(ch.lessons)],
+            }
+            for ci, ch in enumerate(body.chapters, start=1)
+        ],
         "outcome": body.outcome,
     }
+    await sync_syllabus_from_chapters(course)
     await db.courses.insert_one(course)
     await enqueue_task_with_retry("index_search_task", "index", course, _max_retries=5, _job_timeout=30)
     WORKER_JOBS_ENQUEUED.labels(task="index_search_task").inc()
@@ -263,6 +291,20 @@ async def update_course(course_id: str, body: CourseIn):
     if not cat:
         raise HTTPException(status_code=400, detail="Category not found")
 
+    syllabus = [{"id": f"{course_id}-lesson-{i+1}", **s.model_dump()} for i, s in enumerate(body.syllabus)]
+    chapters = (
+        ensure_chapters({"id": course_id, "syllabus": syllabus, "chapters": None})
+        if not body.chapters
+        else [
+            {
+                "id": ch.id or f"{course_id}-chapter-{ci}",
+                "title": ch.title,
+                "order": ch.order or ci,
+                "lessons": [{"id": f"{course_id}-lesson-{ci}-{li+1}", **l.model_dump()} for li, l in enumerate(ch.lessons)],
+            }
+            for ci, ch in enumerate(body.chapters, start=1)
+        ]
+    )
     update = {
         "category_id": body.category_id,
         "category_slug": cat["slug"],
@@ -271,8 +313,9 @@ async def update_course(course_id: str, body: CourseIn):
         "slug": body.slug,
         "description": body.description,
         "image_url": body.image_url or "",
-        "lesson_count": len(body.syllabus),
-        "syllabus": [{"id": f"{course_id}-lesson-{i+1}", **s.model_dump()} for i, s in enumerate(body.syllabus)],
+        "lesson_count": len(syllabus),
+        "syllabus": syllabus,
+        "chapters": chapters,
         "outcome": body.outcome,
     }
     if body.instructor:
@@ -281,6 +324,13 @@ async def update_course(course_id: str, body: CourseIn):
         {"_id": course_id},
         {"$set": update},
     )
+    course = await db.courses.find_one({"_id": course_id})
+    await sync_syllabus_from_chapters(course or {})
+    if course:
+        await db.courses.update_one(
+            {"_id": course_id},
+            {"$set": {"syllabus": course["syllabus"], "lesson_count": course["lesson_count"]}},
+        )
     course = await db.courses.find_one({"_id": course_id})
     await enqueue_task_with_retry("index_search_task", "index", course, _max_retries=5, _job_timeout=30)
     WORKER_JOBS_ENQUEUED.labels(task="index_search_task").inc()
@@ -621,17 +671,7 @@ async def import_drive_course(body: DriveImportIn):
 
         videos = sorted(list(all_videos.values()), key=_video_sort_key)
 
-    syllabus = []
-    for i, v in enumerate(videos):
-        lesson = {
-            "id": f"{course_id}-lesson-{i+1}",
-            "title": v["name"],
-            "order": i + 1,
-            "duration_seconds": 0,
-            "drive_file_id": v["id"],
-            "attachments": [],
-        }
-        syllabus.append(lesson)
+    chapters, syllabus = group_videos_into_chapters(course_id, videos)
 
     course = {
         "_id": course_id,
@@ -645,12 +685,13 @@ async def import_drive_course(body: DriveImportIn):
         "instructor": None,
         "lesson_count": len(syllabus),
         "syllabus": syllabus,
+        "chapters": chapters,
         "outcome": [],
         "drive_folder_id": body.folder_id,
     }
 
     await db.courses.insert_one(course)
-    return {"id": course["_id"], "title": title, "lesson_count": len(syllabus)}
+    return {"id": course["_id"], "title": title, "lesson_count": len(syllabus), "chapter_count": len(chapters)}
 
 
 @router.post("/drive/import-all", dependencies=[Depends(require_admin)])
@@ -718,17 +759,7 @@ async def import_drive_courses_all(body: DriveImportAllIn):
 
                 videos = sorted(list(all_videos.values()), key=_video_sort_key)
 
-            syllabus = []
-            for i, v in enumerate(videos):
-                lesson = {
-                    "id": f"{course_id}-lesson-{i+1}",
-                    "title": v["name"],
-                    "order": i + 1,
-                    "duration_seconds": 0,
-                    "drive_file_id": v["id"],
-                    "attachments": [],
-                }
-                syllabus.append(lesson)
+            chapters, syllabus = group_videos_into_chapters(course_id, videos)
 
             course_doc = {
                 "_id": course_id,
@@ -742,11 +773,12 @@ async def import_drive_courses_all(body: DriveImportAllIn):
                 "instructor": None,
                 "lesson_count": len(syllabus),
                 "syllabus": syllabus,
+                "chapters": chapters,
                 "outcome": [],
                 "drive_folder_id": item.folder_id,
             }
             await db.courses.insert_one(course_doc)
-            results.append({"id": course_id, "title": title, "lesson_count": len(syllabus)})
+            results.append({"id": course_id, "title": title, "lesson_count": len(syllabus), "chapter_count": len(chapters)})
         except Exception as e:
             errors.append({"folder_id": item.folder_id, "error": str(e)})
 
@@ -761,12 +793,20 @@ async def add_lesson(course_id: str, body: LessonIn):
         raise HTTPException(status_code=404, detail="Course not found")
 
     lesson = {
-        "id": f"{course_id}-lesson-{len(course['syllabus']) + 1}",
+        "id": f"{course_id}-lesson-{len(course.get('syllabus', [])) + 1}",
         **body.model_dump(),
     }
-    course["syllabus"].append(lesson)
+    course.setdefault("syllabus", []).append(lesson)
+    course["chapters"] = ensure_chapters(course)
     course["lesson_count"] = len(course["syllabus"])
-    await db.courses.update_one({"_id": course_id}, {"$set": {"syllabus": course["syllabus"], "lesson_count": course["lesson_count"]}})
+    await db.courses.update_one(
+        {"_id": course_id},
+        {"$set": {
+            "syllabus": course["syllabus"],
+            "chapters": course["chapters"],
+            "lesson_count": course["lesson_count"],
+        }},
+    )
     return lesson
 
 
@@ -777,9 +817,17 @@ async def delete_lesson(course_id: str, lesson_id: str):
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
 
-    course["syllabus"] = [l for l in course["syllabus"] if l["id"] != lesson_id]
-    course["lesson_count"] = len(course["syllabus"])
-    await db.courses.update_one({"_id": course_id}, {"$set": {"syllabus": course["syllabus"], "lesson_count": course["lesson_count"]}})
+    remove_lesson_from_course(course, lesson_id)
+    course["chapters"] = ensure_chapters(course)
+    course["lesson_count"] = len(course.get("syllabus", []))
+    await db.courses.update_one(
+        {"_id": course_id},
+        {"$set": {
+            "syllabus": course.get("syllabus", []),
+            "chapters": course["chapters"],
+            "lesson_count": course["lesson_count"],
+        }},
+    )
     return {"deleted": True}
 
 

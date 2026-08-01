@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* ============================================
    PREMIUM DESIGN SYSTEM - CSS Custom Properties
    Inspired by Apple, Stripe, and Spotify
@@ -19,10 +23,16 @@
   --primary-50: #F2F5FA;
   
   /* Accent Colors - Warm Amber */
+  --accent-900: #8A5A06;
+  --accent-800: #A96E07;
+  --accent-700: #C07C09;
   --accent-600: #D68A0E;
   --accent-500: #F5A623;
   --accent-400: #FFB84D;
+  --accent-300: #FFCE7D;
+  --accent-200: #FFE0A8;
   --accent-100: #FDF0DA;
+  --accent-50: #FFF8ED;
   
   /* Neutral Colors - Sophisticated Grays */
   --neutral-900: #1A1A18;
@@ -378,34 +388,15 @@ body {
 .animate-stagger-in { animation: staggerIn 0.3s ease-out forwards; }
 
 /* Card hover lift */
-@keyframes cardLift {
-  from { transform: translateY(0); box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-  to { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.15); }
+.hover-lift:hover {
+  transform: translateY(-2px);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.hover-lift:hover { animation: cardLift 0.2s ease-out forwards; }
 
 /* Focus ring for interactive elements */
 .focus-ring:focus-visible {
   outline: none;
-  ring: 2px;
-  ring-offset: 2px;
-  ring-color: var(--accent-500);
-}
-
-/* Smooth transitions for all interactive elements */
-* {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
-  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  transition-duration: 200ms;
-}
-
-/* Enhanced hover effects for interactive elements */
-button:not(:disabled), [role="button"]:not(:disabled), a, [tabindex="0"] {
-  transition: transform 0.1s ease-out, box-shadow 0.2s ease-out;
-}
-
-button:not(:disabled):hover, [role="button"]:not(:disabled):hover, a:hover, [tabindex="0"]:hover {
-  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.2);
 }
 
 /* Card hover effects */
@@ -428,11 +419,6 @@ html {
 /* Premium Hover Effects */
 .hover-scale:hover {
   transform: scale(1.02);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hover-lift:hover {
-  transform: translateY(-2px);
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 

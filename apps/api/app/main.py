@@ -16,6 +16,8 @@ from app.db.mongodb import seed_db, get_db
 from app.db.indexes import create_indexes
 from app.db.seed_concepts import seed_concepts
 from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive, adaptive, community, tournaments
+from app.api.v1 import challenges as challenges_module
+from app.services.skill_graph import seed_skills as seed_skill_taxonomy
 from app.api.v1.enterprise import router as enterprise_router
 from app.api.v1.exams import router as exam_router
 from app.api.v1 import error_log as error_log_module
@@ -82,6 +84,10 @@ async def lifespan(app: FastAPI):
         await seed_concepts()
     except Exception as exc:
         logger.warning("Concept seeding skipped: %s", exc)
+    try:
+        await seed_skill_taxonomy()
+    except Exception as exc:
+        logger.warning("Skill taxonomy seeding skipped: %s", exc)
     yield
     await close_redis_pool()
     logger.info("Shutdown complete — connections closed")
@@ -197,6 +203,11 @@ app.include_router(enterprise_router.router, prefix="/api/v1/enterprise", tags=[
 app.include_router(exam_router.router, prefix="/api/v1/exams", tags=["exams"])
 app.include_router(error_log_module.public_router, prefix="/api/v1")
 app.include_router(error_log_module.admin_router, prefix="/api/v1/admin")
+app.include_router(challenges_module.router, prefix="/api/v1", tags=["challenges"])
+app.include_router(challenges_module.skills_router, prefix="/api/v1", tags=["skills"])
+app.include_router(challenges_module.activity_router, prefix="/api/v1", tags=["activity"])
+app.include_router(challenges_module.creators_router, prefix="/api/v1", tags=["creators"])
+app.include_router(challenges_module.mentor_router, prefix="/api/v1", tags=["mentor"])
 
 
 @app.get("/api/v1/health")

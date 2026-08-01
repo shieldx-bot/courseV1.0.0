@@ -15,13 +15,13 @@ interface DividerProps {
 export function Divider({ label, className }: DividerProps) {
   return (
     <div className={cn("relative flex items-center py-4", className)}>
-      <div className="flex-grow border-t border-slate-800" />
+      <div className="flex-grow border-t border-neutral-200 dark:border-slate-700" />
       {label && (
-        <span className="mx-4 text-sm text-slate-500 bg-slate-900 px-2 py-1 rounded">
+        <span className="mx-4 text-sm text-neutral-500 bg-neutral-100 dark:bg-slate-800 dark:text-slate-400 px-2 py-1 rounded">
           {label}
         </span>
       )}
-      <div className="flex-grow border-t border-slate-800" />
+      <div className="flex-grow border-t border-neutral-200 dark:border-slate-700" />
     </div>
   );
 }
@@ -42,9 +42,9 @@ export function SectionHeader({
   return (
     <div className={cn("flex items-center justify-between mb-6", className)}>
       <div>
-        <h2 className="text-xl font-bold text-slate-100">{title}</h2>
+        <h2 className="text-xl font-bold text-neutral-900 dark:text-slate-100">{title}</h2>
         {subtitle && (
-          <p className="text-sm text-slate-400 mt-1">{subtitle}</p>
+          <p className="text-sm text-neutral-600 dark:text-slate-400 mt-1">{subtitle}</p>
         )}
       </div>
       {action && <div className="flex-shrink-0">{action}</div>}
@@ -68,15 +68,17 @@ export function FeatureCard({
   return (
     <div
       className={cn(
-        "bg-slate-900 border border-slate-800 p-6 rounded-2xl hover:border-slate-700 hover:shadow-lg hover:shadow-slate-900/20 transition-all duration-200 ease-out",
+        "bg-neutral-0 border border-neutral-200 dark:bg-slate-900 dark:border-slate-800 p-6 rounded-2xl",
+        "hover:border-neutral-300 dark:hover:border-slate-700 hover:shadow-lg hover:shadow-neutral-400/10 dark:hover:shadow-slate-900/20",
+        "transition-all duration-200 ease-out",
         className
       )}
     >
-      <div className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center mb-4">
+      <div className="w-12 h-12 bg-neutral-100 dark:bg-slate-800 rounded-lg flex items-center justify-center mb-4">
         {icon}
       </div>
-      <h3 className="text-lg font-semibold text-slate-100 mb-2">{title}</h3>
-      <p className="text-sm text-slate-400">{description}</p>
+      <h3 className="text-lg font-semibold text-neutral-900 dark:text-slate-100 mb-2">{title}</h3>
+      <p className="text-sm text-neutral-600 dark:text-slate-400">{description}</p>
     </div>
   );
 }
@@ -96,10 +98,10 @@ export function StepIndicator({ steps, currentStep, className }: StepIndicatorPr
             className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-200",
               index < currentStep
-                ? "bg-rose-500 text-white"
+                ? "bg-accent-500 text-white"
                 : index === currentStep
-                ? "bg-slate-700 text-slate-100 border-2 border-rose-500"
-                : "bg-slate-800 text-slate-500"
+                ? "bg-neutral-100 text-neutral-900 border-2 border-accent-500 dark:bg-slate-700 dark:text-slate-100"
+                : "bg-neutral-100 text-neutral-400 dark:bg-slate-800 dark:text-slate-500"
             )}
           >
             {index + 1}
@@ -109,8 +111,8 @@ export function StepIndicator({ steps, currentStep, className }: StepIndicatorPr
               className={cn(
                 "flex-grow h-1 transition-all duration-200",
                 index < currentStep - 1
-                  ? "bg-rose-500"
-                  : "bg-slate-700"
+                  ? "bg-accent-500"
+                  : "bg-neutral-200 dark:bg-slate-700"
               )}
             />
           )}
@@ -145,23 +147,23 @@ export function ProgressStep({
             className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold",
               step <= totalSteps
-                ? "bg-rose-500 text-white"
-                : "bg-slate-800 text-slate-500"
+                ? "bg-accent-500 text-white"
+                : "bg-neutral-100 text-neutral-400 dark:bg-slate-800 dark:text-slate-500"
             )}
           >
             {step}
           </div>
           <div>
-            <h3 className="font-semibold text-slate-100">{title}</h3>
+            <h3 className="font-semibold text-neutral-900 dark:text-slate-100">{title}</h3>
             {description && (
-              <p className="text-sm text-slate-400">{description}</p>
+              <p className="text-sm text-neutral-600 dark:text-slate-400">{description}</p>
             )}
           </div>
         </div>
       </div>
-      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+      <div className="h-2 bg-neutral-100 rounded-full overflow-hidden dark:bg-slate-800">
         <div
-          className="h-full bg-rose-500 rounded-full transition-all duration-300 ease-out"
+          className="h-full bg-accent-500 rounded-full transition-all duration-300 ease-out"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -187,12 +189,12 @@ export function EmptyResults({
   return (
     <div className={cn("text-center py-12 px-4", className)}>
       {icon && (
-        <div className="mx-auto mb-4 text-slate-400 text-4xl">
+        <div className="mx-auto mb-4 text-neutral-400 dark:text-slate-400 text-4xl">
           {icon}
         </div>
       )}
-      <h3 className="text-xl font-bold text-slate-100 mb-2">{title}</h3>
-      <p className="text-sm text-slate-400 max-w-sm mx-auto mb-6">
+      <h3 className="text-xl font-bold text-neutral-900 mb-2 dark:text-slate-100">{title}</h3>
+      <p className="text-sm text-neutral-600 dark:text-slate-400 max-w-sm mx-auto mb-6">
         {description}
       </p>
       {action && <div className="inline-block">{action}</div>}
@@ -213,16 +215,16 @@ export function ErrorBoundary({
 }: ErrorBoundaryProps) {
   return (
     <div className={cn("text-center py-12 px-4", className)}>
-      <div className="mx-auto mb-4 text-rose-400 text-4xl">⚠️</div>
-      <h3 className="text-xl font-bold text-slate-100 mb-2">
+      <div className="mx-auto mb-4 text-rose-500 dark:text-rose-400 text-4xl">⚠️</div>
+      <h3 className="text-xl font-bold text-neutral-900 mb-2 dark:text-slate-100">
         Something went wrong
       </h3>
-      <p className="text-sm text-slate-400 max-w-sm mx-auto mb-6">
+      <p className="text-sm text-neutral-600 dark:text-slate-400 max-w-sm mx-auto mb-6">
         {error.message || "An unexpected error occurred"}
       </p>
       <button
         onClick={resetErrorBoundary}
-        className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg transition-colors"
+        className="px-4 py-2 bg-accent-500 hover:bg-accent-600 text-white rounded-lg transition-colors"
       >
         Try again
       </button>
@@ -240,7 +242,7 @@ export function LoadingState({ message = "Loading...", className }: LoadingState
     <div className={cn("text-center py-12 px-4", className)}>
       <div className="mx-auto mb-4">
         <svg
-          className="w-8 h-8 text-rose-500 animate-spin"
+          className="w-8 h-8 text-accent-500 animate-spin"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -266,7 +268,7 @@ export function LoadingState({ message = "Loading...", className }: LoadingState
           />
         </svg>
       </div>
-      <p className="text-sm text-slate-400 animate-pulse">{message}</p>
+      <p className="text-sm text-neutral-600 dark:text-slate-400 animate-pulse">{message}</p>
     </div>
   );
 }

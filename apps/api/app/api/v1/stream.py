@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.deps import get_current_user
 from app.db.mongodb import get_db
 from app.services.r2_storage import r2_storage
+from app.services.course_structure import flatten_lessons, update_lesson
 
 router = APIRouter()
 
@@ -75,7 +76,8 @@ async def create_stream_token(lesson_id: str, user: dict = Depends(get_current_u
     lesson = None
     lesson_index = -1
     async for c in db.courses.find():
-        for idx, l in enumerate(c.get("syllabus", [])):
+        lessons = flatten_lessons(c)
+        for idx, l in enumerate(lessons):
             if l["id"] == lesson_id:
                 course = c
                 lesson = l
@@ -105,12 +107,11 @@ async def create_stream_token(lesson_id: str, user: dict = Depends(get_current_u
             from app.services.watermark import migrate_drive_to_r2
             try:
                 r2_key = await migrate_drive_to_r2(lesson_id, drive_file_id)
-                syllabus = course.get("syllabus", [])
-                for l in syllabus:
-                    if l["id"] == lesson_id:
-                        l["r2_key"] = r2_key
-                        break
-                await db.courses.update_one({"_id": course["_id"]}, {"$set": {"syllabus": syllabus}})
+                update_lesson(course, lesson_id, r2_key=r2_key)
+                await db.courses.update_one(
+                    {"_id": course["_id"]},
+                    {"$set": {"syllabus": course.get("syllabus", []), "chapters": course.get("chapters", [])}},
+                )
             except Exception:
                 raise HTTPException(status_code=502, detail="Video migration from Drive failed")
         else:

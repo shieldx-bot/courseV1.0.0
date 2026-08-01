@@ -64,6 +64,9 @@ class InMemoryCollection:
 
                     if not re.search(value["$regex"], str(doc.get(key, "")), re.I):
                         return False
+                if "$in" in value:
+                    if doc.get(key) not in value["$in"]:
+                        return False
                 continue
             if doc.get(key) != value:
                 return False

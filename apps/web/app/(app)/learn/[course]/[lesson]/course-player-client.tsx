@@ -418,8 +418,68 @@ export function CoursePlayerClient({
           </div>
           <Card className="h-fit p-5">
             <h2 className="font-semibold text-primary-900">{course.title}</h2>
-            <ul className="mt-4 space-y-1">
-              {course.syllabus.map((l, idx) => {
+            {course.chapters && course.chapters.length > 0 ? (
+              course.chapters.map((chapter, ci) => {
+                let globalIdx = 0;
+                for (let k = 0; k < ci; k++) {
+                  globalIdx += (course.chapters?.[k]?.lessons?.length ?? 0);
+                }
+                return (
+                  <div key={chapter.id} className="mt-4">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary-700">{chapter.title}</p>
+                    <ul className="space-y-1">
+                      {chapter.lessons.map((l, li) => {
+                        const idx = globalIdx + li;
+                        const locked = isLocked(l);
+                        const completed = progress[l.id]?.completed;
+                        const skipped = progress[l.id]?.skipped || progress[l.id]?.mastery_skip;
+                        const seqStatus = sequenceStatus[l.id];
+                        const progressPct = !locked && !completed && !skipped && l.duration_seconds > 0 && (progress[l.id]?.last_position_seconds ?? 0) > 0
+                          ? Math.min(100, Math.round(((progress[l.id]?.last_position_seconds ?? 0) / l.duration_seconds) * 100))
+                          : 0;
+                        return (
+                          <li key={l.id}>
+                            <button
+                              onClick={() => skipped ? undefined : goToLesson(l)}
+                              disabled={locked || skipped}
+                              className={cn(
+                                "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm transition-colors",
+                                locked && "text-neutral-400 cursor-not-allowed",
+                                skipped && "text-neutral-400 line-through",
+                                !locked && !skipped && l.id === params.lesson && "bg-accent-100 font-medium text-accent-600",
+                                !locked && !skipped && l.id !== params.lesson && "text-neutral-900 hover:bg-neutral-100"
+                              )}
+                            >
+                              <span className="truncate">{idx + 1}. {l.title}</span>
+                              {skipped ? (
+                              <span className="text-[10px] uppercase text-neutral-400">Skipped</span>
+                            ) : seqStatus === "ready-to-skip" ? (
+                              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => skipCurrentLesson(l.id)}>Skip</Button>
+                            ) : completed ? (
+                              <Check className="h-4 w-4 shrink-0 text-success" />
+                            ) : locked ? (
+                              <Lock className="h-4 w-4 shrink-0 text-neutral-300" />
+                            ) : null}
+                            </button>
+                            {seqStatus === "remedial" && !skipped && (
+                              <div className="mx-3 mt-1 text-[10px] uppercase text-amber-700">Remedial focus</div>
+                            )}
+                            {progressPct > 0 && (
+                              <div className="mx-3 mb-1 h-1 overflow-hidden rounded-full bg-neutral-100">
+                                <div className="h-full rounded-full bg-accent-500 transition-all" style={{ width: `${progressPct}%` }} />
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })
+            ) : (
+              <ul className="mt-4 space-y-1">
+                {course.syllabus.map((l) => {
+                  const idx = course.syllabus.indexOf(l);
                 const locked = isLocked(l);
                 const completed = progress[l.id]?.completed;
                 const skipped = progress[l.id]?.skipped || progress[l.id]?.mastery_skip;
@@ -463,6 +523,7 @@ export function CoursePlayerClient({
                 );
               })}
             </ul>
+            )}
           </Card>
         </div>
       </div>

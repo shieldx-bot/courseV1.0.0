@@ -9,7 +9,7 @@ export function Skeleton({ className }: SkeletonProps) {
     <div
       className={cn(
         "animate-shimmer rounded-md",
-        "bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 bg-[length:200%_100%]",
+        "bg-neutral-200 dark:bg-neutral-800",
         "transition-all duration-200 ease-out",
         className
       )}
@@ -30,7 +30,7 @@ export function SkeletonText({ lines = 3, className }: { lines?: number; classNa
 
 export function SkeletonCard({ className }: { className?: string }) {
   return (
-    <div className={cn("space-y-4 p-6 rounded-2xl border border-slate-800 bg-slate-900", className)}>
+    <div className={cn("space-y-4 p-6 rounded-2xl border border-neutral-200 bg-neutral-0 dark:border-neutral-800 dark:bg-neutral-900", className)}>
       <Skeleton className="h-8 w-3/4 rounded" />
       <SkeletonText lines={3} />
       <Skeleton className="h-10 w-1/4 rounded-xl" />
@@ -69,7 +69,7 @@ export function SkeletonTableRow({ columns = 4, className }: { columns?: number;
 
 export function SkeletonListItem({ className }: { className?: string }) {
   return (
-    <div className={cn("flex items-center gap-4 p-4 rounded-xl border border-slate-800 bg-slate-900", className)}>
+    <div className={cn("flex items-center gap-4 p-4 rounded-xl border border-neutral-200 bg-neutral-0 dark:border-neutral-800 dark:bg-neutral-900", className)}>
       <SkeletonAvatar size="md" />
       <div className="flex-1 space-y-1">
         <Skeleton className="h-4 w-1/3 rounded" />

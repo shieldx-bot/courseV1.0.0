@@ -1,0 +1,1 @@
+export type EditorTheme = "vs-dark" | "light";

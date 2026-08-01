@@ -11,7 +11,10 @@ import { useTheme } from "@/components/theme-provider";
 const links = [
   { href: "/courses", label: "Courses" },
   { href: "/learning-paths", label: "Paths" },
+  { href: "/challenges", label: "Challenges" },
+  { href: "/skills", label: "Skills" },
   { href: "/tournaments", label: "Arena" },
+  { href: "/activity", label: "Activity" },
   { href: "/membership", label: "Membership" },
   { href: "/pricing", label: "Pricing" },
   { href: "/reviews", label: "Reviews" },

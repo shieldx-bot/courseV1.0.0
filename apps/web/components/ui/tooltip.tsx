@@ -64,7 +64,8 @@ export function Tooltip({
       {isVisible && (
         <div
           className={cn(
-            "absolute z-50 px-3 py-2 text-sm text-slate-100 bg-slate-900 border border-slate-800 rounded-lg shadow-xl",
+            "absolute z-50 px-3 py-2 text-sm text-neutral-900 bg-neutral-100 border border-neutral-200 rounded-lg shadow-xl",
+            "dark:text-slate-100 dark:bg-slate-900 dark:border-slate-800",
             "transition-opacity duration-200 ease-out opacity-100",
             "whitespace-nowrap max-w-xs",
             positionClasses[position],
@@ -72,7 +73,7 @@ export function Tooltip({
           )}
           role="tooltip"
         >
-          <div className="absolute w-2 h-2 bg-slate-900 border border-slate-800" style={arrowClasses[position]} />
+          <div className="absolute w-2 h-2 bg-neutral-100 border border-neutral-200 dark:bg-slate-900 dark:border-slate-800" style={arrowClasses[position]} />
           {content}
         </div>
       )}
@@ -92,7 +93,7 @@ export function InfoTooltip({ content, className }: InfoTooltipProps) {
       position="top"
       className={cn("text-xs", className)}
     >
-      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-700 text-slate-300 text-xs font-bold cursor-help hover:bg-slate-600 transition-colors">
+      <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-neutral-700 text-neutral-200 text-xs font-bold cursor-help hover:bg-neutral-600 transition-colors dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600">
         ?
       </span>
     </Tooltip>

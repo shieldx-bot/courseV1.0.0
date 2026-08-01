@@ -534,7 +534,7 @@ function MembershipMegaMenu({ content }: { content: typeof membershipMegaMenu })
 
       <div className="border-l border-white/10 dark:border-primary-700/20 pl-4">
         <div className="bg-neutral-50 dark:bg-primary-700 rounded-lg p-4">
-          <p className="text-sm text-neutral-500 dark:text-neutral-400 italic mb-3">"{content.testimonial.quote}"</p>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 italic mb-3">&ldquo;{content.testimonial.quote}&rdquo;</p>
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-full bg-accent-100 dark:bg-accent-500/20 flex items-center justify-center">
               <User className="h-4 w-4 text-accent-500 dark:text-accent-100" />

@@ -32,18 +32,18 @@ const icons = {
 };
 
 const colors = {
-  info: "bg-slate-800 border-slate-700 text-slate-100",
-  success: "bg-emerald-900/50 border-emerald-500/30 text-emerald-100",
-  error: "bg-rose-900/50 border-rose-500/30 text-rose-100",
-  warning: "bg-amber-900/50 border-amber-500/30 text-amber-100",
-  loading: "bg-slate-800 border-slate-700 text-slate-100",
+  info: "bg-neutral-0 dark:bg-slate-800 border-neutral-200 dark:border-slate-700 text-neutral-800 dark:text-slate-100 shadow-lg shadow-neutral-400/10",
+  success: "bg-emerald-50 dark:bg-emerald-900/50 border-emerald-200 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-100",
+  error: "bg-rose-50 dark:bg-rose-900/50 border-rose-200 dark:border-rose-500/30 text-rose-800 dark:text-rose-100",
+  warning: "bg-amber-50 dark:bg-amber-900/50 border-amber-200 dark:border-amber-500/30 text-amber-800 dark:text-amber-100",
+  loading: "bg-neutral-0 dark:bg-slate-800 border-neutral-200 dark:border-slate-700 text-neutral-800 dark:text-slate-100 shadow-lg shadow-neutral-400/10",
 };
 
 const iconColors = {
-  info: "text-slate-400",
-  success: "text-emerald-400",
-  error: "text-rose-400",
-  warning: "text-amber-400",
+  info: "text-slate-400 dark:text-slate-400",
+  success: "text-emerald-600 dark:text-emerald-400",
+  error: "text-rose-600 dark:text-rose-400",
+  warning: "text-amber-600 dark:text-amber-400",
   loading: "text-slate-400 animate-spin",
 };
 

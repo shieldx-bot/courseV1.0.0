@@ -5,6 +5,7 @@ from app.core.response import api_response
 from app.core.deps import get_optional_user
 from app.services.search import search_courses, search_available
 from app.services.recommendation import get_recommendations, get_similar_courses, get_popular_courses
+from app.services.course_structure import ensure_chapters, sync_syllabus_from_chapters
 
 router = APIRouter()
 
@@ -19,11 +20,27 @@ def _public_syllabus(syllabus: list):
 
 
 def _enrich_course(course: dict) -> dict:
-    """Add computed fields to course response."""
-    syllabus = course.get("syllabus", [])
+    """Add computed fields to course response.
+
+    Exposes both the flat ``syllabus`` (legacy) and a chapter-based
+    ``chapters`` structure: course -> chapters -> lessons/videos.
+    """
+    course = dict(course)
+    chapters = ensure_chapters(course)
+    course["chapters"] = chapters
+    syllabus = sync_syllabus_from_chapters(course).get("syllabus", [])
     return {
         "id": course["_id"],
         **{k: v for k, v in course.items() if k != "_id"},
+        "chapters": [
+            {
+                "id": ch.get("id"),
+                "title": ch.get("title"),
+                "order": ch.get("order"),
+                "lessons": _public_syllabus(ch.get("lessons", [])),
+            }
+            for ch in chapters
+        ],
         "syllabus": _public_syllabus(syllabus),
         "total_duration_seconds": _compute_total_duration(syllabus),
     }

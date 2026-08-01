@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { ReactNode, useEffect, useRef } from "react";
 import { X } from "lucide-react";
+import { Button } from "./button";
 
 interface ModalProps {
   isOpen: boolean;
@@ -67,13 +68,13 @@ export function Modal({
   return (
     <div className={cn("fixed inset-0 z-50 flex items-center justify-center p-4", overlayClassName)}>
       {/* Overlay */}
-      <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm animate-fade-in" />
+      <div className="fixed inset-0 bg-neutral-950/60 backdrop-blur-sm animate-fade-in dark:bg-neutral-950/80" />
 
        {/* Modal Content */}
        <div
          ref={modalRef}
          className={cn(
-           "relative w-full bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-6 animate-slide-in",
+           "relative w-full bg-neutral-0 border border-neutral-200 rounded-xl shadow-2xl p-6 animate-slide-in",
            "transition-all duration-300 ease-out",
            "elevation-4 hover:elevation-5",
            sizeClasses[size],
@@ -82,11 +83,11 @@ export function Modal({
        >
         <div className="flex items-center justify-between mb-4">
           {title && (
-            <h3 className="text-xl font-bold text-slate-100 truncate">{title}</h3>
+            <h3 className="text-xl font-bold text-neutral-900 truncate dark:text-neutral-100">{title}</h3>
           )}
           <button
             onClick={onClose}
-            className="flex-shrink-0 p-1.5 text-slate-400 hover:text-slate-100 hover:bg-slate-800 rounded-lg transition-colors"
+            className="flex-shrink-0 p-1.5 text-neutral-400 hover:text-neutral-900 hover:bg-neutral-100 rounded-lg transition-colors dark:text-neutral-500 dark:hover:text-neutral-100 dark:hover:bg-neutral-800"
             aria-label="Close modal"
           >
             <X className="w-5 h-5" />
@@ -94,10 +95,10 @@ export function Modal({
         </div>
 
         {description && (
-          <p className="text-sm text-slate-400 mb-6">{description}</p>
+          <p className="text-sm text-neutral-600 mb-6 dark:text-neutral-400">{description}</p>
         )}
 
-        <div className="modal-content">{children}</div>
+        <div className="text-neutral-900 dark:text-neutral-100">{children}</div>
       </div>
     </div>
   );
@@ -134,28 +135,20 @@ export function ConfirmationModal({
       size="sm"
       className={className}
     >
-      <p className="text-slate-300 mb-6">{message}</p>
+      <p className="text-neutral-600 mb-6 dark:text-neutral-300">{message}</p>
       <div className="flex justify-end gap-3">
-        <button
-          onClick={onClose}
-          className="px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-lg transition-colors"
-        >
+        <Button variant="secondary" onClick={onClose}>
           {cancelText}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant={confirmVariant === "danger" ? "danger" : "primary"}
           onClick={() => {
             onConfirm();
             onClose();
           }}
-          className={cn(
-            "px-4 py-2 text-white rounded-lg transition-colors",
-            confirmVariant === "primary"
-              ? "bg-rose-600 hover:bg-rose-500"
-              : "bg-red-600 hover:bg-red-500"
-          )}
         >
           {confirmText}
-        </button>
+        </Button>
       </div>
     </Modal>
   );
@@ -181,23 +174,23 @@ export function AlertModal({
   const typeStyles = {
     info: {
       icon: "ℹ️",
-      color: "text-slate-400",
-      bg: "bg-slate-800",
+      color: "text-slate-500 dark:text-slate-400",
+      bg: "bg-slate-100 dark:bg-slate-800/50",
     },
     success: {
       icon: "✅",
-      color: "text-emerald-400",
-      bg: "bg-emerald-900/50",
+      color: "text-emerald-600 dark:text-emerald-400",
+      bg: "bg-emerald-50 dark:bg-emerald-900/30",
     },
     warning: {
       icon: "⚠️",
-      color: "text-amber-400",
-      bg: "bg-amber-900/50",
+      color: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-50 dark:bg-amber-900/30",
     },
     error: {
       icon: "❌",
-      color: "text-rose-400",
-      bg: "bg-rose-900/50",
+      color: "text-rose-600 dark:text-rose-400",
+      bg: "bg-rose-50 dark:bg-rose-900/30",
     },
   };
 
@@ -213,20 +206,16 @@ export function AlertModal({
         <div className={cn("text-4xl mb-2", typeStyles[type].color)}>
           {typeStyles[type].icon}
         </div>
-        <div className={cn("text-slate-300", type === "error" ? "text-rose-300" : "")}>
+        <div className={cn("text-neutral-600 dark:text-neutral-300", type === "error" ? "text-rose-600 dark:text-rose-300" : "")}>
           {message}
         </div>
-        <button
+        <Button
           onClick={onClose}
-          className={cn(
-            "mt-6 px-6 py-2 rounded-lg font-medium transition-colors",
-            type === "error"
-              ? "bg-rose-600 hover:bg-rose-500 text-white"
-              : "bg-slate-700 hover:bg-slate-600 text-slate-100"
-          )}
+          variant={type === "error" ? "danger" : "secondary"}
+          className="mt-6"
         >
           Close
-        </button>
+        </Button>
       </div>
     </Modal>
   );

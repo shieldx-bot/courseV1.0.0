@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    mongodb_uri: str = ""
+    mongodb_uri: str = "mongodb://localhost:27017/ascendly"
     mongodb_secondary_uri: str = ""
     redis_url: str = "redis://localhost:6379/0"
     jwt_secret: str = "dev-secret-change-me"

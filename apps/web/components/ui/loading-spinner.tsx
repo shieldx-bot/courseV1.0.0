@@ -10,7 +10,7 @@ interface LoadingSpinnerProps {
 
 export function LoadingSpinner({
   size = "md",
-  color = "text-rose-500",
+  color = "text-accent-500",
   className,
 }: LoadingSpinnerProps) {
   const sizeClasses = {
@@ -60,10 +60,10 @@ interface LoadingOverlayProps {
 
 export function LoadingOverlay({ message = "Loading...", className }: LoadingOverlayProps) {
   return (
-    <div className={cn("fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center", className)}>
+    <div className={cn("fixed inset-0 bg-neutral-0/70 backdrop-blur-sm z-50 flex items-center justify-center dark:bg-slate-950/80", className)}>
       <div className="flex flex-col items-center gap-4 text-center">
-        <LoadingSpinner size="xl" color="text-rose-500" />
-        <p className="text-slate-300 font-medium animate-pulse">{message}</p>
+        <LoadingSpinner size="xl" color="text-accent-500" />
+        <p className="text-neutral-600 font-medium animate-pulse dark:text-slate-300">{message}</p>
       </div>
     </div>
   );
@@ -79,13 +79,13 @@ interface ProgressBarProps {
 export function ProgressBar({
   value,
   max = 100,
-  color = "bg-rose-500",
+  color = "bg-accent-500",
   className,
 }: ProgressBarProps) {
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
 
   return (
-    <div className={cn("w-full h-2 bg-slate-800 rounded-full overflow-hidden", className)}>
+    <div className={cn("w-full h-2 bg-neutral-100 rounded-full overflow-hidden dark:bg-slate-800", className)}>
       <div
         className={cn("h-full rounded-full transition-all duration-300 ease-out", color)}
         style={{ width: `${percentage}%` }}

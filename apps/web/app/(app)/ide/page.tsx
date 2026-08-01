@@ -13,7 +13,8 @@ import {
 import { mockPythonProject, mockJavaScriptProject, buildFileTree } from "@/lib/ide-mock-data";
 import type { IDEFile, EditorTab, ChatMessage, ProjectLanguage } from "@/types/ide";
 import { useToast } from "@/components/ui/toast";
-import { executeCode } from "@/lib/code-execution";
+import { executeCodeExternal } from "@/lib/external-ide/execution";
+import type { EditorEngineId } from "@/lib/external-ide/types";
 
 const STORAGE_KEY = "ascendly-ide-state";
 const LESSONS = [
@@ -208,6 +209,8 @@ export default function IDEPage() {
     }
   }, [activeTabId, tabs, project.files, toast]);
 
+  const [activeEngine, setActiveEngine] = useState<EditorEngineId>("codemirror-cdn");
+
   const handleRun = useCallback(async () => {
     if (!currentCode.trim()) {
       toast("Nothing to run", { type: "error" });
@@ -218,7 +221,7 @@ export default function IDEPage() {
     setIsExecuting(true);
 
     try {
-      const result = executeCode(currentLanguage, currentCode);
+      const result = await executeCodeExternal(currentLanguage, currentCode);
       if (result.success) {
         toast(`Execution completed in ${result.executionTime?.toFixed(2) ?? "?"}ms`, { type: "success" });
       } else {
@@ -312,6 +315,12 @@ export default function IDEPage() {
               content={currentCode}
               language={currentLanguage}
               onChange={(newContent) => handleEditorChange(activeTab.fileId, newContent)}
+              engine={activeEngine}
+              files={files}
+              onEngineFallback={(failed) => {
+                console.warn("Editor engine failed, falling back:", failed);
+                toast("Editor engine switched for reliability", { type: "info" });
+              }}
             />
           ) : (
             <div className="flex h-full items-center justify-center dark:bg-neutral-900">
