@@ -120,7 +120,15 @@ Own the rule: **a new event is "shipped" only when its spec is registered, its r
 
 **When NOT to use events:** single-domain side-effects, transactional writes that must be atomic with the producer, simple in-service workflows. Keep it a monolith unless the coupling is real.
 
-## 9. Testing
+## 9. Platform Ops (Workflow Engine)
+
+- **Tasks** live in `app/services/platform_ops.py`. Every task has: title, description, priority (critical|warning|info), category (workflow), status, owner, created/due/completed times, related entity, related recommendation, and an **audit history** array.
+- **Use `update_task_status()` for all transitions** — it appends an audit entry and sets `completed_at` on resolve/close. Never mutate tasks directly in routers.
+- **Automation:** `sync_from_intelligence()` maps intelligence recommendations → tasks via `REC_TO_WORKFLOW`, deduplicating by (recommendation kind + entity id) so the same issue never spawns duplicate open tasks. It also notifies via the existing notification service.
+- **Endpoints:** `GET/POST /api/v1/admin/ops/tasks`, `POST /admin/ops/tasks/{id}/status`, `POST /admin/ops/sync`, `GET /admin/ops/overview`.
+- **Rule:** when writing automation that reacts to a metric drop/threshold, always a) deduplicate, b) notify, c) leave an audit trail. The platform closes its knowledge loop: Recommendation → Task → Execution → Measurement.
+
+## 10. Testing
 
 - API contract tests live in `apps/api/tests/` and use `MONGODB_URI=memory://test`
   (see `test_ecosystem.py` — setup sets the env var before importing `app`).
@@ -129,7 +137,7 @@ Own the rule: **a new event is "shipped" only when its spec is registered, its r
 
 ---
 
-## 10. Accessibility & UX
+## 11. Accessibility & UX
 
 - Every interactive element carries `aria-label`.
 - Loading states: show `<Skeleton>`; empty states: honest, actionable message.
@@ -138,7 +146,7 @@ Own the rule: **a new event is "shipped" only when its spec is registered, its r
 
 ---
 
-## 11. Developer Experience
+## 12. Developer Experience
 
 - Run `python3 -m py_compile` on changed service/router files.
 - Run `npx tsc --noEmit` from `apps/web` after web changes.

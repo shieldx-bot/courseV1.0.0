@@ -19,6 +19,8 @@ from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, pro
 from app.api.v1 import ecosystem as ecosystem_module
 from app.api.v1 import notifications as notifications_module
 from app.api.v1 import events_governance as events_governance_module
+from app.api.v1 import intelligence as intelligence_module
+from app.api.v1 import platform_ops as platform_ops_module
 from app.api.v1 import challenges as challenges_module
 from app.services.skill_graph import seed_skills as seed_skill_taxonomy
 from app.api.v1.enterprise import router as enterprise_router
@@ -222,6 +224,8 @@ app.include_router(ecosystem_module.router, prefix="/api/v1", tags=["ecosystem"]
 app.include_router(ecosystem_module.admin_router, prefix="/api/v1", tags=["admin-ecosystem"])
 app.include_router(notifications_module.router, prefix="/api/v1", tags=["notifications"])
 app.include_router(events_governance_module.router, prefix="/api/v1", tags=["admin-events"])
+app.include_router(intelligence_module.router, prefix="/api/v1", tags=["admin-intelligence"])
+app.include_router(platform_ops_module.router, prefix="/api/v1", tags=["admin-ops"])
 
 
 @app.get("/api/v1/health")
