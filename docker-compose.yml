@@ -2,6 +2,12 @@ services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     ports:
       - "27017:27017"
     volumes:
@@ -10,6 +16,11 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "6379:6379"
 
@@ -39,10 +50,19 @@ services:
       - MEILI_MASTER_KEY=ascendly-dev-master-key
     env_file:
       - .env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
-      - mongo
-      - redis
-      - meilisearch
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_started
     volumes:
       - ./apps/api:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
@@ -58,15 +78,44 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - MEILI_URL=http://meilisearch:7700
       - MEILI_MASTER_KEY=ascendly-dev-master-key
+      - PROCESS_MODE=worker
     env_file:
       - .env
     depends_on:
-      - mongo
-      - redis
-      - meilisearch
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_started
     volumes:
       - ./apps/api:/app
-    command: python -m app.worker
+    command: python -m app.runtime
+
+  cron:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+      target: cron
+    restart: unless-stopped
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/ascendly
+      - REDIS_URL=redis://redis:6379/0
+      - MEILI_URL=http://meilisearch:7700
+      - MEILI_MASTER_KEY=ascendly-dev-master-key
+      - PROCESS_MODE=cron
+    env_file:
+      - .env
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_started
+    volumes:
+      - ./apps/api:/app
+    command: python -m app.runtime
 
   web:
     build:
@@ -82,7 +131,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     volumes:
       - ./apps/web:/app
       - /app/node_modules

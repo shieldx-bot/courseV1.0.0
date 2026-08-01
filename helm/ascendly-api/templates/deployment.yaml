@@ -2,17 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ascendly-api
-  namespace: ascendly
+  namespace: {{ .Values.namespace }}
   labels:
-    app: ascendly-api
-    # Standard Kubernetes recommended labels (operations conventions)
-    app.kubernetes.io/name: ascendly
-    app.kubernetes.io/instance: ascendly-api
-    app.kubernetes.io/component: api
-    app.kubernetes.io/part-of: ascendly
-    app.kubernetes.io/managed-by: kubectl
+    {{- include "ascendly-api.labels" . | nindent 4 }}
 spec:
-  replicas: 2
+  replicas: {{ .Values.replicas }}
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
@@ -25,14 +19,9 @@ spec:
   template:
     metadata:
       labels:
-        app: ascendly-api
-        app.kubernetes.io/name: ascendly
-        app.kubernetes.io/instance: ascendly-api
-        app.kubernetes.io/component: api
-        app.kubernetes.io/part-of: ascendly
-        app.kubernetes.io/managed-by: kubectl
+        {{- include "ascendly-api.labels" . | nindent 8 }}
     spec:
-      serviceAccountName: ascendly-platform
+      serviceAccountName: {{ .Values.serviceAccountName }}
       automountServiceAccountToken: false
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
@@ -52,19 +41,18 @@ spec:
               app: ascendly-api
       containers:
         - name: api
-          image: ascendly-api:latest
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: PROCESS_MODE
               value: "api"
           envFrom:
             - configMapRef:
-                name: ascendly-config
+                name: {{ .Values.configMapRef }}
             - secretRef:
-                name: ascendly-secrets
+                name: {{ .Values.secretRef }}
           ports:
             - containerPort: 8000
-          # Drain traffic before SIGTERM (readiness flips during termination)
           lifecycle:
             preStop:
               exec:
@@ -99,12 +87,7 @@ spec:
             periodSeconds: 20
             failureThreshold: 3
           resources:
-            requests:
-              cpu: "250m"
-              memory: "512Mi"
-            limits:
-              cpu: "500m"
-              memory: "1Gi"
+            {{- toYaml .Values.resources | nindent 12 }}
       volumes:
         - name: tmp
           emptyDir: {}

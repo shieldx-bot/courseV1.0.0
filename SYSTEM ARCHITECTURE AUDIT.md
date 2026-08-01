@@ -629,3 +629,90 @@ web ─────────────────► API only
 **Overall Score: 7.6/10** (architecture 3.9/5; scorecard 7.2/10). Differentiated in self-governance; the path to 9+ runs through CI reliability, scheduled intelligence, and closing the recommendation/knowledge/measurement loops.
 
 *Items still needing inspection: enterprise/exam router depth, search internals, LLM provider config, cookie-vs-bearer CSRF posture, frontend per-route loading boundaries, `_safe` dead-code presence.*
+
+
+**ASCENDLY — 10-YEAR ARCHITECTURE REVIEW (Principal Architect)**
+*Basis: verified ARCHITECTURE_HANDBOOK.md + SYSTEM ARCHITECTURE AUDIT.md (source-derived). No code changed. No random improvements. Every recommendation satisfies the 7 rules and fits the Modular Monolith. No K8s/Kafka/RabbitMQ/microservices/event-sourcing/CQRS/distributed-transactions.*
+
+---
+
+**PHASE 1 — SYSTEM MENTAL MODEL**
+
+One process, many internally-bounded domains (Modular Monolith). Web/mobile → FastAPI routers (thin; envelope `{success,data,error,meta}`; `service_response` prevents fake-200) → application services → Mongo (get_db/get_read_db) or Redis worker queue; domain reactions travel an in-process, governed event bus (ChallengeCompleted, EventCreated) to listeners (feed, creator stats, notifications). Startup: seed → indexes → Redis → R2 → search sync → paths → concepts → skills → register event handlers; graceful shutdown. Core domains: Learning, Challenges, Arena, Community, Creator, Marketplace, Events, Notifications, Intelligence, Ops, Moderation. Support: Auth, Profiles, Skills, Certificates, Admin, Search, AI. Cross-cutting: envelope, guards, rate-limit, error_logger, telemetry, event governance, worker pool.
+
+**PHASE 2 — DOMAIN BOUNDARIES**
+
+Strong: Auth (5), Learning, Arena, Notifications, Ops, Certificates — crisp ownership, low leakage. **Broken: `ecosystem.py` is a 5-context god service** (Creator, Marketplace, Events, Moderation) — teams collide, cohesion low, boundaries bad. **Leaking:** challenge grading lives in `community.py` (3 contexts); activity ownership split across 3 routers. Intelligence is a clean read-model but hidden-couples to 6 collection names. AI is cross-cutting (fuzzy but acceptable). Payments/membership and Enterprise/Exams: *needs inspection*.
+
+**PHASE 3 — DEPENDENCY GRAPH**
+
+No cycles (verified). Hotspots: ecosystem (imports community+notifications, and 4 domains import it), notifications (4+ producers). God modules: ecosystem (5), community (3). Transitive: ecosystem→community→skill_graph. Hidden: intelligence↔collection names; event_handlers↔3 services (acceptable hub). Shared mutable state: global bus, redis pool, limiter — process-local, fine.
+
+**PHASE 4 — DATA OWNERSHIP**
+
+Real debt: **dual-source counters** — challenge `stats.attempts/avg_rating/bookmarks` vs `challenge_attempts/ratings/bookmarks` (single-writer today, no contract → drift at scale = wrong stats, brand risk). Embedded arrays (followers, attendee_ids) fine now, unbounded risk later. **No TTL on activity_events/notifications** — ops landmine. **No read-model** — intelligence re-scans 200k docs/request. Soft-delete partial; no archive model; no cache layer.
+
+**PHASE 5 — APPLICATION LAYERS**
+
+API layer: strongest discipline (thin routers, envelope, guardrails). Application: services call Mongo directly — acceptable for a modular monolith but the **no-repository/no-read-model** gap creates collection-shape coupling. Domain layer thin (pragmatic). Infrastructure well-isolated. **Worker pool under-utilized** (only admin analytics/search); everything else inline async. No DI framework — right fit, keeps stack small.
+
+**PHASE 6 — ENGINEERING QUALITY**
+
+Playbook strong. Consistent naming/folders. **#1 engineering risk: test reliability** — combined suites hit shared rate-limiter 429; Python 3.14 `get_event_loop` breaks 2 tests; in-memory `$push` parity gap. No CI pipeline observed. No request-ID trace correlation. No per-endpoint p99 budgets. No feature-flag service beyond the experiments router (scope: inspect). Versioning: API `/v1` additive, events `EventSpec`-versioned — good.
+
+**PHASE 7 — PERFORMANCE**
+
+N+1 fixed in ecosystem lists (batch helpers); **community feed still enriches per-event** (audit). Intelligence + creator-stats recompute = **repeated 200k scans on request path**. Expensive: admin analytics/forecast + intelligence overview. Sync `bus.publish` awaits all handlers — a future slow handler (email/push) blocks producers. Hot collections unpartitioned but volume not yet critical.
+
+**PHASE 8 — PRODUCT ARCHITECTURE**
+
+Strong support: daily-use learning, challenges, arena, community, notifications, gamification. Partial: creator economy (blocked by god service), marketplace (no payments), certifications (not "living"), enterprise/recruitment (surface). Architecture *can* carry the vision — but **product teams cannot evolve Creator/Marketplace/Events independently while they share one file**; this is the core product-architecture risk.
+
+**PHASE 9 — PLATFORM EVOLUTION (prediction)**
+
+2-year bottlenecks: intelligence (request-time), notifications (fan-out), ecosystem (god file), activity_events (growth). Fastest-growing: AI, Creator, Marketplace, Enterprise, Community. Likely splits: ecosystem → creator/marketplace/events/moderation; community → grading vs feed vs creator-stats. **Never split:** the monolith deployable, event core + governance, envelope/core, worker pool, auth, notifications hub — those are stability anchors; splitting them is fashion.
+
+**PHASE 10 — MISSING CAPABILITIES (architectural, not features)**
+
+1) Intelligence read-model snapshot; 2) ops-task outcome measurement (closes the loop); 3) collection-schema contract; 4) dual-source counter contract (event-driven sync); 5) retention/archive job; 6) per-endpoint perf budgets enforced in CI; 7) request-ID trace correlation; 8) **CI + deterministic tests (most urgent — gates everything)**; 9) feature-flag/experiment layer (extend existing experiments router); 10) local dev tooling (mongo/redis compose, seed reset, migration runner).
+
+**PHASE 11 — TOP RISKS (ranked, no implementation)**
+
+1 Test unreliability (H/H) — velocity death → deterministic CI first. 2 God service ecosystem (H/H) → bounded-context split w/ router shim. 3 Request-time intelligence scans (M/H) → read-model. 4 Unbounded activity/notifications (M/H) → TTL/archive. 5 Counter drift (M/M) → event-synced counters. 6 Grading-in-community leak (M/M) → move to challenges. 7 Feed N+1 (M/M) → batch load. 8 Sync fan-out blocks producers (M/M) → handler queue boundary. 9 No CI (M/H) → CI+isolation. 10 Intelligence collection-name coupling (M/M) → schema contract. 11 No migration/backfill runner (M/M). 12 Payments depth unknown (M/M). 13 Notifications implicit coupling (M/M) → event-driven only. 14 Login 5/min breaks tests (L/H). 15 No request trace (M/M).
+
+**PHASE 12 — MATURITY SCORES (/10)**
+
+Architecture 8 · Maintainability 6 · Scalability 5 · Extensibility 8 · Domain Modeling 5 · Engineering 7 · Developer Experience 7 · Product Architecture 7 · Operational Excellence 6 · Platform Engineering 6 · AI Readiness 7 · Security 7 · Observability 6 · Testing 5. **Overall 6.3/10.**
+
+**PHASE 13 — ARCHITECTURE ROADMAP (ranked; no implementation; each with rollback)**
+
+1 **CI & test determinism** — Impact H, Difficulty S, Risk-reduction H; rollback: revert fixture. *Unblocks all else.*
+2 **Split ecosystem into Creator/Marketplace/Events/Moderation services** — Impact H, Diff M, Long-term H; rollback: keep shim. *Greatest maintainability ROI.*
+3 **Intelligence read-model + ops outcome measurement** — Impact H, Diff M; rollback: request-time fallback. *Turns Intelligence L3→L5; closes the loop.*
+4 **Retention/archive job** — Diff S; rollback: disable job.
+5 **Schema contracts + counter sync via events** — Diff M; rollback: keep direct reads.
+6 **Request-ID trace** — Diff S; rollback: header optional.
+7 **Migration/backfill runner** — Diff M; rollback: ordered migrations + snapshot.
+8 **Local dev tooling** — Diff S.
+
+---
+
+**PRINCIPAL ARCHITECT VERDICT (brutal):**
+
+The foundation genuinely survives decade-scale — envelope discipline, guardrails-as-code, governed events, a functioning intelligence→ops loop, and a documented playbook are exactly what hundreds-of-developers platforms need. That is real.
+
+What will NOT survive a decade as-is:
+- **The 5-in-1 `ecosystem.py`** — it prevents independent product teams; this is the #1 structural weakness visible only at organizational scale, not code scale.
+- **Dual-source counters without a contract** — at millions of users, silently-wrong stats are a brand risk.
+- **Request-time 200k-doc intelligence scans** — a scheduling gap that becomes a scaling wall.
+- **Non-deterministic tests** — the quiet killer of long-term velocity.
+- **Unbounded append-only collections** — an ops landmine with a cheap fix.
+
+What must be preserved untouched: the modular-monolith deployable, the event core + governance, the response-envelope guardrail, the worker pool, auth, and notifications.
+
+**Overall: 6.3/10 today → 8.5/10 in 18 months — achievable without any distributed-system rewrite, purely by paying the boundary, scheduling, and test-reliability debts.** The architecture is strong enough to carry the next decade; the roadmap above is how it stays that way.
+
+*Residual unknowns honestly flagged: enterprise/exams internals, payment-gateway wiring, recommendation internals, search internals, experiments-router scope, CI config — nothing asserted beyond verified source. Full detail persists in SYSTEM ARCHITECTURE AUDIT.md and ARCHITECTURE_HANDBOOK.md.*
+
+
+

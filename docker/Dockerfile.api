@@ -1,25 +1,76 @@
-FROM python:3.11-slim AS base
+# syntax=docker/dockerfile:1
+
+# ── Build stage: install deps (needs build toolchain) ──────────────────────
+FROM python:3.14-slim AS builder
+
+ARG PYTHON_VERSION=3.14
+
+WORKDIR /build
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Build toolchain required by some wheels; NOT carried into runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY apps/api/requirements.txt .
+RUN pip install --prefix=/opt/venv -r requirements.txt
+
+# ── Runtime stage: slim, non-root, health-checked ──────────────────────────
+FROM python:3.14-slim AS runtime
+
+ARG APP_USER=appuser \
+    APP_UID=10001
+
+# Image metadata (portable across any orchestrator)
+LABEL org.opencontainers.image.title="ascendly-api" \
+      org.opencontainers.image.description="Ascendly Modular Monolith — api/worker/cron (single image)" \
+      org.opencontainers.image.source="https://github.com/shieldx-bot/courseV1.0.0"
+
+# Explicit termination signal; Python runtime handles SIGTERM gracefully.
+STOPSIGNAL SIGTERM
 
 WORKDIR /app
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PATH="/opt/venv/bin:$PATH"
 
+# ffmpeg is used by code-execution/ide flows; keep it in runtime intentionally.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
     ffmpeg \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid "$APP_UID" "$APP_USER" \
+    && useradd --uid "$APP_UID" --gid "$APP_USER" --create-home --shell /usr/sbin/nologin "$APP_USER"
 
-COPY apps/api/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=builder /opt/venv /opt/venv
 
 COPY apps/api/ .
 
-# ── API server image ──
-FROM base AS api
-EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Ephemeral writable dirs (12-Factor storage): error logs are runtime-only;
+# persistent data lives in Mongo/Redis/R2, never in the container.
+RUN mkdir -p logs/errors \
+    && chown -R "$APP_USER":"$APP_USER" /app
 
-# ── Background worker image ──
-FROM base AS worker
-CMD ["python", "-m", "app.worker"]
+USER "$APP_USER"
+
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=4)"
+
+# ── Multi-process stages: same image, different startup mode ──
+FROM runtime AS api
+ENV PROCESS_MODE=api
+CMD ["python", "-m", "app.runtime"]
+
+FROM runtime AS worker
+ENV PROCESS_MODE=worker
+CMD ["python", "-m", "app.runtime"]
+
+FROM runtime AS cron
+ENV PROCESS_MODE=cron
+CMD ["python", "-m", "app.runtime"]

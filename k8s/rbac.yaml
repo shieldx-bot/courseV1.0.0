@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: ascendly-runtime
+  namespace: ascendly
+rules:
+  # Least privilege: pods only read the ConfigMap/Secret injected via envFrom.
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: ascendly-runtime-binding
+  namespace: ascendly
+subjects:
+  - kind: ServiceAccount
+    name: ascendly-platform
+    namespace: ascendly
+roleRef:
+  kind: Role
+  name: ascendly-runtime
+  apiGroup: rbac.authorization.k8s.io

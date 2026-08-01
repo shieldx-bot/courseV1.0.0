@@ -1,0 +1,24 @@
+namespace: ascendly
+serviceAccountName: ascendly-platform
+config:
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "INFO"
+  FRONTEND_URL: "https://ascendly.io"
+  API_BASE_URL: "https://ascendly.io/api"
+  MONGODB_URI: "mongodb://mongo.internal:27017/ascendly"
+  REDIS_URL: "redis://redis.internal:6379/0"
+  MEILI_URL: "http://meilisearch.internal:7700"
+  MEILI_MASTER_KEY: ""
+secretName: ascendly-secrets
+secretData:
+  JWT_SECRET: "CHANGE_ME_IN_CLUSTER"
+  R2_ACCESS_KEY_ID: ""
+  R2_SECRET_ACCESS_KEY: ""
+  OPENAI_API_KEY: ""
+egressPorts:
+  api: [27017, 6379, 7700, 443, 587]
+  worker: [27017, 6379, 7700, 443]
+  cron: [27017, 6379, 7700, 443]
+pdb:
+  apiMinAvailable: 1
+  workerMinAvailable: 1

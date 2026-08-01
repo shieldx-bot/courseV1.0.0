@@ -2,16 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ascendly-worker
-  namespace: ascendly
+  namespace: {{ .Values.namespace }}
   labels:
     app: ascendly-worker
-    app.kubernetes.io/name: ascendly
     app.kubernetes.io/instance: ascendly-worker
     app.kubernetes.io/component: worker
-    app.kubernetes.io/part-of: ascendly
-    app.kubernetes.io/managed-by: kubectl
+    {{- include "ascendly-runtime.labels" . | nindent 4 }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.worker.replicas }}
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
@@ -25,13 +23,11 @@ spec:
     metadata:
       labels:
         app: ascendly-worker
-        app.kubernetes.io/name: ascendly
         app.kubernetes.io/instance: ascendly-worker
         app.kubernetes.io/component: worker
-        app.kubernetes.io/part-of: ascendly
-        app.kubernetes.io/managed-by: kubectl
+        {{- include "ascendly-runtime.labels" . | nindent 8 }}
     spec:
-      serviceAccountName: ascendly-platform
+      serviceAccountName: {{ .Values.serviceAccountName }}
       automountServiceAccountToken: false
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
@@ -44,16 +40,16 @@ spec:
           type: RuntimeDefault
       containers:
         - name: worker
-          image: ascendly-api:latest
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: PROCESS_MODE
               value: "worker"
           envFrom:
             - configMapRef:
-                name: ascendly-config
+                name: {{ .Values.configMapRef }}
             - secretRef:
-                name: ascendly-secrets
+                name: {{ .Values.secretRef }}
           lifecycle:
             preStop:
               exec:
@@ -69,12 +65,7 @@ spec:
             - name: error-logs
               mountPath: /app/logs
           resources:
-            requests:
-              cpu: "500m"
-              memory: "512Mi"
-            limits:
-              cpu: "1000m"
-              memory: "1Gi"
+            {{- toYaml .Values.worker.resources | nindent 12 }}
       volumes:
         - name: tmp
           emptyDir: {}

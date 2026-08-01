@@ -1,0 +1,21 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ascendly-api-pdb
+  namespace: ascendly
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ascendly-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ascendly-worker-pdb
+  namespace: ascendly
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ascendly-worker

@@ -2,8 +2,22 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ascendly-web
+  namespace: ascendly
+  labels:
+    app: ascendly-web
+    app.kubernetes.io/name: ascendly
+    app.kubernetes.io/instance: ascendly-web
+    app.kubernetes.io/component: web
+    app.kubernetes.io/part-of: ascendly
+    app.kubernetes.io/managed-by: kubectl
 spec:
-  replicas: 2
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: ascendly-web
@@ -11,12 +25,67 @@ spec:
     metadata:
       labels:
         app: ascendly-web
+        app.kubernetes.io/name: ascendly
+        app.kubernetes.io/instance: ascendly-web
+        app.kubernetes.io/component: web
+        app.kubernetes.io/part-of: ascendly
+        app.kubernetes.io/managed-by: kubectl
     spec:
+      serviceAccountName: ascendly-platform
+      automountServiceAccountToken: false
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      imagePullSecrets: []
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        allowPrivilegeEscalation: false
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: web
           image: ascendly-web:latest
-          ports:
-            - containerPort: 3000
+          imagePullPolicy: IfNotPresent
           env:
             - name: NEXT_PUBLIC_API_URL
               value: "http://ascendly-api:8000"
+          ports:
+            - containerPort: 3000
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 3"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: next-cache
+              mountPath: /app/.next/cache
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: next-cache
+          emptyDir: {}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: ascendly-runtime
+description: Ascendly background runtime — worker + cron deployments (same image, PROCESS_MODE)
+type: application
+version: 0.1.0
+appVersion: "1.0"

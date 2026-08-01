@@ -1,0 +1,42 @@
+# ── Version control ──────────────────────────────────────────────────────────
+.git
+.gitignore
+
+# ── Secrets & env ────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python ───────────────────────────────────────────────────────────────────
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+apps/api/logs
+apps/api/*.db
+
+# ── Node / Next ──────────────────────────────────────────────────────────────
+**/node_modules
+apps/web/.next
+apps/web/out
+apps/web/next-env.d.ts
+apps/web/*.tsbuildinfo
+apps/web/test-results
+apps/web/coverage
+apps/web/.eslintcache
+
+# ── Test / build artifacts ───────────────────────────────────────────────────
+**/test-results
+**/coverage
+**/dist
+**/build
+apps/web/.vercel
+
+# ── Local / editor ───────────────────────────────────────────────────────────
+**/.DS_Store
+**/.idea
+**/.vscode
+*.swp
+*.swo

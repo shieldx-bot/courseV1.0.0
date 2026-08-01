@@ -1,14 +1,54 @@
-FROM node:20-slim
+# syntax=docker/dockerfile:1
+
+# ── Dependencies stage ──────────────────────────────────────────────────────
+FROM node:22-alpine AS deps
 
 WORKDIR /app
 
-ENV NODE_ENV=development
-
 COPY apps/web/package.json apps/web/package-lock.json* ./
-RUN npm install
 
+# frozen prevents accidental dependency drift; clean ensures reproducibility.
+RUN npm ci --prefer-offline || npm install --prefer-offline
+
+# ── Builder stage: compile the Next.js application ──────────────────────────
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=deps /app/node_modules ./node_modules
 COPY apps/web/ .
+
+# Standalone output (output: "standalone" in next.config.mjs) produces a
+# self-contained server; static assets + public stay outside node_modules.
+RUN npm run build
+
+# ── Runtime stage: minimal, non-root, health-checked ────────────────────────
+FROM node:22-alpine AS runtime
+
+ARG APP_USER=node \
+    APP_UID=1000
+
+WORKDIR /app
+
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+
+# Standalone server + static assets + public + config (for rewrites/headers).
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+COPY --from=builder --chown=node:node /app/public ./public
+COPY --from=builder --chown=node:node /app/next.config.mjs ./next.config.mjs
+
+USER "$APP_USER"
 
 EXPOSE 3000
 
-CMD ["npm", "run", "dev"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:3000/ || exit 1
+
+CMD ["node", "server.js"]

@@ -1,34 +1,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ascendly-api
+  name: ascendly-cron
   namespace: ascendly
   labels:
-    app: ascendly-api
-    # Standard Kubernetes recommended labels (operations conventions)
+    app: ascendly-cron
     app.kubernetes.io/name: ascendly
-    app.kubernetes.io/instance: ascendly-api
-    app.kubernetes.io/component: api
+    app.kubernetes.io/instance: ascendly-cron
+    app.kubernetes.io/component: cron
     app.kubernetes.io/part-of: ascendly
     app.kubernetes.io/managed-by: kubectl
 spec:
-  replicas: 2
+  replicas: 1
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 0
-      maxSurge: 1
+      maxUnavailable: 1
+      maxSurge: 0
   selector:
     matchLabels:
-      app: ascendly-api
+      app: ascendly-cron
   template:
     metadata:
       labels:
-        app: ascendly-api
+        app: ascendly-cron
         app.kubernetes.io/name: ascendly
-        app.kubernetes.io/instance: ascendly-api
-        app.kubernetes.io/component: api
+        app.kubernetes.io/instance: ascendly-cron
+        app.kubernetes.io/component: cron
         app.kubernetes.io/part-of: ascendly
         app.kubernetes.io/managed-by: kubectl
     spec:
@@ -43,32 +42,18 @@ spec:
         allowPrivilegeEscalation: false
         seccompProfile:
           type: RuntimeDefault
-      topologySpreadConstraints:
-        - maxSkew: 1
-          topologyKey: kubernetes.io/hostname
-          whenUnsatisfiable: ScheduleAnyway
-          labelSelector:
-            matchLabels:
-              app: ascendly-api
       containers:
-        - name: api
+        - name: cron
           image: ascendly-api:latest
           imagePullPolicy: IfNotPresent
           env:
             - name: PROCESS_MODE
-              value: "api"
+              value: "cron"
           envFrom:
             - configMapRef:
                 name: ascendly-config
             - secretRef:
                 name: ascendly-secrets
-          ports:
-            - containerPort: 8000
-          # Drain traffic before SIGTERM (readiness flips during termination)
-          lifecycle:
-            preStop:
-              exec:
-                command: ["sh", "-c", "sleep 5"]
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -79,32 +64,13 @@ spec:
               mountPath: /tmp
             - name: error-logs
               mountPath: /app/logs
-          startupProbe:
-            httpGet:
-              path: /api/v1/health
-              port: 8000
-            initialDelaySeconds: 20
-            periodSeconds: 10
-            failureThreshold: 30
-          readinessProbe:
-            httpGet:
-              path: /api/v1/health/ready
-              port: 8000
-            periodSeconds: 10
-            failureThreshold: 3
-          livenessProbe:
-            httpGet:
-              path: /api/v1/health
-              port: 8000
-            periodSeconds: 20
-            failureThreshold: 3
           resources:
             requests:
-              cpu: "250m"
-              memory: "512Mi"
+              cpu: "100m"
+              memory: "256Mi"
             limits:
               cpu: "500m"
-              memory: "1Gi"
+              memory: "512Mi"
       volumes:
         - name: tmp
           emptyDir: {}

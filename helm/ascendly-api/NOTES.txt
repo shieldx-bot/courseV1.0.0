@@ -1,0 +1,1 @@
+ascendly-api deployed. Get status: kubectl -n ascendly get deploy ascendly-api

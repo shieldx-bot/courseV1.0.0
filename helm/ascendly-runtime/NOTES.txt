@@ -1,0 +1,2 @@
+ascendly-runtime deployed: worker + cron schedulers running.
+Get status: kubectl -n ascendly get deploy ascendly-worker ascendly-cron

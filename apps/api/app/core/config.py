@@ -89,6 +89,10 @@ class Settings(BaseSettings):
     error_log_retention_days: int = 30
     error_log_to_mongodb: bool = True
 
+    # Cloud Native Runtime (12-Factor)
+    log_level: str = "INFO"          # valid: DEBUG/INFO/WARNING/ERROR/CRITICAL
+    app_timezone: str = ""           # empty = keep host behavior; set (e.g. "UTC") from orchestrator
+
     # Dev/test bypass for subscription checks on video streaming
     bypass_subscription_check: bool = False
 

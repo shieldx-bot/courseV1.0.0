@@ -1,0 +1,26 @@
+namespace: ascendly
+image:
+  repository: ascendly-api
+  tag: latest
+  pullPolicy: IfNotPresent
+serviceAccountName: ascendly-platform
+configMapRef: ascendly-config
+secretRef: ascendly-secrets
+worker:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+cron:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"

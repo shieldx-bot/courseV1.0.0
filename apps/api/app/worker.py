@@ -22,7 +22,7 @@ from app.core.tasks import (
 from app.core.worker import MAX_RETRIES, KEEP_RESULT_SECONDS, POLL_DELAY
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=settings.log_level,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("arq.worker")

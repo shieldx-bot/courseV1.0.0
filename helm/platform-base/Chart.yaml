@@ -1,0 +1,6 @@
+apiVersion: v2
+name: platform-base
+description: Ascendly platform foundation — namespace, SA, RBAC, ConfigMap, Secret, NetworkPolicy, PDB
+type: application
+version: 0.1.0
+appVersion: "1.0"
