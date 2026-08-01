@@ -13,6 +13,16 @@ import type {
 } from "@/types";
 
 /**
+ * A practice question shown in adaptive remediation content.
+ */
+interface RemedialQuestion {
+  question: string;
+  options: string[];
+  correct: number;
+  explanation: string;
+}
+
+/**
  * Adaptive learning client for interacting with the adaptive learning API
  */
 export const adaptiveClient = {

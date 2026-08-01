@@ -496,6 +496,38 @@ html {
   animation: premium-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
+/* Mythic badge glow */
+@keyframes mythic-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(244, 63, 94, 0.4); transform: scale(1); }
+  50% { box-shadow: 0 0 40px rgba(244, 63, 94, 0.7); transform: scale(1.05); }
+}
+
+.animate-mythic-glow {
+  animation: mythic-glow 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Live activity slide in */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Onboarding confetti */
+@keyframes confetti-fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(540deg); opacity: 0; }
+}
+
+/* Onboarding progress fill */
+@keyframes progress-fill {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
 /* Reduced motion override */
 @media (prefers-reduced-motion: reduce) {
   html {

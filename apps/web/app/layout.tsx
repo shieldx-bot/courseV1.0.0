@@ -86,7 +86,7 @@ export default function RootLayout({
             <ToastProvider>
               <PWAProvider>
                 <Navbar />
-                <main id="main-content" className="flex-1" role="main">
+                <main id="main-content" tabIndex={-1} className="flex-1 outline-none" role="main">
                   {children}
                 </main>
                 <Footer />

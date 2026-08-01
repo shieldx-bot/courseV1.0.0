@@ -48,6 +48,17 @@ export interface Challenge {
     bookmarks: number;
   };
   created_at: string;
+  updated_at?: string;
+}
+
+export interface ChallengeStats {
+  total: number;
+  published: number;
+  drafts: number;
+  total_attempts: number;
+  completion_rate: number;
+  by_difficulty: Record<string, number>;
+  by_source: Record<string, number>;
 }
 
 export interface MentorAnalysis {

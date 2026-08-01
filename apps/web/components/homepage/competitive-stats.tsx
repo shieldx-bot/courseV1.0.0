@@ -3,17 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 
 interface Stat {
-  value: string;
+  value: number;
   label: string;
+  suffix: string;
   trend?: string;
 }
 
 const stats: Stat[] = [
-  { value: "50K+", label: "Active Competitors", trend: "↑ 12% this month" },
-  { value: "1000+", label: "Challenges Available" },
-  { value: "5M+", label: "XP Distributed" },
-  { value: "120+", label: "Countries" },
+  { value: 50, label: "Active Competitors", suffix: "K+", trend: "↑ 12% this month" },
+  { value: 1000, label: "Challenges Available", suffix: "+" },
+  { value: 5, label: "XP Distributed", suffix: "M+", trend: "↑ 18% this month" },
+  { value: 120, label: "Countries", suffix: "+" },
 ];
+
+const formatStat = (stat: Stat, value: number) => {
+  if (stat.label === "Challenges Available") return `${value.toLocaleString()}${stat.suffix}`;
+  return `${value}${stat.suffix}`;
+};
 
 export function CompetitiveStats() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -41,15 +47,28 @@ export function CompetitiveStats() {
   useEffect(() => {
     if (!isVisible) return;
 
-    const intervals = [
-      setInterval(() => setCounters((prev) => {
-        const updated = [...prev];
-        if (updated[0] < 50) updated[0] += 1;
-        return updated;
-      }), 30),
-    ];
+    const durations = [1500, 1800, 1400, 1200];
+    const intervals = stats.map((stat, index) => {
+      return setInterval(() => {
+        setCounters((prev) => {
+          const updated = [...prev];
+          if (updated[index] < stat.value) {
+            updated[index] = Math.min(updated[index] + Math.ceil(stat.value / 60), stat.value);
+          }
+          return updated;
+        });
+      }, 30);
+    });
 
-    return () => intervals.forEach(clearInterval);
+    const timeout = setTimeout(() => {
+      intervals.forEach(clearInterval);
+      setCounters(stats.map((s) => s.value));
+    }, Math.max(...durations) + 100);
+
+    return () => {
+      intervals.forEach(clearInterval);
+      clearTimeout(timeout);
+    };
   }, [isVisible]);
 
   return (
@@ -57,8 +76,10 @@ export function CompetitiveStats() {
       <div className="mx-auto max-w-page px-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
           {stats.map((stat, index) => (
-            <div key={stat.label} className="text-center">
-              <p className="text-4xl md:text-5xl font-bold text-accent-500 mb-2">{stat.value}</p>
+            <div key={stat.label} className="text-center group">
+              <p className="text-4xl md:text-5xl font-bold text-accent-500 mb-2 tabular-nums transition-transform group-hover:scale-105">
+                {formatStat(stat, counters[index])}
+              </p>
               <p className="text-sm md:text-base text-neutral-600 dark:text-neutral-400 font-medium">{stat.label}</p>
               {stat.trend && (
                 <p className="text-xs text-green-600 dark:text-green-400 mt-2 font-semibold">{stat.trend}</p>

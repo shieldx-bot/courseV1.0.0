@@ -1297,3 +1297,141 @@ async def delete_category(category_id: str):
     
     await db.categories.delete_one({"_id": category_id})
     return {"deleted": True, "category_id": category_id}
+
+
+# ── Challenge Admin Management ────────────────────────────────────────────────
+
+
+@router.get("/challenges", dependencies=[Depends(require_admin)])
+async def admin_list_challenges(
+    search: str = "",
+    status: str = "",
+    difficulty: str = "",
+    source: str = "",
+    sort: str = "newest",
+    page: int = 1,
+    per_page: int = 20,
+):
+    """Admin: list all challenges (including drafts)."""
+    db = get_db()
+    query: dict = {}
+    if status:
+        query["status"] = status
+    if difficulty:
+        query["difficulty"] = difficulty
+    if source:
+        query["source"] = source
+    if search:
+        import re as _re
+        regex = _re.compile(re.escape(search), _re.IGNORECASE)
+        query["$or"] = [{"title": regex}, {"topic": regex}, {"description": regex}]
+
+    total = await db.challenges.count_documents(query)
+    cursor = db.challenges.find(query)
+    if sort == "popular":
+        cursor = cursor.sort("stats.attempts", -1)
+    elif sort == "rating":
+        cursor = cursor.sort("stats.avg_rating", -1)
+    elif sort == "quality":
+        cursor = cursor.sort("quality_score", -1)
+    else:
+        cursor = cursor.sort("created_at", -1)
+    challenges = await cursor.skip((page - 1) * per_page).to_list(length=per_page)
+    return {
+        "challenges": challenges,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+    }
+
+
+@router.get("/challenges/stats", dependencies=[Depends(require_admin)])
+async def admin_challenge_stats():
+    """Admin: challenge statistics for dashboard."""
+    db = get_db()
+    total = await db.challenges.count_documents({})
+    published = await db.challenges.count_documents({"status": "published"})
+    drafts = await db.challenges.count_documents({"status": "draft"})
+    total_attempts = 0
+    total_completions = 0
+    challenge_docs = await db.challenges.find({}).to_list(length=10000)
+    for c in challenge_docs:
+        stats = c.get("stats", {})
+        total_attempts += stats.get("attempts", 0)
+        total_completions += stats.get("completion_rate", 0.0) * stats.get("attempts", 0)
+    return {
+        "total": total,
+        "published": published,
+        "drafts": drafts,
+        "total_attempts": total_attempts,
+        "completion_rate": round(total_completions / total_attempts, 3) if total_attempts else 0.0,
+        "by_difficulty": {
+            "easy": await db.challenges.count_documents({"difficulty": "easy"}),
+            "medium": await db.challenges.count_documents({"difficulty": "medium"}),
+            "hard": await db.challenges.count_documents({"difficulty": "hard"}),
+            "expert": await db.challenges.count_documents({"difficulty": "expert"}),
+        },
+        "by_source": {
+            "ai": await db.challenges.count_documents({"source": "ai"}),
+            "user": await db.challenges.count_documents({"source": "user"}),
+        },
+    }
+
+
+@router.get("/challenges/{challenge_id}", dependencies=[Depends(require_admin)])
+async def admin_get_challenge(challenge_id: str):
+    """Admin: get a single challenge (any status)."""
+    db = get_db()
+    challenge = await db.challenges.find_one({"_id": challenge_id})
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    attempts = await db.challenge_attempts.find({"challenge_id": challenge_id}).sort("created_at", -1).to_list(length=100)
+    return {"challenge": challenge, "attempts": attempts}
+
+
+@router.put("/challenges/{challenge_id}", dependencies=[Depends(require_admin)])
+async def admin_update_challenge(challenge_id: str, body: dict):
+    """Admin: update any challenge — publish, edit content, change difficulty."""
+    from app.services import community as com
+    result = await com.update_challenge("", challenge_id, body, is_admin=True)
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail=result["message"])
+    return {"success": True, "challenge": result["challenge"]}
+
+
+@router.post("/challenges/{challenge_id}/publish", dependencies=[Depends(require_admin)])
+async def admin_publish_challenge(challenge_id: str):
+    """Admin: publish a challenge."""
+    db = get_db()
+    challenge = await db.challenges.find_one({"_id": challenge_id})
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    await db.challenges.update_one(
+        {"_id": challenge_id},
+        {"$set": {"status": "published", "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return {"success": True, "status": "published"}
+
+
+@router.post("/challenges/{challenge_id}/unpublish", dependencies=[Depends(require_admin)])
+async def admin_unpublish_challenge(challenge_id: str):
+    """Admin: unpublish a challenge (set back to draft)."""
+    db = get_db()
+    challenge = await db.challenges.find_one({"_id": challenge_id})
+    if not challenge:
+        raise HTTPException(status_code=404, detail="Challenge not found")
+    await db.challenges.update_one(
+        {"_id": challenge_id},
+        {"$set": {"status": "draft", "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    return {"success": True, "status": "draft"}
+
+
+@router.delete("/challenges/{challenge_id}", dependencies=[Depends(require_admin)])
+async def admin_delete_challenge(challenge_id: str):
+    """Admin: delete any challenge."""
+    from app.services import community as com
+    result = await com.delete_challenge("", challenge_id, is_admin=True)
+    if result.get("error"):
+        raise HTTPException(status_code=404, detail=result["message"])
+    return {"success": True, "deleted": challenge_id}

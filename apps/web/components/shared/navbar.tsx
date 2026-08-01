@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, Moon, Sun } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/components/theme-provider";
+import { isOnboardingSkipped } from "@/lib/onboarding-data";
 
 const links = [
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/courses", label: "Courses" },
   { href: "/learning-paths", label: "Paths" },
   { href: "/challenges", label: "Challenges" },
@@ -117,6 +119,16 @@ export function Navbar() {
           </button>
           {user ? (
             <>
+              {isOnboardingSkipped(user.onboarding) && (
+                <Link href="/onboarding">
+                  <Button
+                    variant="outline"
+                    className="border-amber-400/50 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 hover:text-amber-200"
+                  >
+                    Finish setup
+                  </Button>
+                </Link>
+              )}
               <Link href="/account">
                 <Button variant="ghost" className="text-white hover:text-white hover:bg-white/10">
                   Account

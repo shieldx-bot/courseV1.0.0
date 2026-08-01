@@ -26,7 +26,7 @@ export default function LoginPage() {
       const data = await apiClient.auth.login({ email, password });
       login(data.user);
       toast("Welcome back!", { type: "success" });
-      router.push("/learn");
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
       toast(err.message, { type: "error" });
@@ -39,7 +39,7 @@ export default function LoginPage() {
       const data = await apiClient.auth.googleLogin({ token: credentialResponse.credential });
       login(data.user);
       toast("Welcome back!", { type: "success" });
-      router.push("/learn");
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);
       toast(err.message, { type: "error" });

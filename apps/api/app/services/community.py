@@ -279,6 +279,141 @@ def _creator_level(score: float) -> str:
     return "beginner"
 
 
+async def bookmark_challenge(user_id: str, challenge_id: str) -> dict:
+    """Bookmark a challenge for later."""
+    db = get_db()
+    challenge = await db.challenges.find_one({"_id": challenge_id})
+    if not challenge:
+        return {"error": True, "message": "Challenge not found."}
+
+    doc_id = f"bm-{user_id}-{challenge_id}"
+    existing = await db.bookmarks.find_one({"_id": doc_id})
+    if existing:
+        return {"success": True, "bookmarked": True}
+    await db.bookmarks.insert_one({
+        "_id": doc_id, "user_id": user_id, "challenge_id": challenge_id,
+        "created_at": _now(),
+    })
+    await db.challenges.update_one({"_id": challenge_id}, {"$inc": {"stats.bookmarks": 1}})
+    return {"success": True, "bookmarked": True}
+
+
+async def unbookmark_challenge(user_id: str, challenge_id: str) -> dict:
+    db = get_db()
+    doc_id = f"bm-{user_id}-{challenge_id}"
+    result = await db.bookmarks.delete_many({"_id": doc_id})
+    challenge = await db.challenges.find_one({"_id": challenge_id})
+    if challenge and challenge.get("stats", {}).get("bookmarks", 0) > 0:
+        await db.challenges.update_one({"_id": challenge_id}, {"$inc": {"stats.bookmarks": -1}})
+    return {"success": True, "bookmarked": False}
+
+
+async def get_my_bookmarks(user_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    db = get_read_db()
+    bms = await db.bookmarks.find({"user_id": user_id}).sort("created_at", -1).to_list(length=limit)
+    challenges = []
+    for bm in bms:
+        c = await db.challenges.find_one({"_id": bm["challenge_id"], "status": "published"})
+        if c:
+            challenges.append(c)
+    return challenges
+
+
+async def rate_challenge(user_id: str, challenge_id: str, rating: int) -> dict:
+    """Rate a challenge 1-5."""
+    db = get_db()
+    if rating < 1 or rating > 5:
+        return {"error": True, "message": "Rating must be between 1 and 5."}
+    challenge = await db.challenges.find_one({"_id": challenge_id})
+    if not challenge:
+        return {"error": True, "message": "Challenge not found."}
+
+    doc_id = f"rate-{user_id}-{challenge_id}"
+    existing = await db.ratings.find_one({"_id": doc_id})
+    if existing:
+        await db.ratings.update_one({"_id": doc_id}, {"$set": {"rating": rating, "updated_at": _now()}})
+    else:
+        await db.ratings.insert_one({
+            "_id": doc_id, "user_id": user_id, "challenge_id": challenge_id,
+            "rating": rating, "created_at": _now(),
+        })
+
+    # Recompute average
+    ratings = await db.ratings.find({"challenge_id": challenge_id}).to_list(length=10000)
+    avg = sum(r["rating"] for r in ratings) / len(ratings) if ratings else 0.0
+    await db.challenges.update_one({"_id": challenge_id}, {"$set": {"stats.avg_rating": round(avg, 2)}})
+    return {"success": True, "avg_rating": round(avg, 2), "rated": True}
+
+
+async def delete_challenge(user_id: str, challenge_id: str, is_admin: bool = False) -> dict:
+    """Delete a challenge if owner or admin."""
+    db = get_db()
+    challenge = await db.challenges.find_one({"_id": challenge_id})
+    if not challenge:
+        return {"error": True, "message": "Challenge not found."}
+    if not is_admin and challenge.get("creator_id") != user_id:
+        return {"error": True, "message": "Not authorized to delete this challenge."}
+    await db.challenges.delete_many({"_id": challenge_id})
+    await db.challenge_attempts.delete_many({"challenge_id": challenge_id})
+    await db.bookmarks.delete_many({"challenge_id": challenge_id})
+    await db.ratings.delete_many({"challenge_id": challenge_id})
+    return {"success": True}
+
+
+async def update_challenge(user_id: str, challenge_id: str, body: dict, is_admin: bool = False) -> dict:
+    """Update a challenge if owner or admin."""
+    db = get_db()
+    challenge = await db.challenges.find_one({"_id": challenge_id})
+    if not challenge:
+        return {"error": True, "message": "Challenge not found."}
+    if not is_admin and challenge.get("creator_id") != user_id:
+        return {"error": True, "message": "Not authorized to update this challenge."}
+
+    allowed = {
+        "title", "description", "topic", "domain", "difficulty", "difficulty_score",
+        "type", "content", "explanation", "skills", "skills_raw", "status",
+    }
+    updates = {}
+    for k, v in body.items():
+        if k in allowed:
+            updates[k] = v
+    current_type = challenge.get("type")
+    if "content" in updates:
+        content = updates["content"]
+        ctype = updates.get("type", current_type)
+        if ctype == "theory" and "options" in content:
+            # Keep structure aligned with type
+            content.setdefault("correct", content.get("correct", 0))
+        elif "expected_answer" in content:
+            content.setdefault("expected_answer", content.get("expected_answer", ""))
+        updates["content"] = content
+    updates["updated_at"] = _now()
+    await db.challenges.update_one({"_id": challenge_id}, {"$set": updates})
+    updated = await db.challenges.find_one({"_id": challenge_id})
+    return {"success": True, "challenge": updated}
+
+
+async def publish_challenge(user_id: str, challenge_id: str) -> dict:
+    """Publish a challenge if owner or admin."""
+    db = get_db()
+    challenge = await db.challenges.find_one({"_id": challenge_id})
+    if not challenge:
+        return {"error": True, "message": "Challenge not found."}
+    if challenge.get("creator_id") != user_id:
+        return {"error": True, "message": "Not authorized to publish this challenge."}
+    await db.challenges.update_one({"_id": challenge_id}, {"$set": {"status": "published", "updated_at": _now()}})
+    await _update_creator_stats(user_id)
+    await create_activity(user_id, "challenge_created", {
+        "challenge_id": challenge_id, "challenge_title": challenge.get("title", ""),
+    })
+    return {"success": True, "status": "published"}
+
+
+async def get_user_created_challenges(user_id: str, limit: int = 50) -> list[dict[str, Any]]:
+    db = get_read_db()
+    return await db.challenges.find({"creator_id": user_id}).sort("created_at", -1).to_list(length=limit)
+
+
 async def follow_creator(follower_id: str, creator_id: str) -> dict:
     db = get_db()
     doc_id = f"cp-{creator_id}"

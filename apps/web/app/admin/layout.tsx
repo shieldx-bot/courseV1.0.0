@@ -6,6 +6,7 @@ const links = [
   { href: "/admin/ai-analytics", label: "AI Analytics" },
   { href: "/admin/courses", label: "Courses" },
   { href: "/admin/categories", label: "Categories" },
+  { href: "/admin/challenges", label: "Challenges" },
   { href: "/admin/users", label: "Users" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/coupons", label: "Coupons" },

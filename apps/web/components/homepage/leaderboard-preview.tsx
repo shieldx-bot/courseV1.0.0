@@ -66,7 +66,10 @@ export function LeaderboardPreview() {
         </div>
 
         <div ref={containerRef} className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full" aria-label="Global leaderboard top competitors">
+            <caption className="sr-only">
+              Top developers ranked by total XP. Includes rank, name, XP, country, and weekly trend.
+            </caption>
             <thead>
               <tr className="border-b border-neutral-200 dark:border-neutral-800">
                 <th className="text-left py-4 px-4 font-semibold text-neutral-600 dark:text-neutral-400 text-sm">Rank</th>
@@ -84,8 +87,7 @@ export function LeaderboardPreview() {
                   className="leaderboard-row border-b border-neutral-100 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-neutral-800/50 transition-colors"
                   style={{
                     opacity: visibleRows[index] ? 1 : 0,
-                    transform: visibleRows[index] ? "translateX(0)" : "translateX(-20px)",
-                    transition: `opacity 0.5s ease-out ${index * 0.1}s, transform 0.5s ease-out ${index * 0.1}s`,
+                    transition: `opacity 0.5s ease-out ${index * 0.1}s`,
                   }}
                 >
                   <td className="py-4 px-4">

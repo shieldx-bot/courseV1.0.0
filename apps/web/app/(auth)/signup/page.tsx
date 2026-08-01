@@ -36,8 +36,8 @@ export default function SignupPage() {
         body: JSON.stringify({ name, email, password }),
       });
       login(data.user);
-      toast("Account created! Please verify your phone.", { type: "success" });
-      router.push("/verify-phone");
+      toast("Account created! Let's build your learning path.", { type: "success" });
+      router.push("/onboarding");
     } catch (err: any) {
       setError(err.message);
       toast(err.message, { type: "error" });
@@ -52,8 +52,8 @@ export default function SignupPage() {
         body: JSON.stringify({ token: credentialResponse.credential }),
       });
       login(data.user);
-      toast("Account created! Please verify your phone.", { type: "success" });
-      router.push("/verify-phone");
+      toast("Account created! Let's build your learning path.", { type: "success" });
+      router.push("/onboarding");
     } catch (err: any) {
       setError(err.message);
       toast(err.message, { type: "error" });

@@ -208,6 +208,7 @@ app.include_router(challenges_module.skills_router, prefix="/api/v1", tags=["ski
 app.include_router(challenges_module.activity_router, prefix="/api/v1", tags=["activity"])
 app.include_router(challenges_module.creators_router, prefix="/api/v1", tags=["creators"])
 app.include_router(challenges_module.mentor_router, prefix="/api/v1", tags=["mentor"])
+app.include_router(challenges_module.admin_router, prefix="/api/v1", tags=["admin-challenges"])
 
 
 @app.get("/api/v1/health")

@@ -1,11 +1,18 @@
 import { HeroCompetitive } from "@/components/homepage/hero-competitive";
+import { LiveActivity } from "@/components/homepage/live-activity";
 import { CompetitiveStats } from "@/components/homepage/competitive-stats";
+import { DailyChallenge } from "@/components/homepage/daily-challenge";
+import { LiveCompetitions } from "@/components/homepage/live-competitions";
 import { SkillAreas } from "@/components/homepage/skill-areas";
 import { HowItWorksCompetitive } from "@/components/homepage/how-it-works-competitive";
+import { TrendingTechnologies } from "@/components/homepage/trending-technologies";
+import { FeaturedChallenges } from "@/components/homepage/featured-challenges";
 import { FeatureShowcase } from "@/components/homepage/feature-showcase";
 import { LeaderboardPreview } from "@/components/homepage/leaderboard-preview";
 import { AchievementsShowcase } from "@/components/homepage/achievements-showcase";
+import { CommunitySpotlight } from "@/components/homepage/community-spotlight";
 import { CommunityActivity } from "@/components/homepage/community-activity";
+import { GlobalPlatformStatus } from "@/components/homepage/global-platform-status";
 import { CompetitiveCTA } from "@/components/homepage/competitive-cta";
 import { JsonLd } from "@/components/json-ld";
 import { makeMetadata, SITE_URL } from "@/lib/metadata";
@@ -32,13 +39,20 @@ export default function HomePage() {
     <>
       <JsonLd data={websiteSchema} />
       <HeroCompetitive />
+      <LiveActivity />
       <CompetitiveStats />
+      <DailyChallenge />
+      <LiveCompetitions />
       <SkillAreas />
       <HowItWorksCompetitive />
+      <TrendingTechnologies />
+      <FeaturedChallenges />
       <FeatureShowcase />
       <LeaderboardPreview />
       <AchievementsShowcase />
+      <CommunitySpotlight />
       <CommunityActivity />
+      <GlobalPlatformStatus />
       <CompetitiveCTA />
     </>
   );

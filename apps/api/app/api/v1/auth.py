@@ -33,6 +33,13 @@ def _user_payload(user: dict):
         "phone_verified": user.get("phone_verified", False),
         "trial_active": user.get("trial_active", False),
         "trial_expires": user.get("trial_expires"),
+        "onboarding": user.get("onboarding") or {
+            "status": "not_started",
+            "interests": [],
+            "level": "",
+            "goal": "",
+            "first_challenge_completed": False,
+        },
     }
 
 
@@ -86,8 +93,17 @@ class ChangePasswordIn(BaseModel):
     new_password: str
 
 
+class OnboardingUpdate(BaseModel):
+    status: str | None = None
+    interests: list[str] | None = None
+    level: str | None = None
+    goal: str | None = None
+    first_challenge_completed: bool | None = None
+
+
 class ProfileUpdate(BaseModel):
     name: str | None = None
+    onboarding: OnboardingUpdate | None = None
 
 
 @router.post("/signup")
@@ -278,7 +294,7 @@ async def logout(response: Response):
 
 @router.get("/me")
 async def get_me(user: dict = Depends(get_current_user)):
-    return api_response(user)
+    return api_response(_user_payload(user))
 
 
 @router.put("/me")
@@ -287,6 +303,12 @@ async def update_me(body: ProfileUpdate, user: dict = Depends(get_current_user))
     updates = {}
     if body.name is not None:
         updates["name"] = body.name
+    if body.onboarding is not None:
+        onboarding_data = body.onboarding.model_dump(exclude_unset=True)
+        if onboarding_data:
+            current = (user.get("onboarding") or {}).copy()
+            current.update(onboarding_data)
+            updates["onboarding"] = current
     if updates:
         await db.users.update_one({"_id": user["id"]}, {"$set": updates})
     updated = await db.users.find_one({"_id": user["id"]})

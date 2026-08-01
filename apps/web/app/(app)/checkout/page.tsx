@@ -90,7 +90,7 @@ function CheckoutInner() {
     setVerifying(true);
     try {
       await apiClient.subscriptions.me();
-      const t = setTimeout(() => router.push("/learn"), 2000);
+      const t = setTimeout(() => router.push("/dashboard"), 2000);
       return () => clearTimeout(t);
     } catch {
       setError("Payment was processed but we could not verify your subscription. Please contact support.");

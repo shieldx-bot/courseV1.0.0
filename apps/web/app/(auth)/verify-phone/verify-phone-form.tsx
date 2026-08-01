@@ -18,13 +18,13 @@ export function VerifyPhoneForm() {
   const [resendCooldown, setResendCooldown] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") || "/learn";
+  const next = searchParams.get("next") || "/dashboard";
   const { login, user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     if (user?.phone_verified && user?.trial_active) {
-      router.replace(next || "/learn");
+      router.replace(next || "/dashboard");
     }
   }, [user, router, next]);
 

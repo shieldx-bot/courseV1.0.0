@@ -53,6 +53,16 @@ export interface Course {
   total_duration_seconds?: number;
 }
 
+export type OnboardingStatus = "not_started" | "in_progress" | "completed" | "skipped";
+
+export interface OnboardingProfile {
+  status: OnboardingStatus;
+  interests: string[];
+  level: string;
+  goal: string;
+  first_challenge_completed: boolean;
+}
+
 export interface User {
   id: string;
   email: string;
@@ -63,6 +73,7 @@ export interface User {
   trial_active?: boolean;
   trial_expires?: string | null;
   subscription_status?: string;
+  onboarding?: OnboardingProfile;
 }
 
 export interface SubscriptionTier {
