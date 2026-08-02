@@ -24,3 +24,22 @@ cron:
     limits:
       cpu: "500m"
       memory: "512Mi"
+keda:
+  enabled: true
+  redisAddress: redis.internal:6379
+  queueName: "arq:queue:default"
+  queueLength: 20
+  pollingInterval: 30
+  cooldown: 300
+  fallback:
+    threshold: 3
+    replicas: 5
+  advanced:
+    scaleUpStabilizationSeconds: 60
+    scaleUpPercent: 100
+    scaleDownStabilizationSeconds: 300
+    scaleDownPercent: 50
+worker:
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 20

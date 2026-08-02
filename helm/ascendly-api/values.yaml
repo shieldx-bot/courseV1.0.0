@@ -7,7 +7,19 @@ replicas: 2
 serviceAccountName: ascendly-platform
 configMapRef: ascendly-config
 secretRef: ascendly-secrets
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  cpuTarget: 70
+  memoryTarget: 80
+  scaleUpStabilizationSeconds: 60
+  scaleUpPercent: 100
+  scaleUpMaxPods: 4
+  scaleDownStabilizationSeconds: 300
+  scaleDownPercent: 50
 ingress:
+  enabled: true
   host: ascendly.io
 resources:
   requests:

@@ -124,3 +124,27 @@ Full model in RELEASE_MODEL.md. No CI/GitOps implemented.
 
 ## Scope check
 Only charts (Chart.yaml/_helpers.tpl/NOTES.txt) + docs changed. No Python/Dockerfile/CI/runtime/API/DB.
+
+---
+
+# ENVIRONMENT MODEL (L3.25) — design-only env separation
+
+Full model in ENVIRONMENT_MODEL.md. No GitOps/CI implemented. Promotion moves the SAME application version.
+
+## Environments
+- **Development** (`ascendly-dev`): latest tag, api=1, ingress off, placeholder secrets, auto-approve
+- **Staging** (`ascendly-staging`): rc tag, api=2, ingress off, team-lead approval
+- **Production** (`ascendly`): immutable tag, api=2, ingress on (ascendly.io), release-manager approval
+
+## Helm values organization
+- `values.yaml` (defaults = current semantics) + `values-dev/staging/prod.yaml` per chart — override ONLY real differences (namespace, ENVIRONMENT, image.tag, replicas, ingress.enabled/host). No duplicated config.
+- 9 per-env files created (verified); `ingress.enabled` added to ascendly-api (default true, preserves current behavior; template wrapped with `if`).
+
+## Promotion
+`dev (branch/latest) → staging (vX.Y.Z-rc) → prod (vX.Y.Z)` — same image digest moves; no rebuild, no mutable tags. Gates: readiness green, PDB satisfiable, appVersion == image tag.
+
+## Rollback
+dev: reinstall · staging/prod: `helm rollback` · prod image fallback via `kubectl set image`. No migration rollback (forward-fix).
+
+## Scope check
+Only helm values + 1 template flag + docs. No code/Dockerfile/CI/runtime/API/DB/GitOps.

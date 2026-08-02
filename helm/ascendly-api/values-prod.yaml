@@ -1,0 +1,7 @@
+namespace: ascendly
+image:
+  tag: "v1.0.0"
+replicas: 2
+ingress:
+  enabled: true
+  host: ascendly.io

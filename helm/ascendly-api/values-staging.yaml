@@ -1,0 +1,6 @@
+namespace: ascendly-staging
+image:
+  tag: "v1.0.0-rc"
+replicas: 2
+ingress:
+  enabled: false

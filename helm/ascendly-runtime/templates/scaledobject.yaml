@@ -1,0 +1,39 @@
+{{- if .Values.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: ascendly-worker-scaledobject
+  namespace: {{ .Values.namespace }}
+spec:
+  scaleTargetRef:
+    name: ascendly-worker
+    kind: Deployment
+  pollingInterval: {{ .Values.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.keda.cooldown }}
+  minReplicaCount: {{ .Values.worker.autoscaling.minReplicas }}
+  maxReplicaCount: {{ .Values.worker.autoscaling.maxReplicas }}
+  fallback:
+    failureThreshold: {{ .Values.keda.fallback.threshold }}
+    replicas: {{ .Values.keda.fallback.replicas }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: {{ .Values.keda.advanced.scaleUpStabilizationSeconds }}
+          policies:
+            - type: Percent
+              value: {{ .Values.keda.advanced.scaleUpPercent }}
+              periodSeconds: 60
+        scaleDown:
+          stabilizationWindowSeconds: {{ .Values.keda.advanced.scaleDownStabilizationSeconds }}
+          policies:
+            - type: Percent
+              value: {{ .Values.keda.advanced.scaleDownPercent }}
+              periodSeconds: 60
+  triggers:
+    - type: redis
+      metadata:
+        address: {{ .Values.keda.redisAddress }}
+        listName: {{ .Values.keda.queueName }}
+        listLength: "{{ .Values.keda.queueLength }}"
+{{- end }}
