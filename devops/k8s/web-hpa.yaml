@@ -1,0 +1,47 @@
+# ── ascendly-web HPA (Phase 8 NV4) ────────────────────────────────────────────
+# CPU 70% / memory 80%, min 2 / max 10, with the same scale-up/down behavior
+# as api-hpa.yaml. Per-env gating follows the api-hpa.yaml pattern: these
+# static k8s manifests are only applied to real clusters (staging/production);
+# dev runs on docker compose (no k8s) where autoscaling is off. Staging can
+# opt out by simply not applying this file (or lowering minReplicas).
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ascendly-web-hpa
+  namespace: ascendly
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ascendly-web
+  minReplicas: 2
+  maxReplicas: 10
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

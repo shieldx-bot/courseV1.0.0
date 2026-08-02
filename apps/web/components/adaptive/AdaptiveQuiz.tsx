@@ -13,6 +13,7 @@ import type {
 
 type AdaptiveQuizProps = {
   courseId: string;
+  courseSlug?: string;
   lessonId?: string;
   userId?: string;
   mode?: string;
@@ -44,7 +45,7 @@ function AnimatedScore({ value }: { value: number }) {
   return <span className="tabular-nums">{animated.toFixed(1)}</span>;
 }
 
-export function AdaptiveQuiz({ courseId, lessonId, mode }: AdaptiveQuizProps) {
+export function AdaptiveQuiz({ courseId, courseSlug, lessonId, mode }: AdaptiveQuizProps) {
   const isMasteryCheck = mode === "mastery-check";
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -251,7 +252,7 @@ export function AdaptiveQuiz({ courseId, lessonId, mode }: AdaptiveQuizProps) {
             </p>
             {skipNotice.success && (
               <Link
-                href={`/learn/${courseId}/mastery`}
+                href={`/learn/${courseSlug || courseId}/mastery`}
                 className="mt-2 inline-block text-xs font-medium text-accent-600 underline"
               >
                 Continue to mastery dashboard

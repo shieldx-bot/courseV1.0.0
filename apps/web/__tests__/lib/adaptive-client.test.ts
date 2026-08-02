@@ -40,7 +40,7 @@ describe("adaptiveClient", () => {
       prerequisite_concepts: [],
       mastery_score: 6.5,
     };
-    global.fetch = jest.fn().mockResolvedValue(envelopeResponse({ concepts: [concept] }));
+    global.fetch = jest.fn().mockResolvedValue(envelopeResponse([concept]));
 
     const result = await adaptiveClient.listConcepts("course-1");
     expect(result).toEqual([concept]);
@@ -77,7 +77,7 @@ describe("adaptiveClient", () => {
         return Promise.resolve(envelopeResponse([{ concept_id: "c1", mastery_score: 2, trend: "declining" }]));
       }
       if (String(url).includes("/concepts/")) {
-        return Promise.resolve(envelopeResponse({ concepts: [{ id: "c1", name: "Variables" }] }));
+        return Promise.resolve(envelopeResponse([{ id: "c1", name: "Variables" }]));
       }
       return Promise.resolve(envelopeResponse([]));
     });
@@ -92,7 +92,7 @@ describe("adaptiveClient", () => {
         return Promise.resolve(envelopeResponse([{ concept_id: "c2", mastery_score: 8, trend: "improving" }]));
       }
       if (String(url).includes("/concepts/")) {
-        return Promise.resolve(envelopeResponse({ concepts: [{ id: "c2", name: "Functions" }] }));
+        return Promise.resolve(envelopeResponse([{ id: "c2", name: "Functions" }]));
       }
       return Promise.resolve(envelopeResponse([]));
     });

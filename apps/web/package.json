@@ -13,7 +13,9 @@
     "test:watch": "jest --watch",
     "test:a11y": "jest --testPathPattern='__tests__/accessibility'",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:lighthouse": "npm run build && lhci autorun",
+    "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
@@ -33,6 +35,8 @@
     "workbox-window": "^7.1.0"
   },
   "devDependencies": {
+    "@lhci/cli": "^0.15.1",
+    "@next/bundle-analyzer": "^16.2.12",
     "@playwright/test": "^1.50.0",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.1.0",

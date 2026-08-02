@@ -270,17 +270,44 @@ jobs:
               print(f"OK dashboard {f} ({len(d['panels'])} panels)")
           PY
 
+  # ── Release pipeline dry-run (Phase 8 NV3/NV7) ─────────────────────────────
+  # Validates the release tooling without a cluster or secrets: YAML parse of
+  # every manifest/workflow, bash -n on all devops scripts, deploy.sh /
+  # rollback.sh --dry-run, SOPS artifacts, and helm template with the same
+  # --set overrides the release pipeline uses (image.tag / imagePullSecrets).
+  release-dry-run:
+    name: Release Dry-Run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Setup Python (from .python-version)
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: apps/api/.python-version
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Run release dry-run validation
+        run: bash devops/scripts/ci-release-dry-run.sh
+
   # ── Common gate: merge is allowed only when ALL required jobs are green ────
   gate:
     name: CI Gate
     runs-on: ubuntu-latest
-    needs: [api, web, migration-check, docker-build, security-scan, manifest-check, lint-regression]
+    needs: [api, web, migration-check, docker-build, security-scan, manifest-check, lint-regression, release-dry-run]
     if: always()
     steps:
       - name: Summary
         run: |
           FAILED=0
-          for job in api web migration-check docker-build security-scan manifest-check lint-regression; do
+          for job in api web migration-check docker-build security-scan manifest-check lint-regression release-dry-run; do
             result="${{ needs[format('{0}', job)].result }}"
             echo "::notice::$job → $result"
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
@@ -298,6 +325,7 @@ jobs:
           echo "| Docker Build | ${{ needs.docker-build.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Manifest Check | ${{ needs.manifest-check.result }} |" >> "$GITHUB_STEP_SUMMARY"
           echo "| Security Scan | ${{ needs.security-scan.result }} |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Release Dry-Run | ${{ needs.release-dry-run.result }} |" >> "$GITHUB_STEP_SUMMARY"
           if [ "$FAILED" -eq 1 ]; then
             echo "::error::One or more required CI jobs failed."
             exit 1

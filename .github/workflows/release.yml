@@ -1,0 +1,242 @@
+# ── Release pipeline (Phase 8 NV3) ────────────────────────────────────────────
+# Builds + pushes immutable images (SHA + semver alias) to the registry, then
+# deploys via helm + the static web manifest, waits for rollout, and runs the
+# post-deploy smoke suite (make smoke). Staging is always deployed first and its
+# smoke must pass before production (promotion gate + optional manual approval
+# via the GitHub "production" environment protection rule).
+#
+# Triggers:
+#   - workflow_dispatch (environment: staging|production; version: optional)
+#   - push of a v* tag  → full pipeline to production
+#
+# Required repository secrets:
+#   KUBECONFIG_STAGING / KUBECONFIG_PROD  kubeconfig (base64 or raw YAML)
+#   SMOKE_BASE_URL_STAGING / SMOKE_BASE_URL_PRODUCTION   live API base URL
+#   AGE_SECRET_KEY                        age private key for SOPS secrets
+#   REGISTRY_USERNAME / REGISTRY_PASSWORD  registry creds (default: GITHUB_TOKEN)
+# Optional: REGISTRY (default ghcr.io), REGISTRY_NAMESPACE (default owner)
+#
+# See devops/README.md → Phase 8 for the full runbook.
+
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options:
+          - staging
+          - production
+        default: staging
+      version:
+        description: Semver alias (e.g. 1.0.0). Defaults to the pushed tag (vX.Y.Z) or 0.0.0-<sha>.
+        type: string
+        required: false
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: release-${{ github.ref_name }}-${{ inputs.environment || 'production' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ${{ secrets.REGISTRY || 'ghcr.io' }}
+  IMAGE_NAMESPACE: ${{ secrets.REGISTRY_NAMESPACE || github.repository_owner }}
+  API_IMAGE: ${{ secrets.REGISTRY || 'ghcr.io' }}/${{ secrets.REGISTRY_NAMESPACE || github.repository_owner }}/ascendly-api
+  WEB_IMAGE: ${{ secrets.REGISTRY || 'ghcr.io' }}/${{ secrets.REGISTRY_NAMESPACE || github.repository_owner }}/ascendly-web
+  NODE_VERSION: '20'
+
+jobs:
+  # ── Build & push immutable images ───────────────────────────────────────────
+  push-images:
+    name: Build & Push Images
+    runs-on: ubuntu-latest
+    outputs:
+      sha_tag: ${{ steps.meta.outputs.sha_tag }}
+      version: ${{ steps.meta.outputs.version }}
+      api_image: ${{ env.API_IMAGE }}
+      web_image: ${{ env.WEB_IMAGE }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute immutable tags (sha + semver alias)
+        id: meta
+        run: |
+          SHA_SHORT="${GITHUB_SHA::12}"
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-${SHA_SHORT}"
+          fi
+          echo "sha_tag=${SHA_SHORT}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "Tagging images: ${SHA_SHORT} + ${VERSION}"
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          password: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & push ascendly-api (api stage)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: devops/docker/Dockerfile.api
+          target: api
+          push: true
+          tags: |
+            ${{ env.API_IMAGE }}:${{ steps.meta.outputs.sha_tag }}
+            ${{ env.API_IMAGE }}:${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push ascendly-web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: devops/docker/Dockerfile.web
+          push: true
+          tags: |
+            ${{ env.WEB_IMAGE }}:${{ steps.meta.outputs.sha_tag }}
+            ${{ env.WEB_IMAGE }}:${{ steps.meta.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Deploy staging (first gate — smoke must be green) ──────────────────────
+  deploy-staging:
+    name: Deploy Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    needs: [push-images]
+    env:
+      KUBECONFIG: ${{ runner.temp }}/kubeconfig-staging.yaml
+      DEPLOY_ENV: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install sops (SOPS secret decrypt)
+        if: ${{ secrets.AGE_SECRET_KEY != '' }}
+        run: |
+          curl -fsSL -o /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.amd64
+          chmod +x /usr/local/bin/sops
+          sops --version
+
+      - name: Write kubeconfig
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_STAGING }}
+        run: |
+          if [ -z "$KUBECONFIG_CONTENT" ]; then
+            echo "::error::KUBECONFIG_STAGING secret is not configured — add it in repo Settings → Secrets → Actions" && exit 1
+          fi
+          printf '%s\n' "$KUBECONFIG_CONTENT" > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
+
+      - name: Deploy (helm + web manifest + rollout + SOPS secrets)
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+          AGE_SECRET_KEY: ${{ secrets.AGE_SECRET_KEY }}
+        run: |
+          bash devops/scripts/deploy.sh staging \
+            "${{ env.API_IMAGE }}" "${{ env.WEB_IMAGE }}" \
+            "${{ needs.push-images.outputs.sha_tag }}"
+
+      - name: Smoke tests (staging)
+        env:
+          SMOKE_BASE_URL: ${{ secrets.SMOKE_BASE_URL_STAGING }}
+          SMOKE_USER: ${{ secrets.SMOKE_USER }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: |
+          if [ -z "$SMOKE_BASE_URL" ]; then
+            echo "::warning::SMOKE_BASE_URL_STAGING not configured — smoke skipped. Configure it to gate the promotion to production."
+            exit 0
+          fi
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r apps/api/requirements.txt
+          make smoke SMOKE_BASE_URL="$SMOKE_BASE_URL"
+
+  # ── Deploy production (promotion gate: staging green + approval) ───────────
+  # Gated by the `production` environment: configure a manual-approval
+  # protection rule in Settings → Environments → production. Runs for
+  # workflow_dispatch(environment=production) and v* tag pushes.
+  deploy-prod:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [push-images, deploy-staging]
+    if: ${{ inputs.environment == 'production' || startsWith(github.ref, 'refs/tags/') }}
+    env:
+      KUBECONFIG: ${{ runner.temp }}/kubeconfig-prod.yaml
+      DEPLOY_ENV: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.4
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install sops (SOPS secret decrypt)
+        if: ${{ secrets.AGE_SECRET_KEY != '' }}
+        run: |
+          curl -fsSL -o /usr/local/bin/sops https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.amd64
+          chmod +x /usr/local/bin/sops
+          sops --version
+
+      - name: Write kubeconfig
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG_PROD }}
+        run: |
+          if [ -z "$KUBECONFIG_CONTENT" ]; then
+            echo "::error::KUBECONFIG_PROD secret is not configured — add it in repo Settings → Secrets → Actions" && exit 1
+          fi
+          printf '%s\n' "$KUBECONFIG_CONTENT" > "$KUBECONFIG"
+          chmod 600 "$KUBECONFIG"
+
+      - name: Deploy (helm + web manifest + rollout + SOPS secrets)
+        env:
+          REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME || github.actor }}
+          REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || secrets.GITHUB_TOKEN }}
+          AGE_SECRET_KEY: ${{ secrets.AGE_SECRET_KEY }}
+        run: |
+          bash devops/scripts/deploy.sh production \
+            "${{ env.API_IMAGE }}" "${{ env.WEB_IMAGE }}" \
+            "${{ needs.push-images.outputs.sha_tag }}"
+
+      - name: Smoke tests (production)
+        env:
+          SMOKE_BASE_URL: ${{ secrets.SMOKE_BASE_URL_PRODUCTION }}
+          SMOKE_USER: ${{ secrets.SMOKE_USER }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+        run: |
+          if [ -z "$SMOKE_BASE_URL" ]; then
+            echo "::warning::SMOKE_BASE_URL_PRODUCTION not configured — smoke skipped."
+            exit 0
+          fi
+          python3 -m pip install --upgrade pip
+          python3 -m pip install -r apps/api/requirements.txt
+          make smoke SMOKE_BASE_URL="$SMOKE_BASE_URL"

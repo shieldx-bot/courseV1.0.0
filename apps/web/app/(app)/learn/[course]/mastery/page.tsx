@@ -15,6 +15,7 @@ import type {
 } from "@/types/adaptive";
 
 export default function MasteryDashboard({ params }: { params: { course: string } }) {
+  const [courseId, setCourseId] = useState(params.course);
   const [concepts, setConcepts] = useState<ConceptMasterySummary[]>([]);
   const [weak, setWeak] = useState<ConceptMasterySummary[]>([]);
   const [strong, setStrong] = useState<ConceptMasterySummary[]>([]);
@@ -30,13 +31,24 @@ export default function MasteryDashboard({ params }: { params: { course: string 
     let cancelled = false;
     setLoading(true);
     setError(null);
-    Promise.all([
-      adaptiveClient.listConcepts(params.course),
-      adaptiveClient.getWeak(params.course),
-      adaptiveClient.getStrong(params.course),
-      adaptiveClient.getRemediation(params.course),
-    ])
-      .then(([conceptsData, weakData, strongData, remedialData]) => {
+    (async () => {
+      let id = params.course;
+      try {
+        const res = await fetch(`/api/v1/courses/${params.course}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.data?.id) id = data.data.id;
+        }
+      } catch {}
+      if (cancelled) return;
+      setCourseId(id);
+      try {
+        const [conceptsData, weakData, strongData, remedialData] = await Promise.all([
+          adaptiveClient.listConcepts(id),
+          adaptiveClient.getWeak(id),
+          adaptiveClient.getStrong(id),
+          adaptiveClient.getRemediation(id),
+        ]);
         if (cancelled) return;
         setConcepts(
           (conceptsData || []).map((c) => ({
@@ -48,13 +60,12 @@ export default function MasteryDashboard({ params }: { params: { course: string 
         setWeak(weakData);
         setStrong(strongData);
         setRemedial(remedialData);
-      })
-      .catch((e: unknown) => {
+      } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Failed to load mastery");
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -67,7 +78,7 @@ export default function MasteryDashboard({ params }: { params: { course: string 
       setPrereqs([]);
       setPrereqsLoading(true);
       try {
-        const data = await adaptiveClient.getPrerequisites(params.course, concept.id);
+        const data = await adaptiveClient.getPrerequisites(courseId, concept.id);
         setPrereqs(data);
       } catch {
         setPrereqs([]);
@@ -75,7 +86,7 @@ export default function MasteryDashboard({ params }: { params: { course: string 
         setPrereqsLoading(false);
       }
     },
-    [params.course]
+    [courseId]
   );
 
   if (loading) {
@@ -94,7 +105,7 @@ export default function MasteryDashboard({ params }: { params: { course: string 
       </p>
 
       <div className="mt-8">
-        <LearningPath courseId={params.course} />
+        <LearningPath courseId={courseId} courseSlug={params.course} />
       </div>
 
       {remedial.length > 0 && (
@@ -255,7 +266,7 @@ export default function MasteryDashboard({ params }: { params: { course: string 
       {remedialTarget && (
         <div className="mt-6">
           <RemedialPanel
-            courseId={params.course}
+            courseId={courseId}
             conceptId={remedialTarget.conceptId}
             conceptName={remedialTarget.conceptName}
             onClose={() => setRemedialTarget(null)}

@@ -51,7 +51,7 @@ export const adaptiveClient = {
   ): Promise<ConceptDefinition[]> {
     try {
       const response = await apiClient.adaptive.listConcepts(courseId);
-      return response.concepts || [];
+      return Array.isArray(response) ? response : [];
     } catch (error) {
       console.error("Failed to list concepts:", error);
       // Mock fallback for development when the API is not deployed yet.
@@ -389,9 +389,9 @@ export const adaptiveClient = {
         band === "weak"
           ? apiClient.adaptive.weakConcepts(courseId)
           : apiClient.adaptive.strongConcepts(courseId),
-        apiClient.adaptive.listConcepts(courseId).catch(() => ({ concepts: [] })),
+        apiClient.adaptive.listConcepts(courseId).catch(() => []),
       ]);
-      const nameById = new Map((concepts.concepts || []).map((c) => [c.id, c.name]));
+      const nameById = new Map((Array.isArray(concepts) ? concepts : []).map((c) => [c.id, c.name]));
       return (Array.isArray(rows) ? rows : []).map((row) => ({
         id: row.concept_id,
         name: nameById.get(row.concept_id) || row.concept_id,

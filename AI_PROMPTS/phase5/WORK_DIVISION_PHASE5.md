@@ -138,7 +138,20 @@ Cuối Phase: Supervisor verify end-to-end (quiz adaptive → submit → mastery
 | P4 | ✔ | ✔ | ✔ | ✔ |
 | P5 | ✔ **SIGN-OFF** (190 pytest) | ✔ **SIGN-OFF** (dashboard/alerts OK) | ✔ **SIGN-OFF** (carry-over xong: time_seconds + flaky 4/4) | ✔ |
 | P6 | ✔ **SIGN-OFF** (205 pytest) | ✔ **SIGN-OFF** (dashboard 11 panel) | ✔ **SIGN-OFF** (100 test, 4/4 xanh, tsc+build) | ✔ **INTEGRATION SIGN-OFF** |
-| P7 | ⏳ `phase7/PROMPT_PHASE7_AI_A_BACKEND.md`: split ecosystem/challenges + events + snapshot + TTL (≥215) | ⏳ `phase7/PROMPT_PHASE7_AI_B_DEVOPS.md`: request-ID + cron 01:30/05:00/06:00 + CI gates | ⏳ `phase7/PROMPT_PHASE7_AI_C_FRONTEND.md`: regression (≥105) | ❌ |
+| P7 | ✔ **SIGN-OFF** (231 pytest; split + 12 events + snapshot) | ✔ **SIGN-OFF** (request-ID + cron + CI gates) | ✔ **SIGN-OFF** (118 test, tsc+build) | ✔ **INTEGRATION SIGN-OFF** ⚠️ 2 carry-over → P8 |
+| P8 | ⏳ `phase8/PROMPT_PHASE8_AI_A_BACKEND.md` — **W0 CO1 TTL** + smoke suite (gate promote) | ⏳ `phase8/PROMPT_PHASE8_AI_B_DEVOPS.md` — **W0 CO2 alert + CO1 retention** + release.yml/HPA web/SOPS/rollback + **deploy staging (W2 gate)** | ⏳ `phase8/PROMPT_PHASE8_AI_C_FRONTEND.md` — performance + lighthouse + **E2E staging (W2 gate)** | ❌ |
+
+### Wave Phase 8
+```
+W0: CO1 (AI-A bỏ TTL def) + CO2 (AI-B alert) + CO1 retention (AI-B) — nhỏ, làm ngay
+W1 (song song): AI-A smoke+config | AI-B release pipeline+HPA+secrets+rollback | AI-C performance+lighthouse
+W2 (dependency): AI-B deploy STAGING → AI-A smoke(staging) + AI-C E2E(staging) → GATE promote prod
+Cuối: verify smoke+e2e xanh → promote prod → INTEGRATION SIGN-OFF Phase 8
+```
+
+## CARRY-OVER → PHASE 8 (2 vấn đề thật phát hiện khi verify Phase 7)
+1. **TTL trên ISO string (AI-A + AI-B chéo)**: `db/indexes.py:161/164` TTL index cho `activity_events` (180d) / `notifications` (90d) trên field `created_at`, nhưng dữ liệu ghi dạng `.isoformat()` (string, mongodb.py:960/975/990) → **Mongo TTL thật không expire string**. Hệ quả: retention job của AI-B skip 2 collection này (đã có TTL index) → data tăng vô hạn. Fix tại P8: chuyển field thành BSON `datetime` (migration/backfill) HOẶC để retention job tự xử lý 2 collection này theo ISO string.
+2. **Alert status mismatch (AI-B)**: `MasteryDecayJobFailed` + `ProactiveCheckJobFailed` (alerts.yml:104/142) watch `status="error"` nhưng code ghi `status="failed"` (tasks.py:313, worker.py:54) → **alert không bao giờ fire**. Fix nhỏ: đổi expr alert sang `status="failed"`.
 | P6 | ⏸ | ⏸ | ⏸ | ❌ |
 
 ---

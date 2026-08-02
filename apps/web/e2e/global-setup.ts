@@ -1,25 +1,23 @@
-import { chromium, FullConfig } from '@playwright/test';
+import { request as playwrightRequest, FullConfig } from '@playwright/test';
 
+/**
+ * Provisions the E2E test user via the API so the suite can run against a
+ * fresh staging database where the CI test user does not exist yet. Signup is
+ * idempotent (400 when the account already exists). No browser login here —
+ * the setup projects handle authenticated storage state, keeping login calls
+ * within the API's rate limit.
+ */
 async function globalSetup(config: FullConfig) {
   const { baseURL } = config.projects[0].use;
 
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
+  const email = process.env.TEST_USER_EMAIL || 'test@example.com';
+  const password = process.env.TEST_USER_PASSWORD || 'testpassword123';
 
-  try {
-    await page.goto(`${baseURL}/auth/signin`, { waitUntil: 'networkidle' });
-
-    await page.fill('input[type="email"]', process.env.TEST_USER_EMAIL || 'test@example.com');
-    await page.fill('input[type="password"]', process.env.TEST_USER_PASSWORD || 'testpassword123');
-    await page.click('button[type="submit"]');
-
-    await page.waitForURL(/\/learn|\/dashboard|\//, { timeout: 30000 });
-    await page.context().storageState({ path: 'playwright/.auth/user.json' });
-  } catch (error) {
-    console.warn('Auth setup failed, tests will run unauthenticated:', error);
-  } finally {
-    await browser.close();
-  }
+  const api = await playwrightRequest.newContext({ baseURL });
+  await api.post('/api/v1/auth/signup', {
+    data: { email, password, name: 'E2E Test User' },
+  });
+  await api.dispose();
 }
 
 export default globalSetup;

@@ -131,7 +131,7 @@ delivers real SMTP messages you can read in the UI instead of only
   `devops/docker/prometheus/alerts.yml`): `LLMHighErrorRate`,
   `LLMSpikeInRequests`, `LLMCostSpike`, and `ProactiveCheckJobFailed`.
   `ProactiveCheckJobFailed` watches
-  `worker_jobs_completed_total{task="run_proactive_support_checks",status="error"}`.
+  `worker_jobs_completed_total{task="run_proactive_support_checks",status="failed"}`.
 - **Grafana** (`devops/docker/grafana/dashboards/api-metrics.json`): LLM
   panels + proactive run / email-sent panels.
 - **Backend dependency (Phase 4, resolved)**: `worker_jobs_completed_total` is
@@ -182,7 +182,7 @@ Notes:
     inert there by design.)
 - **Alerts are live once the series exist**: with the scrape targets above,
   `ProactiveCheckJobFailed` fires when
-  `worker_jobs_completed_total{task="run_proactive_support_checks",status="error"}`
+  `worker_jobs_completed_total{task="run_proactive_support_checks",status="failed"}`
   increases, and `LLMHighErrorRate` / `LLMSpikeInRequests` / `LLMCostSpike`
   fire from `llm_requests_total{provider,status}` / `llm_cost_usd_total{provider}`
   exported by the worker/cron process. Alert metric names were aligned with
@@ -227,7 +227,7 @@ suffix on the wire, Histograms are suffixed `_seconds` and expose
 | M1 | `adaptive_quiz_generated_total` | Counter | `mode` (`lesson`\|`mastery-check`), `course_id` | Define with base name `adaptive_quiz_generated`; `_total` is appended automatically |
 | M2 | `adaptive_quiz_submitted_total` | Counter | `mode`, `passed` (`"true"`\|`"false"`) | Pass-rate = `{passed="true"}` / total |
 | M3 | `adaptive_quiz_submit_duration_seconds` | Histogram | `course_id` | Quantiles via `histogram_quantile` on `_bucket`; measures `grade_quiz` |
-| M4 | `adaptive_mastery_decay_runs_total` | Counter | `status` (`success`\|`error`) | Incremented by cron `run_mastery_decay` |
+| M4 | `adaptive_mastery_decay_runs_total` | Counter | `status` (`success`\|`failed`) | Incremented by cron `run_mastery_decay` |
 | M5 | `adaptive_remediation_generated_total` | Counter | `concept_id` | Incremented by `generate_remedial_content` |
 | M6 | `adaptive_remediation_feedback_total` | Counter | `helpful` (`"true"`\|`"false"`) | Incremented by remediation feedback endpoint |
 | M7 | `adaptive_remediation_exercise_submitted_total` | Counter | `concept_id`, `passed` (`"true"`\|`"false"`) | Incremented by remediation micro-exercise submit |
@@ -265,7 +265,7 @@ documents that the data is pending AI-A instrumentation.
 |---|---|---|---|
 | `AdaptiveQuizHighErrorRate` | `rate(adaptive_quiz_submitted_total{passed="false"}[5m]) / rate(adaptive_quiz_submitted_total[5m]) > 0.05` | 10m | Adaptive quiz failure rate > 5% |
 | `AdaptiveQuizSlowSubmit` | `histogram_quantile(0.95, rate(adaptive_quiz_submit_duration_seconds_bucket[5m])) > 3` | 10m | p95 submit latency > 3s |
-| `MasteryDecayJobFailed` | `rate(adaptive_mastery_decay_runs_total{status="error"}[5m]) > 0` | 10m | `run_mastery_decay` failures (pod death covered by `InstanceDown`) |
+| `MasteryDecayJobFailed` | `rate(adaptive_mastery_decay_runs_total{status="failed"}[5m]) > 0` | 10m | `run_mastery_decay` failures (pod death covered by `InstanceDown`) |
 
 `LLMCostSpike` from Phase 4 is kept as-is. Empty series → no fires until the
 backend instruments M1–M5; dry-run of the rule files passes.
@@ -289,7 +289,7 @@ change is needed: the cron deployment (compose `cron` service / `devops/k8s/
 cron-deployment.yaml` / `ascendly-runtime` chart) already runs the same arq
 worker with `PROCESS_MODE=cron`, so a new `cron()` entry is picked up on
 deploy. Failure telemetry flows through `adaptive_mastery_decay_runs_total
-{status="error"}` -> `MasteryDecayJobFailed`.
+{status="failed"}` -> `MasteryDecayJobFailed`.
 
 ## Phase 6 — Remediation observability & analytics
 
@@ -458,6 +458,125 @@ kept in sync (alert counts verified: canonical 15, docker 13).
 - No data exists yet for the adaptive submit histogram in dev → panels render
   "No data" until traffic/instrumentation lands (no fabricated values).
 
+## Phase 8 — Production readiness: release pipeline, HPA, secrets, rollback
+
+### Release pipeline (`.github/workflows/release.yml` + `scripts/deploy.sh`)
+
+Immutable images are built and pushed to the registry, deployed via Helm + the
+static web manifest, smoke-tested, and (optionally, with approval) promoted to
+production. `devops/scripts/deploy.sh` is the single deploy entry point:
+
+```bash
+# Preview what a deploy would run (no cluster access — used by CI too):
+bash devops/scripts/deploy.sh staging ghcr.io/<owner>/ascendly-api ghcr.io/<owner>/ascendly-web <sha> --dry-run
+
+# Real deploy (KUBECONFIG must point at the target cluster):
+KUBECONFIG=~/.kube/staging.yaml \
+REGISTRY_USERNAME=<actor> REGISTRY_PASSWORD=<token> \
+AGE_SECRET_KEY=<age-private-key> \
+bash devops/scripts/deploy.sh staging ghcr.io/<owner>/ascendly-api ghcr.io/<owner>/ascendly-web <sha>
+```
+
+Flow: build → push `ascendly-api:<sha>` / `ascendly-web:<sha>` + `<major.minor>`
+alias → `helm upgrade --install` (platform-base, ascendly-api,
+ascendly-runtime) + web manifest (k8s) → SOPS secrets applied → `rollout
+status` wait → smoke (`make smoke SMOKE_BASE_URL=<env>/api/v1`).
+
+**Triggers** (release.yml):
+- `workflow_dispatch` with `environment: staging|production` (+ optional
+  `version` alias).
+- push of a `v*` tag → full pipeline to production.
+
+**Promotion gate**: staging is always deployed first; its smoke must be green
+before `deploy-prod` runs. `deploy-prod` targets the GitHub **production
+environment** — add a manual-approval protection rule in
+`Settings → Environments → production` for a human gate.
+
+**Required repo secrets** (`Settings → Secrets → Actions`):
+
+| Secret | Purpose |
+|---|---|
+| `KUBECONFIG_STAGING` / `KUBECONFIG_PROD` | kubeconfig for each cluster |
+| `SMOKE_BASE_URL_STAGING` / `SMOKE_BASE_URL_PRODUCTION` | live API base URL for smoke |
+| `SMOKE_USER` / `SMOKE_PASSWORD` | optional authenticated smoke flow |
+| `AGE_SECRET_KEY` | age private key (SOPS secrets decrypt) |
+| `REGISTRY_USERNAME` / `REGISTRY_PASSWORD` | registry login (default: GITHUB_TOKEN + actor) |
+| `REGISTRY` / `REGISTRY_NAMESPACE` | optional registry overrides (default `ghcr.io` / owner) |
+
+Image tags are **immutable** (`<sha>`): rollback never depends on retagging.
+
+### Web HPA (NV4)
+
+`devops/k8s/web-hpa.yaml` — CPU 70% / memory 80%, min **2** / max **10**, same
+scale-up/down behavior as `api-hpa.yaml`. `web-deployment.yaml` floor is
+`replicas: 2` (rewritten by `deploy.sh`). Per-env gating follows the
+`api-hpa.yaml` pattern: these static manifests apply to real clusters only;
+dev runs on docker compose (no k8s, no autoscaling). The KEDA
+`ScaledObject` for the worker (`worker-scaledobject.yaml` / `ascendly-runtime`
+chart) is unchanged and still valid.
+
+### Secrets (NV5 — SOPS + age)
+
+Chosen over SealedSecret because it needs **no cluster controller**, encrypts
+locally, produces reviewable diff-able files, and decrypts anywhere `sops`
+(or `age`) runs — a good fit for this repo's CI-as-verifier setup.
+
+- Encrypted files (committed): `devops/secrets/secrets.{staging,production}.enc.yaml`
+- Public key (committed): `devops/secrets/age.pubkey.txt`
+- Private key: **never committed** — in `~/.config/sops/age/keys.txt` locally
+  and the `AGE_SECRET_KEY` GitHub secret for CI.
+- Scripts: `devops/scripts/secrets-encrypt.sh <env>`,
+  `devops/scripts/secrets-decrypt.sh <env> [out]` (sops preferred, age fallback).
+
+```bash
+# Encrypt real values (plaintext file is gitignored):
+cp devops/secrets/secrets.staging.plain.yaml /tmp/s && vim /tmp/s   # fill values
+bash devops/scripts/secrets-encrypt.sh staging /tmp/s
+
+# Decrypt / inspect:
+bash devops/scripts/secrets-decrypt.sh staging
+```
+
+`release.yml` → `deploy.sh` decrypts `secrets.<env>.enc.yaml` with
+`AGE_SECRET_KEY` and applies it **after** the helm release, so real values
+override the chart's placeholder secret. The old `sealedsecrets…` placeholder
+was replaced (`devops/k8s/secret.yaml`, `platform-base` chart). `.env.example`
+documents the staging/production environment blocks.
+
+### Rollback (NV6)
+
+Runbook: `devops/runbook/rollback.md` (steps, when NOT to roll back, checklist).
+Script:
+
+```bash
+bash devops/scripts/rollback.sh staging            # previous helm revision
+bash devops/scripts/rollback.sh production 3       # explicit revision
+bash devops/scripts/rollback.sh staging 3 --dry-run
+```
+
+Covers `helm rollback --to-revision N` (api + runtime), `kubectl rollout undo`
+(web + api/worker/cron), optional old-image restore, rollout status wait, and a
+reminder to re-run smoke.
+
+### Retention enforcement (CO1)
+
+`run_retention_cleanup` (06:00 cron, `apps/api/app/core/tasks.py`) is the
+**single enforcement source** for `activity_events` (180d) and `notifications`
+(90d): their `created_at` is an ISO string, which MongoDB TTL cannot expire, so
+the job always runs the explicit delete for them (never "skipped").
+`intelligence_snapshots` has a real TTL on `expire_at` — skipped when MongoDB
+owns expiry, explicit fallback otherwise. Timestamps are parsed (datetime /
+ISO string, any offset), so mixed-offset comparisons are correct. M9
+`retention_cleanup_runs_total{collection,status}` increments per collection.
+
+### Alert status fix (CO2)
+
+`ProactiveCheckJobFailed` and `MasteryDecayJobFailed` now match the code's real
+label values: the backend records `worker_jobs_completed_total{status="failed"}`
+and `adaptive_mastery_decay_runs_total{status="failed"}` (the alerts previously
+watched `status="error"` and could never fire). Fixed in both
+`devops/prometheus/alerts.yml` and `devops/docker/prometheus/alerts.yml`.
+
 ## CI (`.github/workflows/ci.yml`)
 
 Jobs run in parallel and all must pass for the `gate` job to go green:
@@ -484,7 +603,11 @@ Jobs run in parallel and all must pass for the `gate` job to go green:
    CRD and is skipped), and **Grafana dashboard JSON validation**
    (`devops/docker/grafana/dashboards/*.json` must parse and have panels).
    No cluster required.
-8. **gate** — summary + required status check for PRs.
+8. **release-dry-run** — `scripts/ci-release-dry-run.sh`: YAML-parse every
+   manifest/workflow, `bash -n` all scripts, `deploy.sh` / `rollback.sh`
+   `--dry-run` for staging+production, SOPS artifact checks, and `helm
+   template` with the same `--set` overrides the release pipeline uses.
+9. **gate** — summary + required status check for PRs.
 
 `preview.yml` deploys PR previews (Vercel frontend, Railway backend) and runs
 Playwright e2e, Lighthouse CI and visual regression when secrets are configured.
@@ -516,3 +639,25 @@ Playwright e2e, Lighthouse CI and visual regression when secrets are configured.
   (api 10 / adaptive 13 panels) parse and validate.
 - Cron schedule verified in-process: 01:30 snapshot, 05:00 sync, 06:00
   retention registered in `WorkerSettings.cron_jobs`.
+
+## Verified in Phase 8
+
+- **CO2**: no alert watches a `status` label the code never writes — verified
+  by cross-checking both `alerts.yml` files against the label values in
+  `apps/api/app/core/tasks.py` / `worker.py`.
+- **CO1**: retention tests extend `tests/test_phase7_cron.py` — expired docs
+  deleted / fresh kept (all 3 collections), ISO-string collections never
+  skipped, mixed-offset ISO parsing, M9 `retention_cleanup_runs_total`
+  increments per collection with the real status. `make test-api` → **242
+  passed, 4 skipped** (target ≥ 231).
+- **NV3**: `release.yml` + `deploy.sh` validated via `ci-release-dry-run.sh`
+  (YAML parse, `bash -n`, `--dry-run` staging+production, SOPS artifacts, helm
+  template with release `--set` overrides) — the CI `release-dry-run` job
+  enforces this on every PR. Real deploys need the cluster/kubeconfig secrets.
+- **NV4**: `web-hpa.yaml` (min 2 / max 10, CPU 70 / mem 80) validated by
+  `kubeconform` in `manifest-check`; KEDA `ScaledObject` unchanged/valid.
+- **NV5**: SOPS+age encrypt/decrypt scripts verified end-to-end (round-trip on
+  both sample `.enc.yaml` files); private key never committed (gitignored).
+- **NV6**: `rollback.sh --dry-run` validated; runbook written.
+- **NV7**: lint-regression gate green — ruff 752 (baseline 753), mypy 125
+  (baseline 125): no new findings from Phase 8 files.

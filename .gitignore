@@ -46,4 +46,10 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# SOPS / age secrets (Phase 8): never commit the age private key or any
+# plaintext secret file. Only the SOPS-encrypted *.enc.yaml files are tracked.
+devops/secrets/*.key
+devops/secrets/*.plain.yaml
+devops/secrets/*.dec.yaml
 ```

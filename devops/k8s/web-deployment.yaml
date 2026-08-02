@@ -11,7 +11,9 @@ metadata:
     app.kubernetes.io/part-of: ascendly
     app.kubernetes.io/managed-by: kubectl
 spec:
-  replicas: 1
+  # Phase 8 NV4: HPA (web-hpa.yaml) manages scaling min 2 / max 10. This field
+  # is the pre-HPA floor; deploy.sh also rewrites it (replicas: 2).
+  replicas: 2
   revisionHistoryLimit: 3
   strategy:
     type: RollingUpdate

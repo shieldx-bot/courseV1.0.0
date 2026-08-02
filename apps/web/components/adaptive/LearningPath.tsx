@@ -11,6 +11,7 @@ import type { RecommendedLessonSequence } from "@/types/adaptive";
 
 type LearningPathProps = {
   courseId: string;
+  courseSlug?: string;
 };
 
 type LessonRef = { id: string; title: string };
@@ -31,7 +32,7 @@ function StatusBadge({ status }: { status: RecommendedLessonSequence["status"] }
  * matching action (Skip, open remedial practice, or navigate). A "Show all lessons"
  * toggle guarantees users are never hidden lessons (design 16-de-xuat).
  */
-export function LearningPath({ courseId }: LearningPathProps) {
+export function LearningPath({ courseId, courseSlug }: LearningPathProps) {
   const router = useRouter();
   const [sequence, setSequence] = useState<RecommendedLessonSequence[]>([]);
   const [allLessons, setAllLessons] = useState<LessonRef[]>([]);
@@ -56,7 +57,7 @@ export function LearningPath({ courseId }: LearningPathProps) {
     // Full syllabus for the "show all lessons" view. Guarded: it must never
     // break the path when the courses endpoint is unavailable.
     apiClient.courses
-      .get(courseId)
+      .get(courseSlug || courseId)
       .then((course) => {
         if (cancelled) return;
         setAllLessons((course?.syllabus || []).map((l) => ({ id: l.id, title: l.title })));
@@ -68,7 +69,7 @@ export function LearningPath({ courseId }: LearningPathProps) {
     return () => {
       cancelled = true;
     };
-  }, [courseId]);
+  }, [courseId, courseSlug]);
 
   const statusByLesson = useMemo(() => {
     const map: Record<string, RecommendedLessonSequence["status"]> = {};
@@ -100,7 +101,7 @@ export function LearningPath({ courseId }: LearningPathProps) {
         }));
 
   const goToLesson = (lessonId: string) => {
-    router.push(`/learn/${courseId}/${lessonId}`);
+    router.push(`/learn/${courseSlug || courseId}/${lessonId}`);
   };
 
   async function handleSkip(lessonId: string) {

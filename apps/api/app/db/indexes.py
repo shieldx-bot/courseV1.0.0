@@ -1,6 +1,7 @@
 import logging
-from pymongo import IndexModel, ASCENDING, DESCENDING
+
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pymongo import ASCENDING, DESCENDING, IndexModel
 
 from app.core.collections import Collections as C
 
@@ -156,13 +157,18 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("environment", ASCENDING)], name="environment_1"),
         IndexModel([("id", ASCENDING)], name="id_1", unique=True),
     ],
-    # ── Phase 7 (NV5) retention TTL indexes — AI-B's retention cron relies on these.
+    # ── Phase 8 (CO1) — activity_events / notifications are NOT TTL-managed.
+    # Every writer stores `created_at` as an ISO string, so a MongoDB TTL index
+    # would never expire anything (TTL only works on BSON Date). AI-B's
+    # retention cron (app/core/tasks.py RETENTION_CONFIG) owns cleanup for these
+    # two collections; plain non-TTL indexes keep the created_at read paths fast.
     C.ACTIVITY_EVENTS: [
-        IndexModel([("created_at", ASCENDING)], name="created_at_1_ttl", expireAfterSeconds=180 * 24 * 3600),
+        IndexModel([("created_at", ASCENDING)], name="created_at_1"),
     ],
     C.NOTIFICATIONS: [
-        IndexModel([("created_at", ASCENDING)], name="created_at_1_ttl", expireAfterSeconds=90 * 24 * 3600),
+        IndexModel([("created_at", ASCENDING)], name="created_at_1"),
     ],
+    # TTL indexes below keep real expiry semantics — their fields are BSON Date.
     C.INTELLIGENCE_SNAPSHOTS: [
         IndexModel([("expire_at", ASCENDING)], name="expire_at_1_ttl", expireAfterSeconds=0),
     ],
@@ -173,6 +179,27 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
 
 
 async def create_indexes(db: AsyncIOMotorDatabase) -> None:
+    # Phase 8 (CO1): drop the stale Phase-7 TTL index that still exists on
+    # existing deployments. `created_at` is an ISO string, so MongoDB TTL never
+    # expired those docs — leaving the index in place would keep AI-B's
+    # retention cron skipping these collections forever (it skips TTL-owned
+    # collections). Dropping it is safe: it never deleted a single document.
+    for collection_name in (C.ACTIVITY_EVENTS, C.NOTIFICATIONS):
+        try:
+            col = db[collection_name]
+            existing = await col.index_information()
+            if "created_at_1_ttl" in existing:
+                await col.drop_index("created_at_1_ttl")
+                logger.warning(
+                    "Dropped stale TTL index created_at_1_ttl on %s "
+                    "(created_at is ISO string; AI-B retention cron owns cleanup)",
+                    collection_name,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Could not drop stale TTL index on %s: %s", collection_name, exc
+            )
+
     for collection_name, index_models in COLLECTION_INDEXES.items():
         try:
             col = db[collection_name]

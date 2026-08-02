@@ -31,7 +31,10 @@ spec:
       automountServiceAccountToken: false
       restartPolicy: Always
       terminationGracePeriodSeconds: 30
-      imagePullSecrets: []
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001

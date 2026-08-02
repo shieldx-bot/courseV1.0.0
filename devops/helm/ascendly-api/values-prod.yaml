@@ -1,6 +1,6 @@
 namespace: ascendly
-image:
-  tag: "v1.0.0"
+# image.tag is injected by the release pipeline (devops/scripts/deploy.sh ←
+# release.yml) as an immutable build SHA — do not hardcode a version here.
 replicas: 2
 ingress:
   enabled: true

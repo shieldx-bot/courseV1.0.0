@@ -227,12 +227,12 @@ export interface ExperimentVariantMap {
 
 const apiClient = {
   auth: {
-    me: () => typedRequest<"get", string, { user: User }>("get", "GET /auth/me"),
+    me: () => typedRequest<"get", string, User>("get", "GET /auth/me"),
     login: (body: AuthIn) => typedRequest<"post", string, { user: User }>("post", "POST /auth/login", { body }),
     logout: () => typedRequest<"post", string, Record<string, unknown>>("post", "POST /auth/logout"),
     signup: (body: AuthIn) => typedRequest<"post", string, { user: User }>("post", "POST /auth/signup", { body }),
     updateProfile: (body: ProfileUpdate | Record<string, unknown>) =>
-      typedRequest<"put", string, { user: User }>("put", "PUT /auth/me", { body }),
+      typedRequest<"put", string, User>("put", "PUT /auth/me", { body }),
     changePassword: (body: ChangePasswordIn) => typedRequest<"put", string, Record<string, unknown>>("put", "PUT /auth/me/password", { body }),
     googleLogin: (body: GoogleAuthIn) => typedRequest<"post", string, { user: User }>("post", "POST /auth/google", { body }),
     otpRequest: (body: OTPRequestIn) => typedRequest<"post", string, Record<string, unknown>>("post", "POST /auth/otp/request", { body }),
@@ -382,7 +382,7 @@ const apiClient = {
   },
   adaptive: {
     listConcepts: (courseId: string) =>
-      typedRequest<"get", string, { concepts?: ConceptDefinition[] }>("get", "GET /adaptive/concepts/{course_id}", {
+      typedRequest<"get", string, ConceptDefinition[]>("get", "GET /adaptive/concepts/{course_id}", {
         params: { course_id: courseId },
       }),
     weakConcepts: (courseId: string, threshold?: number) =>

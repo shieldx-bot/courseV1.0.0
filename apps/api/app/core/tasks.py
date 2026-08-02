@@ -18,17 +18,27 @@ from app.services.proactive_support import (
 logger = logging.getLogger(__name__)
 
 
-# Retention policy — mirrors the TTL indexes AI-A adds in app/db/indexes.py
-# (Phase 7 NV5): (retention_days, timestamp_field). The cron falls back to an
-# explicit delete only when MongoDB does NOT own expiry for a collection (no
-# TTL index), so the job is safe on both the in-memory test DB and real
-# MongoDB. `intelligence_snapshots` timestamps its docs with `generated_at`
-# (AI-A NV5 doc shape), the other collections use `created_at`.
-RETENTION_CONFIG: dict[str, tuple[int, str]] = {
-    "activity_events": (180, "created_at"),
-    "notifications": (90, "created_at"),
-    "intelligence_snapshots": (30, "generated_at"),
+# Retention policy enforced by this cron (Phase 8 CO1):
+#   collection -> (retention_days, (timestamp_fields in priority order))
+#
+# MongoDB TTL indexes only expire BSON Date values, so collections storing
+# `created_at` as an ISO-8601 *string* (`activity_events`, `notifications`)
+# are never expired by the database — this job is their single source of
+# enforcement, so they are always cleaned explicitly (see EXPLICIT_ONLY).
+# `intelligence_snapshots` stamps docs with a real `expire_at` datetime (AI-A
+# doc shape) plus `generated_at`; MongoDB owns expiry when the TTL index
+# exists and the cron falls back to an explicit delete otherwise (e.g. the
+# in-memory test backend). Explicit cleanup parses timestamps (datetime or
+# ISO-8601 string) so offset-aware comparisons stay correct.
+RETENTION_CONFIG: dict[str, tuple[int, tuple[str, ...]]] = {
+    "activity_events": (180, ("created_at",)),
+    "notifications": (90, ("created_at",)),
+    "intelligence_snapshots": (30, ("expire_at", "generated_at")),
 }
+
+# Collections whose timestamp field is an ISO string — a TTL index can never
+# expire them, so the explicit delete always runs (never "skipped").
+EXPLICIT_ONLY: frozenset[str] = frozenset({"activity_events", "notifications"})
 
 
 async def send_email_task(ctx: dict, to: str, subject: str, body: str) -> dict:
@@ -464,14 +474,38 @@ async def _has_ttl_index(db, collection: str) -> bool:
         # InMemoryDB exposes no index metadata -> fall back to explicit cleanup.
         return False
     for idx in info.values():
-        if isinstance(idx, dict) and idx.get("expireAfterSeconds"):
+        if isinstance(idx, dict) and "expireAfterSeconds" in idx:
             return True
     return False
 
 
-async def _delete_older_than(db, collection: str, cutoff_iso: str, field: str) -> int:
-    """Delete documents whose ISO-string ``field`` predates the cutoff.
+def _parse_timestamp(value: Any) -> datetime | None:
+    """Normalize a BSON datetime or ISO-8601 string to tz-aware UTC datetime.
 
+    Naive timestamps are assumed UTC. Unparseable/missing values return None
+    and are left untouched (never deleted on a parse failure).
+    """
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc) if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        try:
+            parsed = datetime.fromisoformat(text)
+        except ValueError:
+            return None
+        return parsed.astimezone(timezone.utc) if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+    return None
+
+
+async def _delete_older_than(db, collection: str, cutoff: datetime, fields: tuple[str, ...]) -> int:
+    """Delete documents whose (first present) timestamp field predates cutoff.
+
+    Values are parsed as tz-aware datetimes, so ISO strings with mixed
+    offsets compare correctly (lexicographic string comparison would not).
     Uses a read-filter-delete loop instead of ``{field: {"$lt": ...}}`` because
     the in-memory test backend only implements ``$regex``/``$in`` comparators.
     Real MongoDB would delete the same set in one call. Unexpected DB errors
@@ -483,24 +517,32 @@ async def _delete_older_than(db, collection: str, cutoff_iso: str, field: str) -
     except (AttributeError, TypeError):
         return 0
     for doc in docs:
-        value = doc.get(field, "")
-        if isinstance(value, str) and value and value < cutoff_iso:
-            try:
-                result = await db[collection].delete_one({"_id": doc["_id"]})
-                deleted += getattr(result, "deleted_count", 0)
-            except (KeyError, TypeError):
-                pass
+        value = None
+        for field in fields:
+            candidate = doc.get(field)
+            if candidate is not None:
+                value = candidate
+                break
+        ts = _parse_timestamp(value)
+        if ts is None or ts >= cutoff:
+            continue
+        try:
+            result = await db[collection].delete_one({"_id": doc["_id"]})
+            deleted += getattr(result, "deleted_count", 0)
+        except (KeyError, TypeError):
+            pass
     return deleted
 
 
 async def run_retention_cleanup(ctx: dict) -> dict:
     """Daily data retention cleanup — 06:00 UTC.
 
-    For each collection in RETENTION_CONFIG, delete/expire documents older
-    than the retention window. Collections MongoDB already expires via a TTL
-    index are skipped (the TTL owns cleanup); collections without one get an
-    explicit bounded delete. Emits M9 `retention_cleanup_runs_total
-    {collection,status}` when the counter exists.
+    For each collection in RETENTION_CONFIG, delete documents older than the
+    retention window. ISO-string collections (activity_events, notifications)
+    always get an explicit delete — MongoDB TTL indexes cannot expire strings.
+    Collections with a real TTL index on a BSON Date (intelligence_snapshots
+    on `expire_at`) are skipped when MongoDB owns expiry. Emits M9
+    `retention_cleanup_runs_total{collection,status}` when the counter exists.
     """
     from app.core import telemetry as _telemetry
     from app.db.mongodb import get_db
@@ -514,14 +556,14 @@ async def run_retention_cleanup(ctx: dict) -> dict:
     now = datetime.now(timezone.utc)
     results: dict[str, Any] = {}
 
-    for collection, (days, field) in RETENTION_CONFIG.items():
+    for collection, (days, fields) in RETENTION_CONFIG.items():
         try:
-            cutoff = (now - timedelta(days=days)).isoformat()
-            if await _has_ttl_index(db, collection):
+            cutoff = now - timedelta(days=days)
+            if collection not in EXPLICIT_ONLY and await _has_ttl_index(db, collection):
                 status, deleted = "skipped", 0
                 results[collection] = {"status": status, "deleted": deleted, "reason": "ttl_index"}
             else:
-                deleted = await _delete_older_than(db, collection, cutoff, field)
+                deleted = await _delete_older_than(db, collection, cutoff, fields)
                 status = "success"
                 results[collection] = {"status": status, "deleted": deleted}
             if metric is not None:

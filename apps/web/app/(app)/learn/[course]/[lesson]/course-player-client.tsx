@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
@@ -14,10 +15,23 @@ import { Course, Lesson, Progress, Subscription } from "@/types";
 import { adaptiveClient } from "@/lib/adaptive-client";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
-import { DiscussionTab } from "@/components/learn/DiscussionTab";
-import { AiTutorTab } from "@/components/learn/AiTutorTab";
-import { CodeAssistantTab } from "@/components/learn/CodeAssistantTab";
-import { RemedialPanel } from "@/components/adaptive/RemedialPanel";
+
+const DiscussionTab = dynamic(
+  () => import("@/components/learn/DiscussionTab").then((m) => m.DiscussionTab),
+  { ssr: false, loading: () => <p className="text-sm text-neutral-500">Loading discussion…</p> }
+);
+const AiTutorTab = dynamic(
+  () => import("@/components/learn/AiTutorTab").then((m) => m.AiTutorTab),
+  { ssr: false, loading: () => <p className="text-sm text-neutral-500">Loading AI tutor…</p> }
+);
+const CodeAssistantTab = dynamic(
+  () => import("@/components/learn/CodeAssistantTab").then((m) => m.CodeAssistantTab),
+  { ssr: false, loading: () => <p className="text-sm text-neutral-500">Loading code assistant…</p> }
+);
+const RemedialPanel = dynamic(
+  () => import("@/components/adaptive/RemedialPanel").then((m) => m.RemedialPanel),
+  { ssr: false, loading: () => <p className="text-sm text-neutral-500">Loading remediation…</p> }
+);
 
 export function CoursePlayerClient({
   course: initialCourse,

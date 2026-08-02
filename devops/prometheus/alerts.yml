@@ -93,15 +93,14 @@ groups:
           description: "LLM spend increased by ${{ $value }} in the last hour — investigate abnormal usage."
 
       # ── Proactive support job ─────────────────────────────────────────────
-      # Fires when run_proactive_support_checks finishes in error. The metric
+      # Fires when run_proactive_support_checks fails. The metric
       # worker_jobs_completed_total{task,status} exists in app/core/telemetry.py;
-      # for this to fire the backend must wire the arq on_job_complete/on_job_failed
-      # hooks and expose the counter on a scraped /metrics endpoint (or export
-      # proactive_checks_total{status} instead — then update this expr accordingly).
-      # Empty series → no fires until then.
+      # the arq on_job_failed hook increments {status="failed"} (see
+      # app/core/worker.py::on_job_failed), so this rule matches the code's
+      # actual status label. Exposed on the worker/cron /metrics endpoint.
       - alert: ProactiveCheckJobFailed
         expr: |
-          sum(increase(worker_jobs_completed_total{task="run_proactive_support_checks",status="error"}[1h]))
+          sum(increase(worker_jobs_completed_total{task="run_proactive_support_checks",status="failed"}[1h]))
           > 0
         for: 10m
         labels:
@@ -138,8 +137,10 @@ groups:
           description: "Adaptive quiz submit p95 latency is {{ $value }}s over the last 5 minutes — grade_quiz may be slow (LLM re-generation or DB contention)."
 
       # Pod death is additionally covered by InstanceDown (up == 0) above.
+      # The code records {status="failed"} on exception (tasks.py run_mastery_decay),
+      # so this rule matches the real label value.
       - alert: MasteryDecayJobFailed
-        expr: rate(adaptive_mastery_decay_runs_total{status="error"}[5m]) > 0
+        expr: rate(adaptive_mastery_decay_runs_total{status="failed"}[5m]) > 0
         for: 10m
         labels:
           severity: warning

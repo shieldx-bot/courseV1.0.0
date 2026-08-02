@@ -1,5 +1,10 @@
+from pydantic import ConfigDict, field_validator
 from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
+
+# Fail fast on environment typos (e.g. "produccion" / "dev"). The API uses
+# `environment` for Sentry/tagging decisions, so an unknown value must never
+# silently reach production-shaped config.
+ALLOWED_ENVIRONMENTS = {"development", "staging", "production"}
 
 
 class Settings(BaseSettings):
@@ -105,6 +110,15 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="allow",
     )
+
+    @field_validator("environment")
+    @classmethod
+    def validate_environment(cls, v: str) -> str:
+        if v not in ALLOWED_ENVIRONMENTS:
+            raise ValueError(
+                f"environment must be one of {sorted(ALLOWED_ENVIRONMENTS)!r}, got {v!r}"
+            )
+        return v
 
 
 settings = Settings()

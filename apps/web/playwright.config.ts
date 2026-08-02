@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const externalBaseURL = process.env.PLAYWRIGHT_BASE_URL;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
@@ -9,7 +11,7 @@ export default defineConfig({
   reporter: 'html',
   globalSetup: require.resolve('./e2e/global-setup.ts'),
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3000',
+    baseURL: externalBaseURL || 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -20,31 +22,39 @@ export default defineConfig({
       testMatch: /.*\.setup\.ts/,
     },
     {
+      name: 'admin-setup',
+      testMatch: /admin\.setup\.ts/,
+    },
+    {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'admin-setup'],
     },
     {
       name: 'mobile-chrome',
       use: { ...devices['Pixel 5'] },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'admin-setup'],
     },
     {
       name: 'mobile-safari',
       use: { ...devices['iPhone 12'] },
-      dependencies: ['setup'],
+      dependencies: ['setup', 'admin-setup'],
     },
     {
       name: 'chromium-unauthenticated',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
+  ...(externalBaseURL
+    ? {}
+    : {
+        webServer: {
+          command: 'npm run dev',
+          url: 'http://localhost:3000',
+          reuseExistingServer: !process.env.CI,
+          timeout: 120000,
+        },
+      }),
   expect: {
     toHaveScreenshot: { maxDiffPixels: 100 },
   },

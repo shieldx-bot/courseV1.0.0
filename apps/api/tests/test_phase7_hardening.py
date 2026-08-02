@@ -342,9 +342,17 @@ def test_ttl_indexes_declared():
         return {m.document["name"]: m.document.get("expireAfterSeconds")
                 for m in idx.COLLECTION_INDEXES[col]}
 
+    # Phase 8 (CO1): activity_events / notifications must NOT declare a TTL
+    # index — their created_at is an ISO string, so MongoDB TTL would never
+    # expire them; AI-B's retention cron owns cleanup instead. Plain non-TTL
+    # indexes are kept for the created_at read paths.
     activity = _ttl("activity_events")
-    assert activity.get("created_at_1_ttl") == 180 * 24 * 3600  # 180 days
+    assert activity.get("created_at_1_ttl") is None, activity
+    assert all(v is None for v in activity.values()), activity
     notifications = _ttl("notifications")
-    assert notifications.get("created_at_1_ttl") == 90 * 24 * 3600  # 90 days
+    assert notifications.get("created_at_1_ttl") is None, notifications
+    assert all(v is None for v in notifications.values()), notifications
     snapshots = _ttl("intelligence_snapshots")
     assert snapshots.get("expire_at_1_ttl") == 0  # absolute expiry on expire_at
+    deliveries = _ttl("event_deliveries")
+    assert deliveries.get("processed_at_1_ttl") == 30 * 24 * 3600  # 30 days

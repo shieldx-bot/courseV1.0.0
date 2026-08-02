@@ -56,7 +56,7 @@ export default function AccountPage() {
     setMessage("");
     try {
       const updated = await apiClient.auth.updateProfile({ name });
-      updateUser(updated.user);
+      updateUser(updated);
       toast("Profile updated.", { type: "success" });
     } catch (e: any) {
       toast(e.message, { type: "error" });

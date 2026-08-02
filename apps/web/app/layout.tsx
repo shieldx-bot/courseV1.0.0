@@ -16,7 +16,7 @@ import { makeMetadata, SITE_URL } from "@/lib/metadata";
 
 export const metadata: Metadata = {
   ...makeMetadata(),
-  manifest: `${SITE_URL}/manifest.json`,
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -69,9 +69,9 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#d97706" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#f59e0b" media="(prefers-color-scheme: dark)" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512x512.png" />
       </head>
       <body className="antialiased min-h-screen flex flex-col bg-neutral-0 text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
         <a

@@ -1,0 +1,15 @@
+# Generated service worker (built by @serwist/next during next build)
+public/sw.js
+public/sw.js.map
+
+# Playwright output + auth state
+playwright/.auth/
+playwright-report/
+test-results/
+blob-report/
+
+# Lighthouse CI local runs
+.lighthouseci/
+
+# Bundle analyzer output
+.next/

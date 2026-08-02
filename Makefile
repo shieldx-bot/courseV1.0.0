@@ -16,9 +16,12 @@ VENV_PY    := $(VENV)/bin/python
 # NOTE: paths are abspath so targets that `cd` into apps/ still resolve them.
 API_PY     := $(if $(wildcard $(VENV_PY)),$(VENV_PY),$(PYTHON))
 
+# Post-deploy smoke suite base URL (override with `make smoke SMOKE_BASE_URL=https://staging...`).
+SMOKE_BASE_URL ?= http://localhost:8000/api/v1
+
 .PHONY: help setup compose-up compose-up-all compose-down \
         test-api test-web build-api build-web lint migrate seed-support \
-        dev dev-api dev-web
+        smoke dev dev-api dev-web
 
 help: ## Show available targets
 	@echo "Ascendly local dev tooling — Phase 0"
@@ -29,6 +32,7 @@ help: ## Show available targets
 	@echo "  make compose-down    Stop and remove compose services"
 	@echo "  make test-api        Run backend pytest suite (in-memory DB, no external services)"
 	@echo "  make test-web        Run frontend unit tests"
+	@echo "  make smoke           Run post-deploy smoke suite against a live API (SMOKE_BASE_URL)"
 	@echo "  make build-api       Compile-check backend modules (py_compile)"
 	@echo "  make build-web       Build Next.js production bundle"
 	@echo "  make lint            Lint backend (ruff, if installed) + frontend (next lint)"
@@ -61,6 +65,9 @@ test-api: ## Run backend pytest suite (hermetic, in-memory Mongo via conftest)
 
 test-web: ## Run frontend unit tests
 	cd $(WEB_DIR) && npm test -- --ci
+
+smoke: ## Run post-deploy smoke suite against a live API (SMOKE_BASE_URL, default http://localhost:8000/api/v1)
+	cd $(API_DIR) && MONGODB_URI=memory://test SMOKE_BASE_URL=$(SMOKE_BASE_URL) $(API_PY) -m pytest tests/test_smoke.py -q
 
 build-api: ## Compile-check all backend modules (no server start)
 	cd $(API_DIR) && $(API_PY) -m compileall -q app scripts

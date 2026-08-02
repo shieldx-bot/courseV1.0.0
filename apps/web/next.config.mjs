@@ -1,5 +1,15 @@
+const withBundleAnalyzer = process.env.ANALYZE === "true"
+  ? (await import("@next/bundle-analyzer")).default({ enabled: true })
+  : (config) => config;
+
+const withSerwist = (await import("@serwist/next")).default({
+  swSrc: "app/sw.ts",
+  swDest: "public/sw.js",
+});
+
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig = withSerwist(
+  withBundleAnalyzer({
   output: "standalone",
   reactStrictMode: true,
   images: {
@@ -42,6 +52,7 @@ const nextConfig = {
       },
     ];
   },
-};
+  })
+);
 
 export default nextConfig;

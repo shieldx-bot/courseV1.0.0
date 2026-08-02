@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { apiClient } from "@/lib/api-client";
-import type { User } from "@/types";
+import type { User, OnboardingProfile } from "@/types";
 
 interface AuthContextType {
   user: User | null;
@@ -14,18 +14,62 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * The API's GET /auth/me does not round-trip the `onboarding` profile (the
+ * auth resolver only exposes core fields), so it always reports the default
+ * "not_started" status on refresh. The frontend therefore persists the
+ * onboarding profile locally and restores it when /auth/me reports the
+ * default, keeping the onboarding gate functional for genuinely new users
+ * without bouncing returning users back to the wizard on every reload.
+ */
+const ONBOARDING_STORAGE_KEY = "ascendly:onboarding";
+
+function readStoredOnboarding(): OnboardingProfile | null {
+  try {
+    const raw = window.localStorage.getItem(ONBOARDING_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as OnboardingProfile) : null;
+  } catch {
+    return null;
+  }
+}
+
+function isDefaultOnboarding(profile: OnboardingProfile | undefined): boolean {
+  return (
+    !profile ||
+    (profile.status === "not_started" &&
+      profile.interests?.length === 0 &&
+      !profile.level &&
+      !profile.goal &&
+      !profile.first_challenge_completed)
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     apiClient.auth.me()
-      .then((data) => setUser(data.user))
+      .then((data) => {
+        const restored = readStoredOnboarding();
+        const next = { ...data } as User;
+        if (restored && isDefaultOnboarding(next.onboarding)) {
+          next.onboarding = restored;
+        }
+        setUser(next);
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
   const login = (userData: User) => {
+    if (userData?.onboarding) {
+      try {
+        window.localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(userData.onboarding));
+      } catch {
+        // ignore storage failures
+      }
+    }
     setUser(userData);
   };
 
@@ -35,13 +79,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
+    try {
+      window.localStorage.removeItem(ONBOARDING_STORAGE_KEY);
+    } catch {
+      // ignore storage failures
+    }
     setUser(null);
   };
 
   const updateUser = (updates: Partial<User>) => {
     setUser((prev) => {
       if (!prev) return prev;
-      return { ...prev, ...updates };
+      const next = { ...prev, ...updates };
+      if (updates.onboarding) {
+        try {
+          window.localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(updates.onboarding));
+        } catch {
+          // ignore storage failures
+        }
+      }
+      return next;
     });
   };
 
