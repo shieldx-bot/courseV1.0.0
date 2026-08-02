@@ -143,9 +143,23 @@ Cuối Phase: Supervisor verify end-to-end (quiz adaptive → submit → mastery
 
 ### RELEASE GATE — cần Supervisor cấp credentials THẬT (không AI nào làm thay được)
 - [ ] `KUBECONFIG_STAGING` (GitHub secret) để AI-B `deploy.sh` deploy staging thật.
-- [ ] `SMOKE_BASE_URL_STAGING` + `SMOKE_USER`/`SMOKE_PASSWORD` (AI-A smoke gate trên staging).
+- [ ] `SMOKE_BASE_URL_STAGING` + `SMOKE_USER`/`SMOKE_PASSWORD` (AI-A smoke gate trên staging) + `SMOKE_BASE_URL_PRODUCTION`.
 - [ ] `AGE_SECRET_KEY` (private key SOPS — AI-B có `age.key` local gitignored, cần backup).
-- Sau khi cấp: AI-B deploy staging → AI-A smoke(staging) → AI-C E2E(staging) → gate xanh → promote prod.
+- Sau khi cấp: AI-B deploy staging → AI-A smoke(staging) → AI-C E2E(staging) → **gate xanh → promote prod** (prod smoke đã fail-closed — không thể skip).
+
+## COMPLETION ROUND (đóng toàn bộ việc còn thiếu 8 phases)
+| # | Việc | Agent | Trạng thái |
+|---|---|---|---|
+| A1 | Analytics endpoint `remediation-effectiveness` | AI-A | ✅ (admin_adaptive.py:296, 5 test) |
+| A2 | Flush `remedial_content` + auto-flush khi sửa concept | AI-A | ✅ (:276 + :167, 4 test) |
+| A3 | `focus_concepts` additive trong AI Tutor | AI-A | ✅ (ai_tutor.py:221) |
+| B1 | Prod smoke **fail-closed** (không skip) | AI-B | ✅ (release.yml — verified YAML) |
+| B2 | Dashboard Remediation Effectiveness nối JSON API + datasource | AI-B | ✅ (14 panel, json-api.yml) |
+| B3 | Re-baseline ruff 758/mypy 125 | AI-B | ✅ |
+| C1 | AI Tutor focus hint test | AI-C | ✅ (ai-tutor-tab.test.tsx, 4 test) |
+| — | Tests | — | ✅ backend **253 pass + 4 skip** / web **122 pass** + tsc + build |
+
+**Còn lại DUY NHẤT: RELEASE GATE (chờ Supervisor cấp credentials — xem mục trên).**
 
 ### Wave Phase 8
 ```
