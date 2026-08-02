@@ -120,6 +120,28 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("user_id", ASCENDING), ("course_id", ASCENDING), ("created_at", DESCENDING)], name="user_id_1_course_id_1_created_at_-1"),
         IndexModel([("user_id", ASCENDING), ("lesson_id", ASCENDING)], name="user_id_1_lesson_id_1"),
     ],
+    "quiz_questions": [
+        IndexModel(
+            [("course_id", ASCENDING), ("concept_id", ASCENDING), ("difficulty", ASCENDING)],
+            name="course_id_1_concept_id_1_difficulty_1",
+        ),
+        IndexModel(
+            [("course_id", ASCENDING), ("concept_id", ASCENDING)],
+            name="course_id_1_concept_id_1",
+        ),
+        IndexModel([("concept_id", ASCENDING)], name="concept_id_1"),
+    ],
+    "remedial_content": [
+        IndexModel(
+            [("concept_id", ASCENDING), ("content_hash", ASCENDING)],
+            name="concept_id_1_content_hash_1",
+            unique=True,
+        ),
+        IndexModel(
+            [("course_id", ASCENDING), ("concept_id", ASCENDING)],
+            name="course_id_1_concept_id_1",
+        ),
+    ],
     "error_logs": [
         IndexModel([("timestamp", DESCENDING)], name="timestamp_-1"),
         IndexModel([("source", ASCENDING), ("timestamp", DESCENDING)], name="source_1_timestamp_-1"),

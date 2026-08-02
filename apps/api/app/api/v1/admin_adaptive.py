@@ -11,8 +11,9 @@ from app.core.response import api_response
 from app.db.mongodb import get_db
 from app.services.concept_mastery import (
     DEFAULT_MASTERY,
-    _slugify,
     _format_concept,
+    _now,
+    _slugify,
     get_all_concepts_for_course,
     get_all_course_mastery,
 )
@@ -143,11 +144,20 @@ async def admin_update_concept(concept_id: str, body: ConceptUpdateIn, _=Depends
     new_id = updates.get("_id", concept_id)
     await db.concept_definitions.update_one({"_id": concept_id}, {"$set": updates})
     if new_id != concept_id:
-        await db.concept_definitions.update_many(
-            {"prerequisite_concepts": concept_id},
-            {"$set": {"prerequisite_concepts.$[elem]": new_id}},
-            array_filters=[{"elem": concept_id}],
-        )
+        # Rewrite prerequisite references in other concepts (done in Python so
+        # the in-memory test backend and real MongoDB behave identically).
+        references = await db.concept_definitions.find(
+            {"prerequisite_concepts": concept_id}
+        ).to_list(1000)
+        for ref in references:
+            ref_prereqs = [
+                new_id if p == concept_id else p
+                for p in ref.get("prerequisite_concepts", [])
+            ]
+            await db.concept_definitions.update_one(
+                {"_id": ref["_id"]},
+                {"$set": {"prerequisite_concepts": ref_prereqs}},
+            )
     doc = await db.concept_definitions.find_one({"_id": new_id})
     return api_response(_format_concept(doc))
 
@@ -184,8 +194,21 @@ async def admin_bulk_create_concepts(body: ConceptBulkIn, _=Depends(require_admi
             "updated_at": now,
         })
     if docs:
-        await db.concept_definitions.insert_many(docs, ordered=False)
-    return api_response({"created": len(docs)})
+        existing_ids = {
+            e["_id"]
+            for e in await db.concept_definitions.find(
+                {"_id": {"$in": [d["_id"] for d in docs]}}
+            ).to_list(1000)
+        }
+        new_docs = [d for d in docs if d["_id"] not in existing_ids]
+        if new_docs:
+            await db.concept_definitions.insert_many(new_docs, ordered=False)
+    else:
+        new_docs = []
+    return api_response({
+        "created": len(new_docs),
+        "skipped": len(docs) - len(new_docs),
+    })
 
 
 # ── Admin Stats ───────────────────────────────────────────────────────────────

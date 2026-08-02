@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { DiscussionTab } from "@/components/learn/DiscussionTab";
 import { AiTutorTab } from "@/components/learn/AiTutorTab";
 import { CodeAssistantTab } from "@/components/learn/CodeAssistantTab";
+import { RemedialPanel } from "@/components/adaptive/RemedialPanel";
 
 export function CoursePlayerClient({
   course: initialCourse,
@@ -80,6 +81,31 @@ export function CoursePlayerClient({
 
   const [activeTab, setActiveTab] = useState<"notes" | "discussion" | "ai-tutor" | "code-assistant">("notes");
   const [sequenceStatus, setSequenceStatus] = useState<Record<string, string>>({});
+  const [remedialTarget, setRemedialTarget] = useState<{ conceptId: string; conceptName: string } | null>(null);
+
+  // After a lesson is completed, surface remedial practice for any weak concept
+  // that maps to that lesson so the learner can strengthen it before moving on.
+  const checkRemediationForLesson = useCallback(
+    async (lessonId: string) => {
+      if (!course?.id) return;
+      try {
+        const [weakRows, concepts] = await Promise.all([
+          adaptiveClient.getWeak(course.id),
+          adaptiveClient.listConcepts(course.id).catch(() => []),
+        ]);
+        const weakIds = new Set((weakRows || []).map((w) => w.id));
+        const related = (concepts || []).find(
+          (c) => weakIds.has(c.id) && (c.lesson_ids || []).includes(lessonId)
+        );
+        if (related) {
+          setRemedialTarget({ conceptId: related.id, conceptName: related.name });
+        }
+      } catch {
+        // Remediation is opportunistic — never block progress on it.
+      }
+    },
+    [course]
+  );
 
   useEffect(() => {
     if (!user?.id || !course?.id) return;
@@ -194,6 +220,9 @@ export function CoursePlayerClient({
     const pos = videoRef.current ? Math.floor(videoRef.current.currentTime) : 0;
     updateProgress(true, pos);
       toast("Lesson marked as complete", { type: "success" });
+      if (current) {
+        checkRemediationForLesson(current.id);
+      }
   };
 
   const skipCurrentLesson = async (lessonId: string) => {
@@ -370,6 +399,12 @@ export function CoursePlayerClient({
                     IDE
                   </Button>
                 </Link>
+                <Link href={`/learn/${params.course}/${params.lesson}/adaptive-quiz`}>
+                  <Button variant="ghost" className="text-sm">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Adaptive Quiz
+                  </Button>
+                </Link>
               </div>
 
               {activeTab === "notes" && (
@@ -414,6 +449,17 @@ export function CoursePlayerClient({
                 <kbd className="rounded border border-neutral-300 px-1 font-mono text-neutral-500">m</kbd> toggle mute &middot;
                 <kbd className="rounded border border-neutral-300 px-1 font-mono text-neutral-500">?</kbd> keyboard shortcuts
               </p>
+
+              {remedialTarget && (
+                <div className="mt-4">
+                  <RemedialPanel
+                    courseId={course.id}
+                    conceptId={remedialTarget.conceptId}
+                    conceptName={remedialTarget.conceptName}
+                    onClose={() => setRemedialTarget(null)}
+                  />
+                </div>
+              )}
             </div>
           </div>
           <Card className="h-fit p-5">

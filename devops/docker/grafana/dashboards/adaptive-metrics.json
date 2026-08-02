@@ -1,0 +1,197 @@
+{
+  "title": "Adaptive Learning",
+  "version": 3,
+  "datasource": "Prometheus",
+  "description": "Adaptive Mastery Engine metrics (M1-M7 contract, Phase 5 + Phase 6). Panels show empty until the backend instruments the adaptive_* series.",
+  "panels": [
+    {
+      "title": "Quiz Generation Throughput (by mode)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(adaptive_quiz_generated_total[5m])) by (mode)",
+          "legendFormat": "{{mode}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "title": "Quiz Submissions (by mode)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(adaptive_quiz_submitted_total[5m])) by (mode)",
+          "legendFormat": "{{mode}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
+    },
+    {
+      "title": "Quiz Pass Rate",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(adaptive_quiz_submitted_total{passed=\"true\"}[5m])) by (mode) / clamp_min(sum(rate(adaptive_quiz_submitted_total[5m])) by (mode), 1)",
+          "legendFormat": "{{mode}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      }
+    },
+    {
+      "title": "Submit Latency (p50 / p95)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(adaptive_quiz_submit_duration_seconds_bucket[5m])) by (le, course_id))",
+          "legendFormat": "p95 {{course_id}}"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(adaptive_quiz_submit_duration_seconds_bucket[5m])) by (le, course_id))",
+          "legendFormat": "p50 {{course_id}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      }
+    },
+    {
+      "title": "Mastery Decay Runs (by status)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(increase(adaptive_mastery_decay_runs_total[1h])) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "title": "Remediation Generated (by concept)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(increase(adaptive_remediation_generated_total[1h])) by (concept_id)",
+          "legendFormat": "{{concept_id}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      }
+    },
+    {
+      "title": "Remediation Feedback Rate (helpful vs not)",
+      "type": "barchart",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(adaptive_remediation_feedback_total[5m])) by (helpful)",
+          "legendFormat": "{{helpful}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "title": "Remediation Exercise Submissions (top concepts)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "topk(10, sum(increase(adaptive_remediation_exercise_submitted_total[1h])) by (concept_id))",
+          "legendFormat": "{{concept_id}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      }
+    },
+    {
+      "title": "Remediation Exercise Pass Rate (by concept)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(adaptive_remediation_exercise_submitted_total{passed=\"true\"}[5m])) by (concept_id) / clamp_min(sum(rate(adaptive_remediation_exercise_submitted_total[5m])) by (concept_id), 1)",
+          "legendFormat": "{{concept_id}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      }
+    },
+    {
+      "title": "Remediation Effectiveness (% users improved)",
+      "type": "text",
+      "datasource": "Prometheus",
+      "targets": [],
+      "options": {
+        "mode": "markdown",
+        "content": "**Data source: analytics API (NOT Prometheus).**\n\nComputes the share of users whose mastery increased after remediation by comparing `quiz_attempts.concept_results` mastery before/after deltas and the micro-exercise submit payload (`mastery_before`/`mastery_after`, Phase 6).\n\nThis metric is aggregated from MongoDB documents, so it needs an analytics endpoint (e.g. `GET /admin/adaptive/analytics/remediation-effectiveness`). This panel is a **placeholder** until that API exists — no fabricated Prometheus query.\n\nOnce the API ships, point this panel (or a table) at it via the data source; current value: pending."
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      }
+    },
+    {
+      "title": "Note: waiting for data",
+      "type": "text",
+      "datasource": "Prometheus",
+      "targets": [],
+      "options": {
+        "mode": "markdown",
+        "content": "The adaptive_* series are exported by the backend. Panels populate as soon as AI-A instruments M1-M7 (M6/M7 = remediation feedback + exercise submit, Phase 6). Alerts evaluate on these same series. The Remediation Effectiveness panel needs an analytics API over quiz_attempts, not a metric."
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      }
+    }
+  ]
+}

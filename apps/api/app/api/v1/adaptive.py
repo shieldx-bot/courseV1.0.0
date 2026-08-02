@@ -20,7 +20,7 @@ from app.services.concept_mastery import (
     get_ready_concepts,
     DEFAULT_MASTERY,
 )
-from app.services.remediation import get_remediation_suggestions
+from app.services.remediation import get_recommended_remediation
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,7 @@ class QuizSubmitIn(BaseModel):
     quiz_id: str
     answers: dict[int, int] = Field(default_factory=dict)
     questions: list[dict[str, Any]] = Field(default_factory=list)
+    mode: str = Field(default="lesson")
 
 
 class ConceptCreateIn(BaseModel):
@@ -129,20 +130,73 @@ async def get_course_mastery(course_id: str, user=Depends(get_current_user)):
 
 @router.get("/remediation/{course_id}")
 async def get_remediation(course_id: str, user=Depends(get_current_user)):
-    suggestions = await get_remediation_suggestions(user["id"], course_id)
-    return api_response(suggestions)
+    queue = await get_recommended_remediation(user["id"], course_id)
+    return api_response(queue)
+
+
+class RemediationExerciseSubmitIn(BaseModel):
+    answers: dict[int, int] = Field(default_factory=dict)
+
+
+class RemediationFeedbackIn(BaseModel):
+    helpful: bool
+
+
+@router.post("/remediation/{course_id}/exercise/{concept_id}/submit")
+async def submit_remedial_exercise_endpoint(
+    course_id: str,
+    concept_id: str,
+    body: RemediationExerciseSubmitIn,
+    user=Depends(get_current_user),
+):
+    from app.services.remediation import submit_remedial_exercise
+
+    try:
+        result = await submit_remedial_exercise(
+            user["id"], course_id, concept_id, body.answers
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return api_response(result)
+
+
+@router.post("/remediation/{course_id}/feedback/{concept_id}")
+async def submit_remediation_feedback_endpoint(
+    course_id: str,
+    concept_id: str,
+    body: RemediationFeedbackIn,
+    user=Depends(get_current_user),
+):
+    from app.services.remediation import submit_remediation_feedback
+
+    result = await submit_remediation_feedback(
+        user["id"], course_id, concept_id, body.helpful
+    )
+    return api_response(result)
 
 
 # ── Quiz endpoints ────────────────────────────────────────────────────────────
 
 
 @router.post("/quiz/{course_id}/generate")
-async def generate_quiz_endpoint(course_id: str, lesson_id: str, user=Depends(get_current_user), num_questions: int = Query(default=5, ge=1, le=10)):
+async def generate_quiz_endpoint(
+    course_id: str,
+    lesson_id: str | None = None,
+    user=Depends(get_current_user),
+    num_questions: int = Query(default=5, ge=1, le=10),
+    mode: str = Query(default="lesson"),
+):
+    if mode not in ("lesson", "mastery-check"):
+        raise HTTPException(status_code=400, detail="mode must be 'lesson' or 'mastery-check'")
+    if mode == "lesson" and not lesson_id:
+        raise HTTPException(status_code=400, detail="lesson_id is required for mode=lesson")
+
     quiz = await generate_adaptive_quiz(
         user_id=user["id"],
         course_id=course_id,
         lesson_id=lesson_id,
         num_questions=num_questions,
+        mode=mode,
     )
     return api_response(quiz)
 
@@ -158,6 +212,7 @@ async def submit_quiz(course_id: str, body: QuizSubmitIn, user=Depends(get_curre
         quiz_id=body.quiz_id,
         answers=body.answers,
         questions=body.questions,
+        mode=body.mode,
     )
 
     # Track low quiz scores (< 50%) for proactive support.
@@ -209,75 +264,10 @@ async def get_concept_detail(concept_id: str, user=Depends(get_current_user)):
 
 @router.get("/course/{course_id}/recommended-sequence")
 async def get_recommended_sequence(course_id: str, user=Depends(get_current_user)):
-    from app.services.concept_mastery import (
-        get_all_concepts_for_course,
-        get_course_mastery_map,
-        get_concepts_by_lesson,
-        get_prerequisites,
-        DEFAULT_MASTERY,
-    )
-    from app.db.mongodb import get_read_db
+    from app.services.mastery_engine import get_recommended_sequence as build_sequence
 
-    mastery_map = await get_course_mastery_map(user["id"], course_id)
-    all_concepts = await get_all_concepts_for_course(course_id)
-    concept_by_id = {c["_id"]: c for c in all_concepts}
-
-    course = await get_read_db().courses.find_one({"_id": course_id})
-    syllabus = course.get("syllabus", []) if course else []
-
-    seen_lessons: set[str] = set()
-    sequence: list[dict[str, Any]] = []
-
-    for lesson in syllabus:
-        lesson_id = lesson.get("id", "")
-        lesson_concepts = await get_concepts_by_lesson(course_id, lesson_id)
-        weak = [c for c in lesson_concepts if mastery_map.get(c["_id"], DEFAULT_MASTERY) < 3.0]
-        strong = [c for c in lesson_concepts if mastery_map.get(c["_id"], DEFAULT_MASTERY) >= 7.0]
-
-        # Prerequisite-aware rerouting: if a concept in this lesson has unmastered prerequisites,
-        # insert a synthetic remedial item immediately before this lesson.
-        prerequisite_concept_ids: set[str] = set()
-        for c in lesson_concepts:
-            prereqs = await get_prerequisites(course_id, c["_id"])
-            for p in prereqs:
-                if mastery_map.get(p["_id"], DEFAULT_MASTERY) < 4.0:
-                    prerequisite_concept_ids.add(p["_id"])
-
-        if prerequisite_concept_ids and lesson_id not in seen_lessons:
-            sequence.append({
-                "lesson_id": f"remedial-{lesson_id}",
-                "title": f"Prerequisite practice for {lesson.get('title', lesson_id)}",
-                "order": lesson.get("order", 0),
-                "status": "remedial",
-                "is_synthetic": True,
-                "target_lesson_id": lesson_id,
-                "weak_concepts": [concept_by_id.get(cid, {}).get("name", cid) for cid in prerequisite_concept_ids],
-                "strong_concepts": [],
-            })
-
-        if lesson_id not in seen_lessons:
-            if weak:
-                status = "remedial"
-            elif strong and len(strong) == len(lesson_concepts):
-                status = "ready-to-skip"
-            else:
-                status = "normal"
-
-            sequence.append({
-                "lesson_id": lesson_id,
-                "title": lesson.get("title", ""),
-                "order": lesson.get("order", 0),
-                "status": status,
-                "is_synthetic": False,
-                "weak_concepts": [concept_by_id.get(c["_id"], {}).get("name", c["_id"]) for c in weak],
-                "strong_concepts": [concept_by_id.get(c["_id"], {}).get("name", c["_id"]) for c in strong],
-            })
-            seen_lessons.add(lesson_id)
-
-    return api_response({
-        "course_id": course_id,
-        "sequence": sequence,
-    })
+    sequence = await build_sequence(user["id"], course_id)
+    return api_response(sequence)
 
 
 @router.post("/skip/{course_id}/{lesson_id}")
@@ -308,7 +298,17 @@ async def skip_lesson(course_id: str, lesson_id: str, user=Depends(get_current_u
         {"$set": {"skipped": True, "mastery_skip": True, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True,
     )
-    return api_response({"skipped": True, "lesson_id": lesson_id})
+
+    # Phase 6 (NV3): reroute the recommended sequence after a skip so the
+    # frontend can refresh the dynamic path without an extra round-trip.
+    from app.services.mastery_engine import get_recommended_sequence as build_sequence
+
+    updated_sequence = await build_sequence(user["id"], course_id)
+    return api_response({
+        "skipped": True,
+        "lesson_id": lesson_id,
+        "updated_sequence": updated_sequence,
+    })
 
 
 @router.post("/remediation/{course_id}/content/{concept_id}")

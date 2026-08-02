@@ -12,7 +12,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.core.config import settings
+from app.services.concept_mastery import get_concepts_by_lesson
 from app.services.llm import call_llm, is_llm_available
+from app.services.remediation import get_remediation_suggestions
 from app.db.mongodb import get_db
 
 logger = logging.getLogger(__name__)
@@ -63,6 +65,43 @@ def _build_lesson_context(course: dict, lesson: dict) -> str:
     return "\n".join(lines)
 
 
+async def _build_weak_concept_context(
+    user_id: str,
+    course_id: str,
+    lesson_id: str,
+) -> str:
+    """Build an extra context block flagging the learner's weak concepts for this lesson.
+
+    Phase 6 (NV1): pulls mastery + remediation suggestions so the tutor can
+    reinforce exactly the concepts the learner is struggling with. Returns an
+    empty string on cold start (no mastery data) or when no weak concept maps
+    to this lesson, so existing behavior is unchanged.
+    """
+    try:
+        lesson_concepts = await get_concepts_by_lesson(course_id, lesson_id)
+        if not lesson_concepts:
+            return ""
+        suggestions = await get_remediation_suggestions(user_id, course_id)
+        by_concept = {s["concept_id"]: s for s in suggestions}
+        lines = []
+        for c in lesson_concepts:
+            suggestion = by_concept.get(c["_id"])
+            if not suggestion:
+                continue
+            lines.append(
+                f"Student is weak at {suggestion['concept_name']}: {suggestion['suggestion']}"
+            )
+        if not lines:
+            return ""
+        return (
+            "\n\n--- Student mastery context (remediation) ---\n"
+            + "\n".join(lines)
+        )
+    except Exception as exc:
+        logger.warning("Failed to build weak-concept context for %s/%s: %s", user_id, lesson_id, exc)
+        return ""
+
+
 async def get_or_create_session(
     user_id: str,
     course_id: str,
@@ -105,6 +144,11 @@ async def ask_ai_tutor(
     """
     db = get_db()
     lesson_context = _build_lesson_context(course, lesson)
+    weak_context = await _build_weak_concept_context(
+        user_id, course["_id"], lesson["id"]
+    )
+    if weak_context:
+        lesson_context = f"{lesson_context}\n\n{weak_context}"
 
     session = await get_or_create_session(
         user_id, course["_id"], lesson["id"]

@@ -12,6 +12,7 @@ import type {
   AdminAdaptiveStats,
   AdminConcept,
   AdminConceptCreate,
+  AdminPrerequisiteGap,
 } from "@/types/adaptive";
 
 type AdminCourse = {
@@ -56,6 +57,7 @@ export default function AdminAdaptivePage() {
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [concepts, setConcepts] = useState<AdminConcept[]>([]);
   const [stats, setStats] = useState<AdminAdaptiveStats | null>(null);
+  const [gaps, setGaps] = useState<AdminPrerequisiteGap[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [loadingConcepts, setLoadingConcepts] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,8 +107,15 @@ export default function AdminAdaptivePage() {
     } catch {
       // stats are optional — the page still works without them
     }
+    let gapsData: AdminPrerequisiteGap[] = [];
+    try {
+      gapsData = await apiClient.admin.adaptive.gaps(selectedCourseId);
+    } catch {
+      // gaps are optional — the page still works without them
+    }
     setConcepts(list || []);
     setStats(statsData);
+    setGaps(gapsData || []);
     if (listFailed) {
       setNotice("Could not load concepts — the adaptive admin endpoint may be unavailable.");
     }
@@ -323,6 +332,86 @@ export default function AdminAdaptivePage() {
             <p className="mt-1 text-2xl font-semibold">{avgMastery.toFixed(2)}</p>
           </Card>
         </div>
+      )}
+
+      {stats && stats.concepts.length > 0 && (
+        <Card className="p-4">
+          <h2 className="font-medium text-neutral-900">Mastery heatmap</h2>
+          <p className="mt-1 text-xs text-neutral-500">
+            Color shows average mastery per concept (red &lt;3, amber 3–6, green &gt;6).
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full text-left text-sm" aria-label="Concept mastery heatmap">
+              <thead className="bg-neutral-50 text-neutral-600">
+                <tr>
+                  <th scope="col" className="px-4 py-2 font-medium">Concept</th>
+                  <th scope="col" className="px-4 py-2 font-medium">Difficulty</th>
+                  <th scope="col" className="px-4 py-2 font-medium">Avg mastery</th>
+                  <th scope="col" className="px-4 py-2 font-medium">Students</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.concepts.map((c) => {
+                  const band =
+                    c.avg_mastery < 3
+                      ? "bg-red-100 text-red-700"
+                      : c.avg_mastery <= 6
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-emerald-100 text-emerald-700";
+                  return (
+                    <tr key={c.id} className="border-t border-neutral-100">
+                      <td className="px-4 py-2 font-medium text-neutral-900">{c.name}</td>
+                      <td className="px-4 py-2 text-neutral-600">{c.difficulty_base}/10</td>
+                      <td className="px-4 py-2">
+                        <span
+                          data-testid={`heat-cell-${c.id}`}
+                          title={`${c.student_count} students, avg ${c.avg_mastery.toFixed(1)}`}
+                          className={`inline-block rounded px-2 py-1 text-xs font-medium ${band}`}
+                        >
+                          {c.avg_mastery.toFixed(1)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-neutral-600">{c.student_count}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-neutral-600" aria-label="Heatmap legend">
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded bg-red-200" /> &lt;3 weak
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded bg-amber-200" /> 3–6 needs work
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded bg-emerald-200" /> &gt;6 strong
+            </span>
+          </div>
+        </Card>
+      )}
+
+      {gaps.length > 0 && (
+        <Card className="p-4">
+          <h2 className="font-medium text-neutral-900">Prerequisite gaps</h2>
+          <p className="mt-1 text-xs text-neutral-500">
+            Concepts students struggle with because a prerequisite is weak.
+          </p>
+          <ul className="mt-3 space-y-3">
+            {gaps.map((gap) => (
+              <li key={gap.concept_id} className="rounded-lg border border-neutral-200 p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-neutral-900">{gap.concept_name}</span>
+                  <Badge variant="warning" size="sm">
+                    Needs: {gap.weak_prerequisites.join(", ")}
+                  </Badge>
+                </div>
+                {gap.suggestion && <p className="mt-1 text-xs text-neutral-600">{gap.suggestion}</p>}
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">

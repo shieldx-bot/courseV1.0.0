@@ -35,6 +35,21 @@ class InMemoryCollection:
         query = query or {}
         return len([d for d in self.data if self._match(d, query)])
 
+    async def distinct(self, key: str, query=None):
+        """Return distinct values for ``key`` (dot-path aware), pymongo parity."""
+        query = query or {}
+        seen: set = set()
+        for d in self.data:
+            if not self._match(d, query):
+                continue
+            val = self._resolve(d, key)
+            if val is not None:
+                if isinstance(val, list):
+                    seen.update(v for v in val if v is not None)
+                else:
+                    seen.add(val)
+        return list(seen)
+
     async def insert_many(self, docs: list[dict], ordered: bool = True):
         self.data.extend(docs)
 

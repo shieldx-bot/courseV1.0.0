@@ -35,6 +35,15 @@ _cache = None
 async def get_cache():
     global _cache
     if _cache is None:
+        # The in-memory test backend (MONGODB_URI=memory://...) runs each test
+        # in its own event loop; a real Redis client created in one loop would
+        # leak connections into later loops ("Event loop is closed" GC errors)
+        # and break test isolation. Use the in-memory store there.
+        if settings.mongodb_uri.startswith("memory:"):
+            _cache = _MemoryStore()
+            return _cache
+
+        client = None
         try:
             import redis.asyncio as redis
 
@@ -42,6 +51,14 @@ async def get_cache():
             await client.ping()
             _cache = client
         except Exception:
+            # Never leave a half-initialized redis client behind: its connection
+            # deallocator would later raise "Event loop is closed" when GC runs
+            # outside the creating loop (breaks tests / worker shutdown).
+            if client is not None:
+                try:
+                    await client.aclose()
+                except Exception:
+                    pass
             _cache = _MemoryStore()
     return _cache
 

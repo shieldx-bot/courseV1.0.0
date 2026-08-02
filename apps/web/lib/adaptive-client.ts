@@ -4,31 +4,38 @@ import { apiClient } from "./api-client";
 import type {
   ConceptDefinition,
   ConceptMastery,
+  ConceptMasterySummary,
   RecommendedLessonSequence,
-  AdaptiveQuizQuestion,
-  QuizResult,
   AdaptiveQuiz,
+  QuizResult,
   AdminAdaptiveStats,
   AdminPrerequisiteGap,
   RemedialContent,
-  RemedialQuestion,
+  RemedialExerciseResult,
+  RemediationSuggestion,
+  PrerequisiteInfo,
+  SkipLessonResult,
 } from "@/types";
 
 /**
- * Adaptive learning client for interacting with the adaptive learning API
+ * Adaptive learning client for interacting with the adaptive learning API.
+ *
+ * Every method calls the real backend via `apiClient.adaptive.*` and unwraps
+ * the `{ success, data, error, meta }` envelope. Mock fallbacks are kept ONLY
+ * for endpoints that are not deployed yet (development convenience), matching
+ * the Phase 4 pattern. All mastery scores use the 0-10 scale.
  */
 export const adaptiveClient = {
   /**
-   * Get recommended lesson sequence for a course based on user's mastery
-   * This is a mock implementation since the API doesn't have this endpoint yet
+   * Get recommended lesson sequence for a course based on user's mastery.
+   * Falls back to an empty sequence when the endpoint is unavailable.
    */
   async getRecommendedSequence(
     courseId: string
   ): Promise<{ sequence: RecommendedLessonSequence[] }> {
     try {
-      // Mock implementation - in a real app, this would call the API
-      // For now, we'll return an empty sequence
-      return { sequence: [] };
+      const data = await apiClient.adaptive.recommendedSequence(courseId);
+      return { sequence: data?.sequence || [] };
     } catch (error) {
       console.error("Failed to get recommended sequence:", error);
       return { sequence: [] };
@@ -36,7 +43,8 @@ export const adaptiveClient = {
   },
 
   /**
-   * List all concepts for a course
+   * List all concepts for a course (with the learner's current mastery).
+   * Falls back to sample concepts for development when the API is down.
    */
   async listConcepts(
     courseId: string
@@ -46,7 +54,8 @@ export const adaptiveClient = {
       return response.concepts || [];
     } catch (error) {
       console.error("Failed to list concepts:", error);
-      // Return mock concepts for development
+      // Mock fallback for development when the API is not deployed yet.
+      // Scores use the 0-10 mastery scale.
       return [
         {
           id: "concept-1",
@@ -58,7 +67,7 @@ export const adaptiveClient = {
           tags: ["basics", "python"],
           lesson_ids: ["lesson-1", "lesson-2"],
           prerequisite_concepts: [],
-          mastery_score: 0.75,
+          mastery_score: 7.5,
         },
         {
           id: "concept-2",
@@ -70,7 +79,7 @@ export const adaptiveClient = {
           tags: ["basics", "python"],
           lesson_ids: ["lesson-3", "lesson-4"],
           prerequisite_concepts: ["concept-1"],
-          mastery_score: 0.6,
+          mastery_score: 6.0,
         },
         {
           id: "concept-3",
@@ -82,34 +91,53 @@ export const adaptiveClient = {
           tags: ["intermediate", "python"],
           lesson_ids: ["lesson-5", "lesson-6"],
           prerequisite_concepts: ["concept-1", "concept-2"],
-          mastery_score: 0.5,
+          mastery_score: 5.0,
         },
       ];
     }
   },
 
   /**
-   * Get mastery data for a specific concept
-   * This is a mock implementation
+   * Get the user's current mastery across every concept in a course
+   * (GET /adaptive/mastery/{course_id}).
+   */
+  async getCourseMastery(courseId: string): Promise<ConceptMasterySummary[]> {
+    try {
+      const rows = await apiClient.adaptive.mastery(courseId);
+      return (Array.isArray(rows) ? rows : []).map((row) => ({
+        id: row.concept_id,
+        name: row.name || row.concept_id,
+        mastery_score: Number(row.mastery_score ?? 0),
+        trend: row.trend,
+      }));
+    } catch (error) {
+      console.error("Failed to get course mastery:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Get mastery data for a single concept by looking it up in the course map.
    */
   async getConceptMastery(
     courseId: string,
     conceptId: string
   ): Promise<ConceptMastery | null> {
     try {
-      // Mock implementation
+      const summary = await this.getCourseMastery(courseId);
+      const found = summary.find((c) => c.id === conceptId);
+      if (!found) return null;
       return {
         id: conceptId,
-        user_id: "mock-user",
+        user_id: "",
         course_id: courseId,
         concept_id: conceptId,
-        mastery_score: Math.random() * 0.5 + 0.5, // 0.5-1.0 range
-        attempts: Math.floor(Math.random() * 10),
-        correct_attempts: Math.floor(Math.random() * 8),
-        last_practiced_at: new Date().toISOString(),
-        trend: ["improving", "declining", "stable"][Math.floor(Math.random() * 3)] as "improving" | "declining" | "stable",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        mastery_score: found.mastery_score,
+        attempts: 0,
+        correct_attempts: 0,
+        trend: found.trend || "stable",
+        created_at: "",
+        updated_at: "",
       };
     } catch (error) {
       console.error("Failed to get concept mastery:", error);
@@ -118,195 +146,158 @@ export const adaptiveClient = {
   },
 
   /**
-   * Skip a lesson (mark as ready to skip based on mastery)
-   * This is a mock implementation
+   * List weak concepts (mastery < 3) with names resolved from the concept list.
    */
-  async skipLesson(
+  async getWeak(courseId: string): Promise<ConceptMasterySummary[]> {
+    return this.getMasterySummaryByBand(courseId, "weak");
+  },
+
+  /**
+   * List strong concepts (mastery >= 7) with names resolved from the concept list.
+   */
+  async getStrong(courseId: string): Promise<ConceptMasterySummary[]> {
+    return this.getMasterySummaryByBand(courseId, "strong");
+  },
+
+  /**
+   * Get prerequisites for a concept with the user's mastery for each one.
+   */
+  async getPrerequisites(
     courseId: string,
-    lessonId: string
-  ): Promise<{ success: boolean }> {
+    conceptId: string
+  ): Promise<PrerequisiteInfo[]> {
     try {
-      // Mock implementation - always succeed
-      console.log(`Mock: Skipping lesson ${lessonId} in course ${courseId}`);
-      return { success: true };
+      const data = await apiClient.adaptive.prerequisites(courseId, conceptId);
+      return Array.isArray(data) ? data : [];
     } catch (error) {
-      console.error("Failed to skip lesson:", error);
-      return { success: false };
+      console.error("Failed to get prerequisites:", error);
+      return [];
     }
   },
 
   /**
-   * Generate an adaptive quiz for a lesson
-   * This is a mock implementation
+   * Get remediation suggestions for weak concepts (weakest first).
+   */
+  async getRemediation(courseId: string): Promise<RemediationSuggestion[]> {
+    try {
+      const data = await apiClient.adaptive.remediation(courseId);
+      return (Array.isArray(data) ? data : []).sort(
+        (a, b) => a.mastery_score - b.mastery_score
+      );
+    } catch (error) {
+      console.error("Failed to get remediation:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Mark a lesson as ready to skip (POST /adaptive/skip/{course_id}/{lesson_id}).
+   * Throws on failure so callers can surface the API reason (e.g. a 400 when
+   * some concepts are not yet mastered). Phase 6 adds an optional
+   * `updated_sequence` field the backend refreshes after the skip.
+   */
+  async skipLesson(courseId: string, lessonId: string): Promise<SkipLessonResult> {
+    return apiClient.adaptive.skipLesson(courseId, lessonId);
+  },
+
+  /**
+   * Submit a remedial micro-exercise to update mastery (Phase 6 endpoint).
+   * Returns `null` when the endpoint is not deployed yet so the panel can fall
+   * back to local grading without crashing (Phase 4/5 additive guard pattern).
+   */
+  async submitRemedialExercise(
+    courseId: string,
+    conceptId: string,
+    answers: Record<number, number>
+  ): Promise<RemedialExerciseResult | null> {
+    try {
+      const data = await apiClient.adaptive.submitRemedialExercise(courseId, conceptId, answers);
+      if (
+        data &&
+        typeof data.mastery_before === "number" &&
+        typeof data.mastery_after === "number" &&
+        typeof data.total === "number"
+      ) {
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error("Failed to submit remedial exercise:", error);
+      return null;
+    }
+  },
+
+  /**
+   * Send 👍/👎 feedback for remedial content (Phase 6 endpoint). Returns false
+   * when the endpoint is not deployed yet so callers can hide the control.
+   */
+  async sendRemedialFeedback(
+    courseId: string,
+    conceptId: string,
+    helpful: boolean
+  ): Promise<boolean> {
+    try {
+      const data = await apiClient.adaptive.sendRemedialFeedback(courseId, conceptId, helpful);
+      return !!data && typeof data === "object" && !Array.isArray(data);
+    } catch (error) {
+      console.error("Failed to send remedial feedback:", error);
+      return false;
+    }
+  },
+
+  /**
+   * Generate an adaptive quiz for a lesson (or a course-wide mastery check when
+   * `lessonId` is omitted and the backend supports it). Throws on API errors.
    */
   async generateAdaptiveQuiz(
     courseId: string,
-    lessonId: string,
+    lessonId?: string,
     mode: string = "practice"
   ): Promise<AdaptiveQuiz> {
-    try {
-      // Mock implementation
-      return {
-        quiz_id: `quiz-${Date.now()}`,
-        course_id: courseId,
-        lesson_id: lessonId,
-        mode,
-        questions: [
-          {
-            concept_id: "concept-1",
-            concept_name: "Variables",
-            difficulty: 1,
-            question: "What is the correct way to declare a variable in Python?",
-            options: [
-              "var x = 5",
-              "x = 5",
-              "let x = 5",
-              "variable x = 5"
-            ],
-            correct: 1,
-            explanation: "Python uses simple assignment with = operator"
-          },
-          {
-            concept_id: "concept-2",
-            concept_name: "Control Flow",
-            difficulty: 2,
-            question: "Which keyword is used for conditional statements in Python?",
-            options: [
-              "if",
-              "when",
-              "switch",
-              "case"
-            ],
-            correct: 0,
-            explanation: "Python uses 'if' for conditional statements"
-          }
-        ],
-        total_questions: 2,
-        message: "Generated mock adaptive quiz",
-      };
-    } catch (error) {
-      console.error("Failed to generate adaptive quiz:", error);
-      return {
-        quiz_id: null,
-        course_id: courseId,
-        lesson_id: lessonId,
-        mode,
-        questions: [],
-        total_questions: 0,
-        message: "Failed to generate quiz",
-      };
-    }
+    const quiz = await apiClient.adaptive.generateQuiz(courseId, lessonId, 5);
+    return {
+      ...quiz,
+      mode: quiz.mode || mode,
+    };
   },
 
   /**
-   * Submit quiz answers and get results
-   * This is a mock implementation
+   * Submit quiz answers and return the graded result.
    */
-  async submitQuizAnswers(
+  async submitQuiz(
+    courseId: string,
     quizId: string,
-    answers: number[]
+    answers: Record<number, number>,
+    questions: unknown[]
   ): Promise<QuizResult> {
-    try {
-      // Mock implementation - score randomly based on answers
-      const correctAnswers = answers.map(answer => Math.random() > 0.5 ? 1 : 0);
-      const score = correctAnswers.reduce((sum, val) => sum + val, 0 as number);
-
-      return {
-        quiz_id: quizId,
-        score,
-        total_questions: answers.length,
-        score_pct: Math.round((score / answers.length) * 100),
-        passed: score >= answers.length * 0.7, // 70% passing
-        results: answers.map((answer, index) => ({
-          question_index: index,
-          concept_id: `concept-${index + 1}`,
-          correct: Math.random() > 0.5,
-          selected_answer: answer,
-          correct_answer: Math.floor(Math.random() * 4),
-          explanation: "This is a mock explanation for the answer",
-          mastery_delta: Math.random() * 0.2 - 0.1,
-        })),
-        concept_results: [
-          {
-            concept_id: "concept-1",
-            concept_name: "Variables",
-            mastery_before: 0.6,
-            mastery_after: 0.75,
-            mastery_delta: 0.15,
-            correct: true,
-          },
-          {
-            concept_id: "concept-2",
-            concept_name: "Control Flow",
-            mastery_before: 0.5,
-            mastery_after: 0.65,
-            mastery_delta: 0.15,
-            correct: false,
-          }
-        ],
-        weak_concepts: [
-          {
-            concept_id: "concept-2",
-            concept_name: "Control Flow",
-            mastery_after: 0.65,
-          }
-        ],
-      };
-    } catch (error) {
-      console.error("Failed to submit quiz answers:", error);
-      return {
-        quiz_id: quizId,
-        score: 0,
-        total_questions: answers.length,
-        score_pct: 0,
-        passed: false,
-        results: [],
-        concept_results: [],
-        weak_concepts: [],
-      };
-    }
+    return apiClient.adaptive.submitQuiz(courseId, { quiz_id: quizId, answers, questions });
   },
 
   /**
-   * Get quiz questions by quiz ID
-   * This is a mock implementation
+   * Get AI-generated remedial content for a concept. On API failure a safe
+   * fallback is returned so the panel can render "Could not load remediation".
    */
-  async getQuizQuestions(quizId: string): Promise<AdaptiveQuizQuestion[]> {
+  async remediationContent(courseId: string, conceptId: string): Promise<RemedialContent> {
     try {
-      // Mock implementation
-      return [
-        {
-          concept_id: "concept-1",
-          concept_name: "Variables",
-          difficulty: 1,
-          question: "What is the correct way to declare a variable in Python?",
-          options: [
-            "var x = 5",
-            "x = 5",
-            "let x = 5",
-            "variable x = 5"
-          ],
-          correct: 1,
-          explanation: "Python uses simple assignment with = operator"
-        },
-        {
-          concept_id: "concept-2",
-          concept_name: "Control Flow",
-          difficulty: 2,
-          question: "Which keyword is used for conditional statements in Python?",
-          options: [
-            "if",
-            "when",
-            "switch",
-            "case"
-          ],
-          correct: 0,
-          explanation: "Python uses 'if' for conditional statements"
-        }
-      ];
+      const data = await apiClient.adaptive.remediationContent(courseId, conceptId);
+      return {
+        concept_id: data.concept_id || conceptId,
+        concept_name: data.concept_name || conceptId,
+        explanation: data.explanation || "",
+        exercise: data.exercise || { questions: [] },
+        analogies: Array.isArray(data.analogies) ? data.analogies : [],
+        generated: !!data.generated,
+      };
     } catch (error) {
-      console.error("Failed to get quiz questions:", error);
-      return [];
+      console.error("Failed to get remediation content:", error);
+      return {
+        concept_id: conceptId,
+        concept_name: conceptId,
+        explanation: "Could not load remediation right now. Please try again later.",
+        exercise: { questions: [] },
+        analogies: [],
+        generated: false,
+      };
     }
   },
 
@@ -322,7 +313,7 @@ export const adaptiveClient = {
           id: "concept-1",
           name: "Variables and Data Types",
           difficulty_base: 1,
-          avg_mastery: 0.85,
+          avg_mastery: 8.5,
           student_count: 120,
           tags: ["basics", "python"],
         },
@@ -330,7 +321,7 @@ export const adaptiveClient = {
           id: "concept-2",
           name: "Control Flow",
           difficulty_base: 2,
-          avg_mastery: 0.72,
+          avg_mastery: 7.2,
           student_count: 115,
           tags: ["basics", "python"],
         },
@@ -338,7 +329,7 @@ export const adaptiveClient = {
           id: "concept-3",
           name: "Functions",
           difficulty_base: 3,
-          avg_mastery: 0.58,
+          avg_mastery: 5.8,
           student_count: 98,
           tags: ["intermediate", "python"],
         },
@@ -388,92 +379,28 @@ export const adaptiveClient = {
     }
   },
 
-  async remediationContent(courseId: string, conceptId: string): Promise<RemedialContent> {
+  /** Shared helper for weak/strong concept bands. */
+  async getMasterySummaryByBand(
+    courseId: string,
+    band: "weak" | "strong"
+  ): Promise<ConceptMasterySummary[]> {
     try {
-      const explanations: Record<string, string> = {
-        "concept-1": "Variables are used to store information in memory. In Python, you create a variable by assigning a value with the = operator.",
-        "concept-2": "Control flow lets you direct program execution using conditionals and loops. Mastering this unlocks any algorithmic workflow.",
-        "concept-3": "Functions let you bundle reusable logic. Parameters, return values, and scope are the main building blocks you need.",
-      };
-
-      const analogies: Record<string, string[]> = {
-        "concept-1": [
-          "A variable is like a named box that can hold only one thing at a time, but you can swap what is inside.",
-        ],
-        "concept-2": [
-          "A decision tree made of branches: each 'if/else' is a fork that sends the program down a new path.",
-        ],
-        "concept-3": [
-          "A function is a recipe: it takes ingredients, follows steps, and returns a finished dish.",
-        ],
-      };
-
-      const exercise: Record<string, { questions: RemedialQuestion[] }> = {
-        "concept-1": {
-          questions: [
-            {
-              question: "Which snippet correctly assigns the number 5 to a variable named count?",
-              options: ["var count = 5", "count := 5", "count = 5", "int count = 5"],
-              correct: 2,
-              explanation: "Python uses the = operator to assign values directly.",
-            },
-          ],
-        },
-        "concept-2": {
-          questions: [
-            {
-              question: "When should an 'else' block run?",
-              options: [
-                "Always",
-                "Only if the preceding 'if' condition was false",
-                "Never",
-                "Only after a 'for' loop",
-              ],
-              correct: 1,
-              explanation: "'else' runs when the previous 'if' evaluates to false.",
-            },
-          ],
-        },
-        "concept-3": {
-          questions: [
-            {
-              question: "What does 'return' do inside a function?",
-              options: [
-                "Prints text to the console",
-                "Ends the function and optionally gives back a value",
-                "Repeats the function",
-                "Declares a global variable",
-              ],
-              correct: 1,
-              explanation: "'return' stops execution and passes a value back to the caller.",
-            },
-          ],
-        },
-      };
-
-      return {
-        concept_id: conceptId,
-        concept_name:
-          {
-            "concept-1": "Variables and Data Types",
-            "concept-2": "Control Flow",
-            "concept-3": "Functions",
-          }[conceptId] || conceptId,
-        explanation: explanations[conceptId] || "Review this concept and try the practice exercise below.",
-        exercise: exercise[conceptId] || { questions: [] },
-        analogies: analogies[conceptId] || [],
-        generated: true,
-      };
+      const [rows, concepts] = await Promise.all([
+        band === "weak"
+          ? apiClient.adaptive.weakConcepts(courseId)
+          : apiClient.adaptive.strongConcepts(courseId),
+        apiClient.adaptive.listConcepts(courseId).catch(() => ({ concepts: [] })),
+      ]);
+      const nameById = new Map((concepts.concepts || []).map((c) => [c.id, c.name]));
+      return (Array.isArray(rows) ? rows : []).map((row) => ({
+        id: row.concept_id,
+        name: nameById.get(row.concept_id) || row.concept_id,
+        mastery_score: Number(row.mastery_score ?? 0),
+        trend: row.trend,
+      }));
     } catch (error) {
-      console.error("Failed to get remediation content:", error);
-      return {
-        concept_id: conceptId,
-        concept_name: conceptId,
-        explanation: "",
-        exercise: { questions: [] },
-        analogies: [],
-        generated: false,
-      };
+      console.error(`Failed to get ${band} concepts:`, error);
+      return [];
     }
   },
 };

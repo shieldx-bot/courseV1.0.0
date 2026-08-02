@@ -4,6 +4,7 @@ import type { ConceptMasterySummary } from "@/types/adaptive";
 
 type ConceptCardProps = {
   concept: ConceptMasterySummary;
+  onSelect?: (concept: ConceptMasterySummary) => void;
   onRequestRemediation?: (concept: ConceptMasterySummary) => void;
 };
 
@@ -14,12 +15,29 @@ function masteryLabel(score: number) {
   return "Mastered";
 }
 
-export function ConceptCard({ concept, onRequestRemediation }: ConceptCardProps) {
+export function ConceptCard({ concept, onSelect, onRequestRemediation }: ConceptCardProps) {
   const score = concept.mastery_score ?? 0;
   const pct = Math.max(0, Math.min(100, (score / 10) * 100));
 
   return (
-    <div className="space-y-2 rounded-lg border border-neutral-200 p-4">
+    <div
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect ? () => onSelect(concept) : undefined}
+      onKeyDown={
+        onSelect
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(concept);
+              }
+            }
+          : undefined
+      }
+      className={`space-y-2 rounded-lg border border-neutral-200 p-4 ${
+        onSelect ? "cursor-pointer transition-colors hover:border-accent-400 hover:bg-accent-50/40" : ""
+      }`}
+    >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium">{concept.name}</p>

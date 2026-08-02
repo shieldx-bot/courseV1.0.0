@@ -4,6 +4,7 @@ from typing import Any
 
 from app.core.config import settings
 from app.core.dlq import push_to_dlq
+from app.core.telemetry import ADAPTIVE_MASTERY_DECAY_RUNS
 from app.core.worker import MAX_RETRIES, exponential_backoff
 from app.services.proactive_support import (
     BATCH_LIMIT,
@@ -239,6 +240,72 @@ async def migrate_video_task(ctx: dict, lesson_id: str, drive_file_id: str, wate
             redis = ctx.get("redis")
             if redis:
                 await push_to_dlq(redis, "migrate_video_task", (lesson_id, drive_file_id, watermark_text), {}, str(exc), retry_count)
+        raise
+
+
+async def run_mastery_decay(ctx: dict, batch_size: int = 50) -> dict:
+    """Apply forgetting-curve decay for a bounded cohort of learners.
+
+    Runs daily at 04:00 (avoids the 03:00 proactive-support window). Scans the
+    most recently active users first (bounded batch) and decays any concept
+    they haven't practiced in 7+ days via ``mastery_engine.apply_decay``.
+    """
+    retry_count = ctx.get("job_try", 0)
+    try:
+        from app.db.mongodb import get_db
+        from app.services.mastery_engine import apply_decay
+
+        db = get_db()
+
+        recent_cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        recent_users = await db.users.find(
+            {"last_active_at": {"$gte": recent_cutoff}}
+        ).sort("last_active_at", -1).limit(batch_size).to_list(batch_size)
+        user_ids = [u["_id"] for u in recent_users]
+
+        if not user_ids:
+            distinct = await db.concept_mastery.distinct("user_id")
+            user_ids = distinct[:batch_size]
+
+        courses_processed = 0
+        concepts_decayed = 0
+        decayed_by_user: dict[str, int] = {}
+        for uid in user_ids:
+            user_decayed = 0
+            try:
+                course_ids = await db.concept_mastery.distinct(
+                    "course_id", {"user_id": uid}
+                )
+                for cid in course_ids:
+                    result = await apply_decay(uid, cid)
+                    courses_processed += 1
+                    user_decayed += result.get("concepts_decayed", 0)
+                concepts_decayed += user_decayed
+                decayed_by_user[uid] = user_decayed
+            except Exception as exc:  # one user must not fail the whole batch
+                logger.warning("Mastery decay failed for user %s: %s", uid, exc)
+
+        ADAPTIVE_MASTERY_DECAY_RUNS.labels(status="success").inc()
+        logger.info(
+            "Mastery decay: users=%d courses=%d concepts_decayed=%d",
+            len(user_ids), courses_processed, concepts_decayed,
+        )
+        return {
+            "users": len(user_ids),
+            "courses_processed": courses_processed,
+            "concepts_decayed": concepts_decayed,
+            "by_user": decayed_by_user,
+        }
+    except Exception as exc:
+        ADAPTIVE_MASTERY_DECAY_RUNS.labels(status="failed").inc()
+        if retry_count < MAX_RETRIES:
+            delay = exponential_backoff(retry_count)
+            logger.warning("Mastery decay failed (try %d), retrying in %ds: %s", retry_count + 1, delay, exc)
+        else:
+            logger.error("Mastery decay exhausted retries: %s", exc)
+            redis = ctx.get("redis")
+            if redis:
+                await push_to_dlq(redis, "run_mastery_decay", (), {}, str(exc), retry_count)
         raise
 
 

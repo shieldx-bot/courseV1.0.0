@@ -1,4 +1,4 @@
-# Ascendly — DevOps (Phase 0 → Phase 3)
+# Ascendly — DevOps (Phase 0 → Phase 6)
 
 Infrastructure, CI/CD, and local developer tooling for the Ascendly monorepo.
 
@@ -211,6 +211,157 @@ gets the adaptive sample data automatically on `make compose-up` /
 `make dev` — no extra infra step. `make migrate` (migrations + `app.core.cli
 seed`) and `make seed-support` (articles/tickets/messages) are unchanged and
 independent.
+
+## Phase 5 — Adaptive learning observability (metrics, dashboard, alerts, Redis)
+
+### Metric contract M1–M7 (final: M1–M5 Phase 5, M6–M7 Phase 6)
+
+Names are final — the backend (AI-A) instruments against these and must not
+rename them (lesson learned from the P4 `llm_cost_usd_total` rename). All
+names follow Prometheus conventions: Counter base names get the `_total`
+suffix on the wire, Histograms are suffixed `_seconds` and expose
+`_bucket`/`_sum`/`_count` series.
+
+| Mã | Metric (on-wire) | Type | Labels | Notes |
+|---|---|---|---|---|
+| M1 | `adaptive_quiz_generated_total` | Counter | `mode` (`lesson`\|`mastery-check`), `course_id` | Define with base name `adaptive_quiz_generated`; `_total` is appended automatically |
+| M2 | `adaptive_quiz_submitted_total` | Counter | `mode`, `passed` (`"true"`\|`"false"`) | Pass-rate = `{passed="true"}` / total |
+| M3 | `adaptive_quiz_submit_duration_seconds` | Histogram | `course_id` | Quantiles via `histogram_quantile` on `_bucket`; measures `grade_quiz` |
+| M4 | `adaptive_mastery_decay_runs_total` | Counter | `status` (`success`\|`error`) | Incremented by cron `run_mastery_decay` |
+| M5 | `adaptive_remediation_generated_total` | Counter | `concept_id` | Incremented by `generate_remedial_content` |
+| M6 | `adaptive_remediation_feedback_total` | Counter | `helpful` (`"true"`\|`"false"`) | Incremented by remediation feedback endpoint |
+| M7 | `adaptive_remediation_exercise_submitted_total` | Counter | `concept_id`, `passed` (`"true"`\|`"false"`) | Incremented by remediation micro-exercise submit |
+
+Dashboard and alert queries assume these exact label names (`mode`, `passed`,
+`course_id`, `status`, `concept_id`). If any label name changes, the
+dashboard/alert expressions below must be updated in lockstep.
+
+### Grafana dashboard — Adaptive Learning
+
+`devops/docker/grafana/dashboards/adaptive-metrics.json` (same provisioning
+pattern as `api-metrics.json` — dropped into the folder mounted at
+`/etc/grafana/provisioning/dashboards`). Panels:
+
+1. Quiz Generation Throughput (M1, rate 5m by mode)
+2. Quiz Submissions (M2, rate 5m by mode)
+3. Quiz Pass Rate (M2: passed/total, by mode)
+4. Submit Latency p50/p95 (M3, `histogram_quantile` on 5m rate)
+5. Mastery Decay Runs (M4, 1h increase by status)
+6. Remediation Generated (M5, 1h increase by concept)
+7. Remediation Feedback (M6, rate 5m by `helpful` — bar chart, 2 series)
+8. Remediation Exercise Submissions by Concept (M7, top 10 by 1h increase)
+9. Remediation Exercise Pass Rate (M7, passed/total by concept)
+10. Remediation Effectiveness (placeholder — data from `quiz_attempts` / exercise
+    submit mastery deltas, **not** a Prometheus metric; needs an analytics API —
+    see Phase 6 section below)
+
+Panels render "No data" until the backend exports the series; a note panel
+documents that the data is pending AI-A instrumentation.
+
+### Alerts — Adaptive Learning (both `devops/prometheus/alerts.yml` and
+`devops/docker/prometheus/alerts.yml`; historical thresholds unchanged)
+
+| Alert | Expression | For | Meaning |
+|---|---|---|---|
+| `AdaptiveQuizHighErrorRate` | `rate(adaptive_quiz_submitted_total{passed="false"}[5m]) / rate(adaptive_quiz_submitted_total[5m]) > 0.05` | 10m | Adaptive quiz failure rate > 5% |
+| `AdaptiveQuizSlowSubmit` | `histogram_quantile(0.95, rate(adaptive_quiz_submit_duration_seconds_bucket[5m])) > 3` | 10m | p95 submit latency > 3s |
+| `MasteryDecayJobFailed` | `rate(adaptive_mastery_decay_runs_total{status="error"}[5m]) > 0` | 10m | `run_mastery_decay` failures (pod death covered by `InstanceDown`) |
+
+`LLMCostSpike` from Phase 4 is kept as-is. Empty series → no fires until the
+backend instruments M1–M5; dry-run of the rule files passes.
+
+### Redis — adaptive cache (verified, no change)
+
+- Compose already runs `redis:7-alpine` with a healthcheck; `api`/`worker`/
+  `cron` already receive `REDIS_URL=redis://redis:6379/0`.
+- `.env.example` already ships `REDIS_URL`.
+- `apps/api/app/services/cache.py` (`get_or_cache` / `invalidate_pattern`)
+  falls back to an in-process store when Redis is unreachable, so a Redis
+  outage degrades to a short-lived per-process cache instead of a failure.
+- Mastery map is cached with a short TTL (60–120s); Redis default config is
+  fine for that — no `maxmemory`/eviction change is required for Phase 5.
+
+### Cron — mastery decay (pending AI-A NV4)
+
+`run_mastery_decay` will be registered in `WorkerSettings.cron_jobs` (daily
+**04:00 UTC** — deliberately distinct from the 03:00 proactive run). No infra
+change is needed: the cron deployment (compose `cron` service / `devops/k8s/
+cron-deployment.yaml` / `ascendly-runtime` chart) already runs the same arq
+worker with `PROCESS_MODE=cron`, so a new `cron()` entry is picked up on
+deploy. Failure telemetry flows through `adaptive_mastery_decay_runs_total
+{status="error"}` -> `MasteryDecayJobFailed`.
+
+## Phase 6 — Remediation observability & analytics
+
+### Metric contract M6–M7 (added Phase 6; M1–M5 unchanged — see table above)
+
+- **M6** `adaptive_remediation_feedback_total{helpful}` — incremented by
+  `POST /adaptive/remediation/{course_id}/feedback/{concept_id}` (AI-A Phase 6
+  NV2.4).
+- **M7** `adaptive_remediation_exercise_submitted_total{concept_id,passed}` —
+  incremented by
+  `POST /adaptive/remediation/{course_id}/exercise/{concept_id}/submit`
+  (AI-A Phase 6 NV2.3). Pass-rate = `{passed="true"}` / total.
+
+Instrumented by AI-A in parallel with this work (Phase 6 NV4). Empty series ->
+no dashboard data and no alert fires until then.
+
+### Dashboard panels added (Phase 6)
+
+`devops/docker/grafana/dashboards/adaptive-metrics.json` now also contains:
+
+7. **Remediation Feedback** (M6) — bar chart, rate 5m by `helpful`
+   (`sum(rate(adaptive_remediation_feedback_total[5m])) by (helpful)`), 2
+   series (`true` / `false`).
+8. **Remediation Exercise Submissions by Concept** (M7) — top 10 concepts by
+   1h increase (`topk(10, sum(increase(adaptive_remediation_exercise_submitted_total[1h])) by (concept_id))`).
+9. **Remediation Exercise Pass Rate** (M7) — `{passed="true"}` / total by
+   concept, 5m rate, `clamp_min(..., 1)` guard.
+10. **Remediation Effectiveness** — **placeholder panel only**. The metric
+    "% users improving mastery after remediation" (spec `16-de-xuat` §11) is
+    computed from mastery before/after deltas stored in `quiz_attempts`
+    (`concept_results.mastery_before/after`) and the exercise-submit payload
+    (`mastery_before`/`mastery_after`), **not** from a Prometheus counter.
+    It needs an analytics API (e.g. `GET /admin/adaptive/analytics/remediation-effectiveness`)
+    to aggregate those documents; until that API exists the panel stays a
+    note documenting the data source. **No fabricated Prometheus query.**
+
+### Alerts (confirmed — no new alert)
+
+The 3 Phase 5 alerts (`AdaptiveQuizHighErrorRate`, `AdaptiveQuizSlowSubmit`,
+`MasteryDecayJobFailed`) plus `LLMCostSpike` (Phase 4) are kept as-is in both
+`devops/prometheus/alerts.yml` and `devops/docker/prometheus/alerts.yml`.
+
+Remediation is LLM-heavy: a spike in `adaptive_remediation_generated_total`
+(M5) driven by `generate_remedial_content` increases `llm_requests_total` and
+`llm_cost_usd_total`, so **`LLMCostSpike` acts as the canary** for remediation
+cost. `LLMSpikeInRequests` (>100 req/5m) catches runaway generation loops.
+`RemediationGenerationHighErrorRate` is intentionally **not** added yet: no
+per-concept error-rate series exists and there is no real data to tune a
+threshold against; revisit only if AI-A reports elevated LLM failure in
+remediation (then wire
+`rate(adaptive_remediation_generated_total[5m])` against a failure counter).
+
+### LLM timeout/retry + Redis TTL (verified — no double cost)
+
+- `apps/api/app/services/llm.py` `call_llm` retries across **different
+  providers** (OpenRouter -> Gemini -> Groq -> OpenAI fallback) but never
+  retries the same provider; there is **no automatic retry loop** on
+  `generate_remedial_content`. On LLM failure the service catches the
+  exception and falls back to static text (and still caches + counts M5), so
+  a slow/failing LLM cannot double-charge the same generation.
+- Each provider call uses `httpx.AsyncClient(timeout=...)` (60s chat, 120s
+  stream). No configurable `LLM_TIMEOUT` setting exists today. **Suggestion
+  for AI-A (optional, not required):** if remediation timeouts need to be
+  tunable per environment, expose `LLM_TIMEOUT_SECONDS` (default 60) in
+  `app/core/config.py` and pass it to `call_llm`; behavior change only — no
+  double-cost risk since retries stay cross-provider only.
+- **Redis TTL**: `REDIS_TTL_SECONDS = 60 * 60` (1h) in `remediation.py`. Once
+  AI-A ships the `remedial_content` collection (cross-user reuse, Phase 6
+  NV2.2), the Redis TTL can be raised to **24h** (indexed collection is the
+  source of truth; Redis is just a fast front cache). Redis default
+  eviction/`expire` behavior needs **no change** — `expire` is natural, no
+  `maxmemory` policy update required.
 
 ## CI (`.github/workflows/ci.yml`)
 

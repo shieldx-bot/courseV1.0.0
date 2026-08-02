@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 MASTERY_MIN = 0.0
 MASTERY_MAX = 10.0
 DEFAULT_MASTERY = 5.0
+MASTERY_MAP_CACHE_TTL = 120  # seconds (Phase 5: read-through cache, NV5)
 
 
 def _slugify(title: str) -> str:
@@ -106,6 +107,7 @@ async def get_or_create_mastery(user_id: str, course_id: str, concept_id: str) -
         "updated_at": now,
     }
     await db.concept_mastery.insert_one(doc)
+    await _invalidate_mastery_cache(user_id, course_id)
     return _format_mastery(doc)
 
 
@@ -116,9 +118,30 @@ async def get_mastery(user_id: str, concept_id: str) -> dict[str, Any] | None:
 
 
 async def get_course_mastery_map(user_id: str, course_id: str) -> dict[str, float]:
-    db = get_read_db()
-    rows = await db.concept_mastery.find({"user_id": user_id, "course_id": course_id}).to_list(1000)
-    return {r["concept_id"]: r.get("mastery_score", DEFAULT_MASTERY) for r in rows}
+    """Read-through cached mastery map (TTL 120s), invalidated on every write."""
+    from app.services.cache import get_or_cache
+
+    async def _fetch() -> dict[str, float]:
+        db = get_read_db()
+        rows = await db.concept_mastery.find({"user_id": user_id, "course_id": course_id}).to_list(1000)
+        return {r["concept_id"]: r.get("mastery_score", DEFAULT_MASTERY) for r in rows}
+
+    return await get_or_cache(
+        "mastery_map", MASTERY_MAP_CACHE_TTL, _fetch,
+        user_id=user_id, course_id=course_id,
+    )
+
+
+async def _invalidate_mastery_cache(user_id: str, course_id: str) -> None:
+    """Drop the cached mastery map for a user+course after any write."""
+    from app.services.cache import invalidate_pattern
+
+    # Cache keys are built from alphabetically sorted params (see
+    # cache._build_cache_key), so course_id sorts before user_id.
+    try:
+        await invalidate_pattern(f"mastery_map:course_id={course_id}:user_id={user_id}*")
+    except Exception as exc:  # cache invalidation must never break writes
+        logger.warning("Failed to invalidate mastery cache for %s/%s: %s", user_id, course_id, exc)
 
 
 async def get_course_mastery_details(user_id: str, course_id: str) -> list[dict[str, Any]]:
@@ -198,6 +221,7 @@ async def update_mastery(
         upsert=True,
     )
     doc = await db.concept_mastery.find_one({"_id": mastery_id})
+    await _invalidate_mastery_cache(user_id, course_id)
     return _format_mastery(doc)
 
 

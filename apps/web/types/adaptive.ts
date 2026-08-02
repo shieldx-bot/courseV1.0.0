@@ -46,6 +46,24 @@ export type ConceptMasterySummary = Pick<ConceptMastery, "id" | "mastery_score">
   trend?: ConceptMastery["trend"];
 };
 
+/** Row returned by GET /adaptive/mastery/{course_id}. */
+export interface CourseMasteryEntry {
+  concept_id: string;
+  name: string;
+  mastery_score: number;
+  trend?: ConceptMastery["trend"];
+  attempts?: number;
+}
+
+/** Prerequisite projection returned by GET /adaptive/prerequisites/{course_id}/{concept_id}. */
+export interface PrerequisiteInfo {
+  id: string;
+  name: string;
+  description: string;
+  mastery_score: number;
+  mastered: boolean;
+}
+
 // ── Quiz ─────────────────────────────────────────────────────────────────────
 
 /** A single multiple-choice question. Backend field is `question` (not `prompt`). */
@@ -57,6 +75,10 @@ export interface AdaptiveQuizQuestion {
   options: string[];
   correct: number;
   explanation: string;
+  /** Seconds the learner spent on this question. Added by the client on submit
+   *  (backend Elo `time_factor` rewards <5s and penalizes >60s). Optional so an
+   *  unmetered question never breaks the submit payload. */
+  time_seconds?: number;
 }
 
 /** Envelope returned by POST /adaptive/quiz/{course_id}/generate. */
@@ -133,6 +155,8 @@ export interface RemediationSuggestion {
   lesson_ids: string[];
   prerequisite_concepts: string[];
   suggestion: string;
+  /** Additive field (Phase 6): prerequisite weak concepts first, then severity. */
+  priority?: number;
 }
 
 export interface RemedialQuestion {
@@ -152,6 +176,14 @@ export interface RemedialContent {
   generated: boolean;
 }
 
+/** Result returned by POST /adaptive/remediation/{course_id}/exercise/{concept_id}/submit. */
+export interface RemedialExerciseResult {
+  correct_count: number;
+  total: number;
+  mastery_before: number;
+  mastery_after: number;
+}
+
 // ── Recommended sequence ─────────────────────────────────────────────────────
 
 export interface RecommendedLessonSequence {
@@ -168,6 +200,14 @@ export interface RecommendedLessonSequence {
 export interface RecommendedCourseSequence {
   course_id: string;
   sequence: RecommendedLessonSequence[];
+}
+
+/** Result returned by POST /adaptive/skip/{course_id}/{lesson_id}. */
+export interface SkipLessonResult {
+  skipped: boolean;
+  lesson_id: string;
+  /** Additive (Phase 6): sequence already refreshed by the backend after skip. */
+  updated_sequence?: RecommendedLessonSequence[];
 }
 
 // ── Admin ────────────────────────────────────────────────────────────────────

@@ -109,3 +109,40 @@ groups:
         annotations:
           summary: "Proactive support check job failed"
           description: "run_proactive_support_checks reported {{ $value }} failed run(s) in the last hour — check worker/cron logs and DLQ."
+
+  # ── Adaptive Learning (Phase 5) ────────────────────────────────────────────
+  # Metric contract M1–M5 (see devops/README.md): exported by the API / cron
+  # process once the backend instruments them (AI-A). Empty series → no fires
+  # until then.
+  - name: adaptive-learning
+    rules:
+      - alert: AdaptiveQuizHighErrorRate
+        expr: |
+          rate(adaptive_quiz_submitted_total{passed="false"}[5m])
+            / rate(adaptive_quiz_submitted_total[5m])
+          > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Adaptive quiz error rate > 5%"
+          description: "Adaptive quiz failure rate is {{ $value | humanizePercentage }} over the last 5 minutes — check adaptive question bank/difficulty."
+
+      - alert: AdaptiveQuizSlowSubmit
+        expr: histogram_quantile(0.95, rate(adaptive_quiz_submit_duration_seconds_bucket[5m])) > 3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Adaptive quiz p95 submit latency > 3s"
+          description: "Adaptive quiz submit p95 latency is {{ $value }}s over the last 5 minutes — grade_quiz may be slow (LLM re-generation or DB contention)."
+
+      # Pod death is additionally covered by InstanceDown (up == 0) above.
+      - alert: MasteryDecayJobFailed
+        expr: rate(adaptive_mastery_decay_runs_total{status="error"}[5m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Mastery decay job failed"
+          description: "run_mastery_decay reported {{ $value }} failed run(s) over the last 5 minutes — check worker/cron logs and DLQ."

@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MasteryRadar } from "@/components/adaptive/MasteryRadar";
 
 describe("MasteryRadar", () => {
@@ -53,5 +54,20 @@ describe("MasteryRadar", () => {
   it("renders without crashing when given an empty concept list", () => {
     const { container } = render(<MasteryRadar concepts={[]} />);
     expect(container.querySelector("svg")).toBeInTheDocument();
+  });
+
+  it("calls onSelect when a concept row is clicked", async () => {
+    const onSelect = jest.fn();
+    const user = userEvent.setup();
+    render(
+      <MasteryRadar
+        concepts={[{ id: "c1", name: "Variables", mastery_score: 2.5 }]}
+        onSelect={onSelect}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /Variables/ }));
+
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: "c1", name: "Variables" }));
   });
 });

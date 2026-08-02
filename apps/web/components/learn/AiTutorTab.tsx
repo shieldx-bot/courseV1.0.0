@@ -29,6 +29,7 @@ export function AiTutorTab({ courseId, lessonId }: AiTutorTabProps) {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(true);
+  const [focusConcepts, setFocusConcepts] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load history on mount
@@ -95,6 +96,12 @@ export function AiTutorTab({ courseId, lessonId }: AiTutorTabProps) {
 
       const data = await res.json();
       const answer = data?.data?.answer || "Xin lỗi, tôi không thể trả lời câu hỏi này ngay lúc này.";
+      // Phase 6 additive guard: if the tutor response carries weak-concept
+      // context (`focus_concepts` / `weak_concepts`), surface a "Focus:" hint.
+      const focus = data?.data?.focus_concepts ?? data?.data?.weak_concepts;
+      if (Array.isArray(focus) && focus.length > 0) {
+        setFocusConcepts(focus.map(String));
+      }
 
       // Replace placeholder with actual answer
       setMessages((prev) => {
@@ -179,6 +186,12 @@ export function AiTutorTab({ courseId, lessonId }: AiTutorTabProps) {
           </Button>
         )}
       </div>
+
+      {focusConcepts.length > 0 && (
+        <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800" data-testid="tutor-focus-hint">
+          <span className="font-medium">Focus:</span> {focusConcepts.join(", ")}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto space-y-4 mb-4 pr-1">

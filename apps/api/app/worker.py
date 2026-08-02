@@ -20,6 +20,7 @@ from app.core.tasks import (
     run_email_campaigns_task,
     migrate_video_task,
     run_proactive_support_checks,
+    run_mastery_decay,
 )
 from app.core.telemetry import WORKER_JOBS_COMPLETED, start_metrics_server
 from app.core.worker import MAX_RETRIES, KEEP_RESULT_SECONDS, POLL_DELAY
@@ -85,6 +86,7 @@ _BASE_FUNCTIONS = [
     run_email_campaigns_task,
     migrate_video_task,
     run_proactive_support_checks,
+    run_mastery_decay,
 ]
 
 
@@ -104,6 +106,14 @@ class WorkerSettings:
         cron(_tracked(run_email_campaigns_task), hour=None, minute=30, timeout=300),
         cron(_tracked(run_analytics_task), hour=2, minute=0, timeout=600),
         cron(_tracked(run_proactive_support_checks), hour=3, minute=0, timeout=600),
+        cron(
+            _tracked(run_mastery_decay),
+            hour=4,
+            minute=0,
+            timeout=600,
+            max_tries=3,
+            keep_result=KEEP_RESULT_SECONDS,
+        ),
     ]
 
 

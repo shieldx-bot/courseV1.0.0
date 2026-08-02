@@ -8,6 +8,9 @@ import type {
   Coupon, Course, Discussion, LearningPath, PaginatedDiscussions, PaginatedReplies,
   Progress, Reply, Review, StreamToken, Subscription, SubscriptionTier, User,
   AdminAdaptiveStats, AdminConcept, AdminConceptCreate, AdminConceptUpdate, AdminPrerequisiteGap,
+  AdaptiveQuiz, QuizResult, ConceptMastery, CourseMasteryEntry,
+  PrerequisiteInfo, RemedialContent, RemediationSuggestion, RecommendedCourseSequence,
+  RemedialExerciseResult, SkipLessonResult,
 } from "@/types";
 
 const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL || "";
@@ -362,17 +365,35 @@ const apiClient = {
         params: { course_id: courseId },
       }),
     weakConcepts: (courseId: string, threshold?: number) =>
-      typedRequest("get", "GET /adaptive/weak/{course_id}", { params: { course_id: courseId }, query: threshold !== undefined ? { threshold } : undefined }),
+      typedRequest<"get", string, ConceptMastery[]>("get", "GET /adaptive/weak/{course_id}", { params: { course_id: courseId }, query: threshold !== undefined ? { threshold } : undefined }),
     strongConcepts: (courseId: string, threshold?: number) =>
-      typedRequest("get", "GET /adaptive/strong/{course_id}", { params: { course_id: courseId }, query: threshold !== undefined ? { threshold } : undefined }),
+      typedRequest<"get", string, ConceptMastery[]>("get", "GET /adaptive/strong/{course_id}", { params: { course_id: courseId }, query: threshold !== undefined ? { threshold } : undefined }),
     remediation: (courseId: string) =>
-      typedRequest("get", "GET /adaptive/remediation/{course_id}", { params: { course_id: courseId } }),
+      typedRequest<"get", string, RemediationSuggestion[]>("get", "GET /adaptive/remediation/{course_id}", { params: { course_id: courseId } }),
     prerequisites: (courseId: string, conceptId: string) =>
-      typedRequest("get", "GET /adaptive/prerequisites/{course_id}/{concept_id}", { params: { course_id: courseId, concept_id: conceptId } }),
-    generateQuiz: (courseId: string, lessonId: string, numQuestions?: number) =>
-      typedRequest("post", "POST /adaptive/quiz/{course_id}/generate", { params: { course_id: courseId }, query: { lesson_id: lessonId, num_questions: numQuestions } }),
+      typedRequest<"get", string, PrerequisiteInfo[]>("get", "GET /adaptive/prerequisites/{course_id}/{concept_id}", { params: { course_id: courseId, concept_id: conceptId } }),
+    mastery: (courseId: string) =>
+      typedRequest<"get", string, CourseMasteryEntry[]>("get", "GET /adaptive/mastery/{course_id}", { params: { course_id: courseId } }),
+    generateQuiz: (courseId: string, lessonId?: string, numQuestions?: number) =>
+      typedRequest<"post", string, AdaptiveQuiz>("post", "POST /adaptive/quiz/{course_id}/generate", { params: { course_id: courseId }, query: { lesson_id: lessonId, num_questions: numQuestions } }),
     submitQuiz: (courseId: string, body: { quiz_id: string; answers: Record<number, number>; questions: unknown[] }) =>
-      typedRequest("post", "POST /adaptive/quiz/{course_id}/submit", { params: { course_id: courseId }, body }),
+      typedRequest<"post", string, QuizResult>("post", "POST /adaptive/quiz/{course_id}/submit", { params: { course_id: courseId }, body }),
+    recommendedSequence: (courseId: string) =>
+      typedRequest<"get", string, RecommendedCourseSequence>("get", "GET /adaptive/course/{course_id}/recommended-sequence", { params: { course_id: courseId } }),
+    skipLesson: (courseId: string, lessonId: string) =>
+      typedRequest<"post", string, SkipLessonResult>("post", "POST /adaptive/skip/{course_id}/{lesson_id}", { params: { course_id: courseId, lesson_id: lessonId } }),
+    remediationContent: (courseId: string, conceptId: string) =>
+      typedRequest<"post", string, RemedialContent>("post", "POST /adaptive/remediation/{course_id}/content/{concept_id}", { params: { course_id: courseId, concept_id: conceptId } }),
+    submitRemedialExercise: (courseId: string, conceptId: string, answers: Record<number, number>) =>
+      typedRequest<"post", string, RemedialExerciseResult>("post", "POST /adaptive/remediation/{course_id}/exercise/{concept_id}/submit", {
+        params: { course_id: courseId, concept_id: conceptId },
+        body: { answers },
+      }),
+    sendRemedialFeedback: (courseId: string, conceptId: string, helpful: boolean) =>
+      typedRequest<"post", string, { recorded: boolean }>("post", "POST /adaptive/remediation/{course_id}/feedback/{concept_id}", {
+        params: { course_id: courseId, concept_id: conceptId },
+        body: { helpful },
+      }),
   },
   discussions: {
     list: (courseId: string, lessonId: string, params?: { page?: number; per_page?: number; sort?: string }) => {

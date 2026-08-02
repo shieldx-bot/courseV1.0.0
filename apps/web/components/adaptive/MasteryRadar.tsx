@@ -7,6 +7,7 @@ import type { ConceptMasterySummary } from "@/types/adaptive";
 type MasteryRadarProps = {
   concepts: ConceptMasterySummary[];
   size?: number;
+  onSelect?: (concept: ConceptMasterySummary) => void;
 };
 
 function masteryColor(score: number) {
@@ -21,7 +22,7 @@ function trendLabel(trend?: string) {
   return "Stable";
 }
 
-export function MasteryRadar({ concepts, size = 280 }: MasteryRadarProps) {
+export function MasteryRadar({ concepts, size = 280, onSelect }: MasteryRadarProps) {
   const items = useMemo(() => concepts.filter((c) => !!c.name), [concepts]);
   const n = items.length || 1;
 
@@ -88,7 +89,12 @@ export function MasteryRadar({ concepts, size = 280 }: MasteryRadarProps) {
         <polygon points={polygonPoints} className="fill-accent-500/20 text-accent-500" strokeWidth="2" />
 
         {points.map((p, i) => (
-          <g key={i} transform={`translate(${p.x}, ${p.y})`}>
+          <g
+            key={i}
+            transform={`translate(${p.x}, ${p.y})`}
+            onClick={onSelect ? () => onSelect(p.concept) : undefined}
+            className={onSelect ? "cursor-pointer" : undefined}
+          >
             <circle r="4" fill={masteryColor(p.concept.mastery_score)} />
             <title>{`${p.concept.name}: ${p.concept.mastery_score}`}</title>
           </g>
@@ -97,9 +103,14 @@ export function MasteryRadar({ concepts, size = 280 }: MasteryRadarProps) {
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {items.map((concept) => (
-          <div
+          <button
             key={concept.id}
-            className="flex items-center justify-between rounded-md border border-neutral-200 px-3 py-2"
+            type="button"
+            onClick={onSelect ? () => onSelect(concept) : undefined}
+            disabled={!onSelect}
+            className={`flex items-center justify-between rounded-md border border-neutral-200 px-3 py-2 text-left ${
+              onSelect ? "cursor-pointer transition-colors hover:border-accent-400 hover:bg-accent-50/40" : ""
+            }`}
           >
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{concept.name}</p>
@@ -116,7 +127,7 @@ export function MasteryRadar({ concepts, size = 280 }: MasteryRadarProps) {
             >
               {concept.mastery_score.toFixed(1)}
             </Badge>
-          </div>
+          </button>
         ))}
       </div>
     </div>

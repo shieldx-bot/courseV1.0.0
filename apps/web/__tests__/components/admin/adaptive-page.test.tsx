@@ -150,6 +150,11 @@ describe("AdminAdaptivePage", () => {
 
     render(<AdminAdaptivePage />);
 
+    // Wait for a stable intermediate state (the course selector only renders
+    // after /admin/courses resolves) before waiting for the empty state. This
+    // narrows the wait window so CPU starvation under the parallel suite cannot
+    // blow a single long timeout on both fetches.
+    await screen.findByLabelText("Course", {}, { timeout: 10000 });
     expect(await screen.findByText("No concepts yet")).toBeInTheDocument();
   });
 
@@ -166,5 +171,67 @@ describe("AdminAdaptivePage", () => {
 
     expect(await screen.findByText(/Could not load concepts/)).toBeInTheDocument();
     expect(screen.getByText("Adaptive Learning")).toBeInTheDocument();
+  });
+
+  it("renders a mastery heatmap with color-coded cells, tooltips and a legend", async () => {
+    const heatStats = {
+      course_id: "course-1",
+      total_concepts: 3,
+      avg_difficulty: 2,
+      concepts: [
+        { id: "c1", name: "Variables", difficulty_base: 1, avg_mastery: 2.5, student_count: 40, tags: ["basics"] },
+        { id: "c2", name: "Control Flow", difficulty_base: 2, avg_mastery: 4.5, student_count: 35, tags: ["basics"] },
+        { id: "c3", name: "Functions", difficulty_base: 3, avg_mastery: 8.2, student_count: 30, tags: ["intermediate"] },
+      ],
+    };
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/admin/courses")) return Promise.resolve(jsonResponse(courses));
+      if (url.includes("/admin/adaptive/stats")) return Promise.resolve(jsonResponse(heatStats));
+      if (url.includes("/admin/adaptive/gaps")) return Promise.resolve(jsonResponse([]));
+      if (url.includes("/admin/adaptive/concepts")) return Promise.resolve(jsonResponse(concepts));
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    render(<AdminAdaptivePage />);
+
+    const heatTable = await screen.findByRole("table", { name: "Concept mastery heatmap" });
+    expect(heatTable.querySelector("thead")).not.toBeNull();
+
+    const redCell = await screen.findByTestId("heat-cell-c1");
+    const amberCell = screen.getByTestId("heat-cell-c2");
+    const greenCell = screen.getByTestId("heat-cell-c3");
+    expect(redCell.className).toContain("bg-red-100");
+    expect(amberCell.className).toContain("bg-amber-100");
+    expect(greenCell.className).toContain("bg-emerald-100");
+    expect(redCell.getAttribute("title")).toContain("40 students, avg 2.5");
+
+    expect(screen.getByLabelText("Heatmap legend")).toBeInTheDocument();
+  });
+
+  it("renders prerequisite gaps with a Needs badge", async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/admin/courses")) return Promise.resolve(jsonResponse(courses));
+      if (url.includes("/admin/adaptive/stats")) return Promise.resolve(jsonResponse(stats));
+      if (url.includes("/admin/adaptive/gaps")) {
+        return Promise.resolve(
+          jsonResponse([
+            {
+              concept_id: "c3",
+              concept_name: "Functions",
+              weak_prerequisites: ["c1", "c2"],
+              suggestion: "Review Variables first.",
+            },
+          ])
+        );
+      }
+      if (url.includes("/admin/adaptive/concepts")) return Promise.resolve(jsonResponse(concepts));
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    render(<AdminAdaptivePage />);
+
+    expect(await screen.findByText("Prerequisite gaps")).toBeInTheDocument();
+    expect(screen.getByText("Needs: c1, c2")).toBeInTheDocument();
+    expect(screen.getByText("Review Variables first.")).toBeInTheDocument();
   });
 });
