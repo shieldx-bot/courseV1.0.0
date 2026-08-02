@@ -1,0 +1,76 @@
+# PROMPT GIAO VIỆC — AI-A (Backend) — PHASE 4: Adaptive Learning Foundation — Seed Concepts + Tests Elo + Mastery Route
+
+> **Từ:** Supervisor
+> **Cho:** AI-A — Chuyên viên Backend
+> **Bối cảnh:** Phases 0–3 đã sign-off (162 pytest pass). Khảo sát cho thấy Adaptive Learning backend đã triển khai gần đầy đủ (Elo đã có, quiz generate/grade có, admin CRUD có). Bạn KHÔNG làm lại — nhiệm vụ là **seed dữ liệu mẫu + test thuật toán + bổ sung route thiếu + trả nợ worker metrics** từ Phase 3.
+
+---
+
+## 1. Trạng thái ĐÃ CÓ (verified — không làm lại)
+
+| Thành phần | Hiện trạng |
+|---|---|
+| `services/concept_mastery.py` | ✅ Đủ: `get_or_create_mastery`, `get_mastery`, `get_course_mastery_map`, `update_mastery` (Elo qua `_update_score_elo` + phase1 fallback), `get_weak/strong_concepts`, `get_prerequisites`, `get_concepts_by_lesson`, `get_all_concepts_for_course`, `_slugify` |
+| `services/adaptive_quiz.py` | ✅ `generate_adaptive_quiz`, `grade_quiz`, `_generate_question_for_concept`, `_fallback_question` |
+| `services/remediation.py` | ✅ `get_remediation_suggestions`, `generate_remedial_content`, `get_prerequisite_gaps` |
+| API `/api/v1/adaptive` | ✅ concepts, weak, strong, remediation, prerequisites/{cid}, quiz/{course}/generate+submit, skip, concepts/detail, recommended-sequence, remediation content |
+| Admin `/api/v1/admin/adaptive` | ✅ full CRUD concepts + bulk + stats + gaps |
+| Seed concepts | ❌ `mongodb.py` KHÔNG seed `concept_definitions`/`concept_mastery` — chưa có dữ liệu mẫu |
+| Test Elo | ❌ `test_adaptive_learning.py` chỉ 5 test, KHÔNG verify công thức tăng/giảm điểm |
+| Route `/mastery/{course_id}` riêng | ❌ Chưa có (mastery chỉ lồng trong `/concepts/{course_id}`) |
+
+## 2. Nhiệm vụ
+
+### NV1 — Seed concepts dữ liệu mẫu (quan trọng)
+1. Tạo script seed concepts cho **2 khóa học mẫu** (nên dùng các khóa học đang tồn tại trong DB — tìm course ids có sẵn): mỗi khóa 4–6 concepts với `difficulty_base`, `tags`, `prerequisite_concepts`, `lesson_ids` (nếu có).
+2. Đặt tên id theo chuẩn hiện có (`conc-{course_id}-{slug}` — đọc `admin_adaptive.py` để đúng convention).
+3. Nơi đặt: tạo `apps/api/app/db/seed_concepts.py` (hàm `async def seed_concepts(db)` idempotent — skip nếu collection đã có) + hook vào startup `mongodb.py` (cạnh chỗ seed help_articles) HOẶC migration CLI (`python -m app.core.cli seed` nếu phù hợp). Chọn 1, ghi rõ.
+4. Thêm index cho `concept_definitions` (`{course_id, slug}`, `{course_id}`) + `concept_mastery` (`{user_id, concept_id}`, `{user_id, course_id}`) trong `app/db/indexes.py` nếu chưa có.
+
+### NV2 — Test thuật toán Elo (bù gap test)
+Trong `tests/test_adaptive_learning.py`, thêm test (gọi `update_mastery`/`_update_score_elo` trực tiếp, mock DB nếu cần):
+- Đúng câu khó → điểm **tăng**; sai câu dễ → điểm **giảm**.
+- K-factor giảm khi attempts tăng (những lần sau biến động ít hơn).
+- Giá trị clamp trong [0,10].
+- `grade_quiz` cập nhật nhiều concept và trả breakdown (`concept_results`).
+- `get_weak_concepts`/`get_strong_concepts` đúng ngưỡng threshold.
+
+### NV3 — Thêm route `/mastery/{course_id}` riêng
+- `GET /api/v1/adaptive/mastery/{course_id}` → gọi `get_course_mastery_map`, trả `[{concept_id, name, mastery_score, trend, attempts}]`.
+- Giữ các route cũ (additive, không phá).
+
+### NV4 — Trả nợ Phase 3: worker metrics + expose `/metrics`
+1. Wire arq hooks `on_job_complete`/`on_job_failed` trong `worker.py`/`runtime.py` → tăng counter `worker_jobs_completed_total{task, status}` (telemetry).
+2. Expose `/metrics` từ **process worker/cron** (không chỉ API — hiện Prometheus scrape `api:8000`). Nếu khó serve HTTP riêng, expose qua endpoint `POST /internal/metrics` từ worker flush vào Prometheus pushgateway HOẶC đơn giản: worker bind prometheus client trên port `${PROMETHEUS_PORT:-9101}` (chạy micro HTTP server prometheus start_http_server). Chọn phương án khả thi nhất, ghi rõ.
+3. Tăng `llm_requests_total{provider,status}`/`llm_tokens_total`/`llm_cost_total_usd` đã có từ Phase 3 — chỉ xác nhận hoạt động khi worker gọi LLM (nếu cần).
+
+### NV5 — Regression
+- `pytest tests/ -q` → **≥162 pass** (thêm test mới).
+
+## 3. Ranh giới
+- Chỉ sửa `apps/api/**` (+ migrations/indexes). Không sửa frontend, `.github`, `devops/**`, `docker-compose`.
+- Giữ envelope `{success, data, error, meta}`. Không thay đổi response các route adaptive đang dùng.
+
+## 4. Định Nghĩa Hoàn Thành
+- [ ] Seed 2 khóa học × 4–6 concepts idempotent + index.
+- [ ] Test Elo mới (tăng/giảm/attempts/clamp/grade breakdown) pass.
+- [ ] `GET /adaptive/mastery/{course_id}` có.
+- [ ] Worker metrics wired + `/metrics` (hoặc pushgateway) hoạt động.
+- [ ] `pytest tests/ -q` ≥162 pass.
+
+## 5. MẪU BÁO CÁO
+```
+=== BÁO CÁO AI-A — PHASE 4 ===
+1. Seed concepts: [script/cách chạy; idempotent; course ids mẫu]
+2. Indexes: [đã thêm gì]
+3. Test Elo: [số test mới; kết quả]
+4. /mastery route: [shape]
+5. Worker metrics: [cách expose /metrics; hooks arq; lưu ý]
+6. pytest cuối: [X pass]
+7. File đã sửa/tạo: [...]
+8. Rủi ro: [...]
+9. Sẵn sàng Phase 5 (AdaptiveMastery Engine — gap detect + adaptive selection): [CÓ/KHÔNG]
+=== HẾT BÁO CÁO ===
+```
+
+*— Supervisor. Lưu ý: AI-C sẽ cần types/adaptive.ts + admin adaptive page — bạn đảm bảo seed để họ có dữ liệu test.*

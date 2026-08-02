@@ -95,7 +95,7 @@ make test-api  # nếu Makefile đã tạo
 | AI-A (Backend) | ✔ **ĐÃ SIGN-OFF** | Verify thực tế: pytest **133 passed / 0 failed** (957 warnings không ảnh hưởng). Phase 0 cuối đã fix 2 bug thật: thiếu import `get_stats` trong `support.py` + `update_article` sửa `_id` bất hợp pháp trong `knowledge_base.py`. Migration 001/002 chạy được, Pydantic v2 sạch, dead code sạch, DB helpers đủ, parity test pass. |
 | AI-B (DevOps) | ✔ **ĐÃ SIGN-OFF** | Verify thực tế: `make test-api` 133 pass, `make test-web` 5 suites/23 pass, migration check idempotent pass, **helm lint + helm template pass 3/3** (đã sử
 | AI-C (Frontend) | ✔ ĐÃ SIGN-OFF | Verify độc lập: `npm test` 14 passed, `tsc --noEmit` exit 0. Ghi nhận rủi ro: Next.js 14.2.35 (không phải 15), `request<T>` default `any` cho endpoint chưa có schema. |
-| Supervisor | — | ✅ Phase 0 & 1 sign-off hoàn tất. **Phase 2: INTEGRATION SIGN-OFF (verify 10:40)** — 145 API + 29 web test xanh, tsc pass. Endpoints `/chat/stream`, `/chat/convert-to-ticket`, `/tickets/{id}/escalate` có trong code. Việc tiếp theo: giao Phase 3 (Proactive Support + Admin & Analytics) cho 3 AI. |
+| Supervisor | — | ✅ Phase 0–2 sign-off. **Phase 3: INTEGRATION SIGN-OFF (verify 11:39)** — 162 API + 41 web test xanh, tsc exit 0. Endpoints `/interventions/active`, `/admin/support/stats`, `/admin/support/sla-breaches` có trong code. Ghi nhận dependency: worker metrics `llm_*`/`worker_jobs_completed_total` cần AI-A wire hooks + expose `/metrics` từ worker/cron (alerts no-op tới khi xong). Việc tiếp theo: giao Phase 4 (Adaptive Learning — concepts + mastery + quiz) cho 3 AI. |
 
 ## 6. Checklist Nhận Báo Cáo (dán nhanh)
 

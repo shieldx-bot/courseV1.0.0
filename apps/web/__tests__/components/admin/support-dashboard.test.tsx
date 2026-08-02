@@ -99,7 +99,7 @@ describe("SupportDashboard", () => {
   it("shows an informative empty state on the Proactive tab when the API is missing", async () => {
     const user = userEvent.setup();
     fetchMock.mockImplementation((url: string) => {
-      if (url.includes("/admin/proactive/interventions/all")) {
+      if (url.includes("/admin/proactive/interventions")) {
         return Promise.resolve({ ok: false, status: 404, text: () => Promise.resolve("not found") } as unknown as Response);
       }
       return Promise.resolve(jsonResponse([]));
@@ -114,7 +114,7 @@ describe("SupportDashboard", () => {
   it("lists interventions with a type badge on the Proactive tab", async () => {
     const user = userEvent.setup();
     fetchMock.mockImplementation((url: string) => {
-      if (url.includes("/admin/proactive/interventions/all")) {
+      if (url.includes("/admin/proactive/interventions")) {
         return Promise.resolve(
           jsonResponse([{ id: "i1", type: "learning_stall", message: "Stalled", user_id: "u1", created_at: "2026-08-01T10:00:00Z" }])
         );
@@ -127,5 +127,23 @@ describe("SupportDashboard", () => {
 
     expect(await screen.findByText("learning_stall")).toBeInTheDocument();
     expect(screen.getByText("Stalled")).toBeInTheDocument();
+  });
+
+  it("normalizes raw backend intervention docs for the Proactive tab", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((url: string) => {
+      if (url.includes("/admin/proactive/interventions")) {
+        return Promise.resolve(
+          jsonResponse([{ _id: "raw-1", intervention_type: "quiz_low_score", message: "Low score", user_id: "u2", created_at: "2026-08-01T11:00:00Z" }])
+        );
+      }
+      return Promise.resolve(jsonResponse([]));
+    });
+
+    render(<SupportDashboard />);
+    await user.click(screen.getByRole("tab", { name: "Proactive" }));
+
+    expect(await screen.findByText("quiz_low_score")).toBeInTheDocument();
+    expect(screen.getByText("Low score")).toBeInTheDocument();
   });
 });

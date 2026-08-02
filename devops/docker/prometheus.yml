@@ -6,16 +6,23 @@ rule_files:
   - "prometheus/alerts.yml"
 
 scrape_configs:
+  # API process — FastAPI /metrics on :8000 (http_requests_total, latency, …).
   - job_name: "ascendly-api"
     static_configs:
       - targets: ["api:8000"]
     metrics_path: /metrics
 
+  # Worker process — prometheus_client.start_http_server on :9101
+  # (worker_queue_depth, worker_dlq_count, worker_jobs_completed_total,
+  #  llm_*). Host = docker-compose service name `worker`.
   - job_name: "ascendly-worker"
     static_configs:
-      - targets: ["api:8000"]
+      - targets: ["worker:9101"]
     metrics_path: /metrics
-    metrics_relabel_configs:
-      - source_labels: [__name__]
-        regex: "worker_.*"
-        action: keep
+
+  # Cron process (PROCESS_MODE=cron) — same runtime metrics on :9101.
+  # Host = docker-compose service name `cron`.
+  - job_name: "ascendly-cron"
+    static_configs:
+      - targets: ["cron:9101"]
+    metrics_path: /metrics

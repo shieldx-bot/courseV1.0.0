@@ -59,7 +59,7 @@ groups:
       # Metric contract (backend, exported via /metrics):
       #   llm_requests_total{provider,status="ok"|"error"}
       #   llm_tokens_total{provider}
-      #   llm_cost_total_usd{provider}
+      #   llm_cost_usd_total{provider}
       # Until the backend exports them these rules evaluate on empty series
       # (no fires).
       - alert: LLMHighErrorRate
@@ -84,7 +84,7 @@ groups:
           description: "LLM request rate is {{ $value | humanize }} req/s over 5m — possible runaway retry loop or abuse."
 
       - alert: LLMCostSpike
-        expr: increase(llm_cost_total_usd[1h]) > 10
+        expr: increase(llm_cost_usd_total[1h]) > 10
         for: 10m
         labels:
           severity: warning

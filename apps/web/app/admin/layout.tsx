@@ -14,6 +14,7 @@ const links = [
   { href: "/admin/support", label: "Support" },
   { href: "/admin/moderation", label: "Moderation" },
   { href: "/admin/adaptive-mastery", label: "Adaptive Mastery" },
+  { href: "/admin/adaptive", label: "Adaptive Concepts" },
   { href: "/admin/enterprise", label: "Enterprise" },
 ];
 

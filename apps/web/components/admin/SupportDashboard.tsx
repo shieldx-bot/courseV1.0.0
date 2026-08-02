@@ -170,10 +170,19 @@ export function SupportDashboard() {
   async function loadInterventions() {
     setInterventionsLoading(true);
     try {
-      const res = await fetch("/api/v1/admin/proactive/interventions/all");
+      const res = await fetch("/api/v1/admin/proactive/interventions");
       if (!res.ok) throw new Error(await res.text());
       const json = await res.json();
-      setInterventions(json.data || []);
+      const list = json.data || [];
+      setInterventions(
+        list.map((i: any) => ({
+          id: i.id ?? i._id,
+          type: i.type ?? i.intervention_type,
+          message: i.message || "",
+          user_id: i.user_id,
+          created_at: i.created_at,
+        }))
+      );
     } catch {
       // ignore
     } finally {
@@ -541,7 +550,7 @@ export function SupportDashboard() {
             ))}
             {!interventionsLoading && interventions.length === 0 && (
               <p className="text-sm text-neutral-600">
-                No interventions recorded yet. The admin interventions API (<code className="rounded bg-neutral-100 px-1">/admin/proactive/interventions/all</code>) is
+                No interventions recorded yet. The admin interventions API (<code className="rounded bg-neutral-100 px-1">/admin/proactive/interventions</code>) is
                 pending backend support — this list will populate once AI-A ships it.
               </p>
             )}

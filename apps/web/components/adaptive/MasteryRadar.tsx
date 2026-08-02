@@ -2,17 +2,10 @@
 
 import { useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
-
-export type ConceptMastery = {
-  id: string;
-  name: string;
-  mastery_score: number;
-  difficulty_base?: number;
-  trend?: "improving" | "declining" | "stable";
-};
+import type { ConceptMasterySummary } from "@/types/adaptive";
 
 type MasteryRadarProps = {
-  concepts: ConceptMastery[];
+  concepts: ConceptMasterySummary[];
   size?: number;
 };
 

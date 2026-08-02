@@ -1,0 +1,66 @@
+# PROMPT GIAO VIỆC — AI-B (DevOps) — PHASE 4: Adaptive Learning — Scrape Worker Metrics + Seed Dev + CI
+
+> **Từ:** Supervisor
+> **Cho:** AI-B — Chuyên viên DevOps
+> **Bối cảnh:** Phases 0–3 đã sign-off. AI-A (Phase 4) sẽ: seed concepts mẫu, thêm test Elo, thêm route `/adaptive/mastery/{course_id}`, và **trả nợ Phase 3: wire arq hooks + expose `/metrics` từ process worker/cron** (dự kiến bind port `${PROMETHEUS_PORT:-9101}` qua `prometheus_client.start_http_server`, hoặc pushgateway). Nhiệm vụ của bạn: cấu hình hạ tầng để Prometheus thực sự scrape được metric worker/cron + seed dev + CI. KHÔNG làm lại những gì đã có.
+
+---
+
+## 1. Trạng thái ĐÃ CÓ (verified)
+
+| Thành phần | Hiện trạng |
+|---|---|
+| Prometheus | ✅ `devops/prometheus/prometheus.yml` + `devops/docker/prometheus/prometheus.yml` (scrape `api:8000`) |
+| Alerts | ✅ `LLMHighErrorRate`, `LLMSpikeInRequests`, `LLMCostSpike`, `ProactiveCheckJobFailed` (đang no-op vì worker chưa expose /metrics) |
+| K8s/Helm | ✅ NetworkPolicy egress HTTPS 443/SMTP 587; `ascendly-runtime` PROCESS_MODE=cron/worker |
+| Seed | ✅ CLI `python -m app.core.cli seed` đã có (seed JSON); AI-A sẽ thêm seed concepts riêng |
+| CI | ✅ api/web/migration-check/manifest-check (kubeconform) + gate |
+
+## 2. Nhiệm vụ
+
+### NV1 — Prometheus scrape worker/cron metrics
+AI-A sẽ expose `/metrics` từ worker/cron (dự kiến bind `0.0.0.0:9101`). Bạn cần:
+1. Thêm scrape job trong `devops/prometheus/prometheus.yml` + `devops/docker/prometheus/prometheus.yml`:
+   - `job_name: ascendly-worker` → targets `worker:9101` (docker-compose) và `ascendly-worker:9101` (k8s service nếu có) — **xác nhận hostname thật** của worker/cron trong compose + k8s.
+   - Thêm job `ascendly-cron` nếu cron cũng expose (nếu cùng pod runte → 1 target đủ).
+2. Docker compose: thêm port expose `9101:9101` cho service worker/cron (nếu dùng compose) — để dev scrape được. Nếu compose dùng network nội bộ không cần publish, chỉ cần đảm bảo Prometheus container truy cập được qua service name.
+3. K8s: nếu worker không có Service → thêm `devops/k8s/service.yaml` (hoặc Service riêng `ascendly-worker-metrics` selector component=worker) + cập nhật NetworkPolicy **egress** cho Prometheus pod → worker:9101 (nếu NetworkPolicy đang default-deny). Xác nhận egress đúng chiều.
+4. Grafana: (đã có panels proactive) — đảm bảo data source Prometheus đã quét được worker job.
+
+### NV2 — Seed data dev
+1. Xác nhận AI-A thêm seed concepts — bạn đảm bảo `make seed`/`make migrate` (hoặc `make setup`) chạy cả seed concepts trong dev. Nếu AI-A chọn hook startup `mongodb.py` thì chỉ cần ghi chú là tự seed khi start.
+2. Nếu cần: cập nhật `devops/README.md` mô tả dữ liệu adaptive mẫu có sẵn sau khi seed.
+
+### NV3 — CI không vỡ
+1. Không sửa file `apps/**` — chỉ config infra; verify `make test-api`, `make test-web`, migration-check, helm/kubeconform không đổi (hoặc chỉ thêm scrape config, không ảnh hưởng test).
+2. Cập nhật `.github/workflows/ci.yml` manifest-check nếu thêm Service mới — `kubeconform` chấp nhận Service.
+
+### NV4 — Xác nhận alerts không còn no-op (sau khi AI-A wire)
+- Sau khi AI-A xong, ghi rõ trong báo cáo: alert `ProactiveCheckJobFailed` + `llm_*` sẽ fire được khi metric xuất hiện (chỉ cần metric có label đúng).
+
+## 3. Ranh giới
+- Chỉ sửa: `devops/**`, `docker-compose.yml`, `Makefile`, `.github/**`, `.env.example`. KHÔNG sửa logic `apps/api/**`.
+- KHÔNG deploy prod. Chỉ config + verify.
+
+## 4. Định Nghĩa Hoàn Thành
+- [ ] Prometheus có scrape job worker/cron :9101 (compose + k8s).
+- [ ] Docker compose expose/connect được worker metrics.
+- [ ] K8s Service worker metrics + NetworkPolicy egress (nếu cần).
+- [ ] Seed concepts dev hoạt động (xác nhận cách AI-A chọn).
+- [ ] CI/manifest-check xanh.
+
+## 5. MẪU BÁO CÁO
+```
+=== BÁO CÁO AI-B — PHASE 4 ===
+1. Scrape config: [jobs + target + hostname thật]
+2. Compose connect: [port/service]
+3. K8s: [Service + NetworkPolicy]
+4. Seed concepts: [xác nhận cách chạy]
+5. CI: [kết quả]
+6. File đã sửa/tạo: [...]
+7. Rủi ro/giới hạn: [...]
+8. Sẵn sàng Phase 5 (Adaptive Mastery Engine infra): [CÓ/KHÔNG]
+=== HẾT BÁO CÁO ===
+```
+
+*— Supervisor. Lưu ý: AI-A chọn cách expose (/metrics port 9101 hoặc pushgateway) — nếu khác, bạn điều chỉnh scrape theo cách họ chọn (đã ghi trong prompt AI-A).*

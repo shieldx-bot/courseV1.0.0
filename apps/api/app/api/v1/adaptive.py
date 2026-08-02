@@ -104,6 +104,29 @@ async def list_strong_concepts(course_id: str, user=Depends(get_current_user), t
     return api_response(strong)
 
 
+@router.get("/mastery/{course_id}")
+async def get_course_mastery(course_id: str, user=Depends(get_current_user)):
+    mastery_map = await get_course_mastery_map(user["id"], course_id)
+    details = await get_course_mastery_details(user["id"], course_id)
+    detail_map = {d["concept_id"]: d for d in details}
+    concepts = await get_all_concepts_for_course(course_id)
+
+    result = []
+    for c in concepts:
+        cid = c["_id"]
+        d = detail_map.get(cid, {})
+        result.append({
+            "concept_id": cid,
+            "name": c.get("name", cid),
+            "mastery_score": d.get("mastery_score", mastery_map.get(cid, DEFAULT_MASTERY)),
+            "trend": d.get("trend", "stable"),
+            "attempts": d.get("attempts", 0),
+        })
+
+    result.sort(key=lambda x: x["mastery_score"])
+    return api_response(result)
+
+
 @router.get("/remediation/{course_id}")
 async def get_remediation(course_id: str, user=Depends(get_current_user)):
     suggestions = await get_remediation_suggestions(user["id"], course_id)

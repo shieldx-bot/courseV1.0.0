@@ -4,17 +4,10 @@ import { useEffect, useState } from "react";
 import { adaptiveClient } from "@/lib/adaptive-client";
 import { MasteryRadar } from "@/components/adaptive/MasteryRadar";
 import { ConceptCard } from "@/components/adaptive/ConceptCard";
-
-type ConceptWithMastery = {
-  id: string;
-  course_id: string;
-  name: string;
-  mastery_score: number;
-  trend?: "improving" | "declining" | "stable";
-};
+import type { ConceptMasterySummary } from "@/types/adaptive";
 
 export default function MasteryDashboard({ params }: { params: { course: string } }) {
-  const [concepts, setConcepts] = useState<ConceptWithMastery[]>([]);
+  const [concepts, setConcepts] = useState<ConceptMasterySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,7 +18,13 @@ export default function MasteryDashboard({ params }: { params: { course: string 
       .listConcepts(params.course)
       .then((data) => {
         if (!cancelled) {
-          const sorted = (data || []).sort((a, b) => (a.mastery_score ?? 0) - (b.mastery_score ?? 0));
+          const sorted = (data || [])
+            .map((c) => ({
+              id: c.id,
+              name: c.name,
+              mastery_score: c.mastery_score ?? 0,
+            }))
+            .sort((a, b) => a.mastery_score - b.mastery_score);
           setConcepts(sorted);
         }
       })

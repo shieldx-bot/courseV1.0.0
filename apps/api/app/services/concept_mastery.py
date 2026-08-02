@@ -178,6 +178,9 @@ async def update_mastery(
 
     now = _now()
     update = {
+        "user_id": user_id,
+        "course_id": course_id,
+        "concept_id": concept_id,
         "mastery_score": new_score,
         "attempts": attempts,
         "correct_attempts": correct_attempts,
@@ -186,7 +189,14 @@ async def update_mastery(
         "updated_at": now,
     }
 
-    await db.concept_mastery.update_one({"_id": mastery_id}, {"$set": update}, upsert=True)
+    await db.concept_mastery.update_one(
+        {"_id": mastery_id},
+        {
+            "$set": update,
+            "$setOnInsert": {"created_at": existing.get("created_at", now)},
+        },
+        upsert=True,
+    )
     doc = await db.concept_mastery.find_one({"_id": mastery_id})
     return _format_mastery(doc)
 

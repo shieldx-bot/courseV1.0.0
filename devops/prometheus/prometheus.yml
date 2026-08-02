@@ -1,0 +1,39 @@
+# Canonical Prometheus configuration for Ascendly — used by the
+# self-hosted / Kubernetes Prometheus (the compose stack uses
+# devops/docker/prometheus.yml instead).
+#
+# Targets resolve inside the ascendly Kubernetes namespace via Services:
+#   ascendly-api:8000              -> devops/k8s/service.yaml
+#   ascendly-worker-metrics:9101   -> devops/k8s/service.yaml
+#   ascendly-cron-metrics:9101     -> devops/k8s/service.yaml
+#
+# The worker/cron processes expose /metrics via prometheus_client
+# start_http_server on port 9101 (PROMETHEUS_PORT, see apps/api config).
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  # API process — FastAPI /metrics on :8000 (http_requests_total, latency, …).
+  - job_name: "ascendly-api"
+    static_configs:
+      - targets: ["ascendly-api:8000"]
+    metrics_path: /metrics
+
+  # Worker process — prometheus_client.start_http_server on :9101
+  # (worker_queue_depth, worker_dlq_count, worker_jobs_completed_total, llm_*).
+  # Service `ascendly-worker-metrics` selects app=ascendly-worker.
+  - job_name: "ascendly-worker"
+    static_configs:
+      - targets: ["ascendly-worker-metrics:9101"]
+    metrics_path: /metrics
+
+  # Cron process (PROCESS_MODE=cron) — same runtime metrics on :9101.
+  # Service `ascendly-cron-metrics` selects app=ascendly-cron.
+  - job_name: "ascendly-cron"
+    static_configs:
+      - targets: ["ascendly-cron-metrics:9101"]
+    metrics_path: /metrics

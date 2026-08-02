@@ -14,7 +14,6 @@ from app.core.ratelimit import limiter
 from app.core.response import api_response, error_response
 from app.db.mongodb import seed_db, get_db
 from app.db.indexes import create_indexes
-from app.db.seed_concepts import seed_concepts
 from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive, adaptive, community, community_hub, tournaments, arena
 from app.api.v1 import ecosystem as ecosystem_module
 from app.api.v1 import notifications as notifications_module
@@ -87,10 +86,6 @@ async def lifespan(app: FastAPI):
     await search_service.init_search()
     await search_service.sync_all_courses()
     await seed_learning_paths()
-    try:
-        await seed_concepts()
-    except Exception as exc:
-        logger.warning("Concept seeding skipped: %s", exc)
     try:
         await seed_skill_taxonomy()
     except Exception as exc:

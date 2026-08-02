@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     # Telemetry / Observability
     telemetry_enabled: bool = True
     telemetry_environment: str = "development"
+    # Port for the worker/cron process Prometheus /metrics HTTP server
+    # (the API process exposes /metrics directly via FastAPI).
+    prometheus_port: int = 9101
 
     # CORS
     cors_origins: list[str] = ["http://localhost:3000", "https://*.cloudshell.dev"]

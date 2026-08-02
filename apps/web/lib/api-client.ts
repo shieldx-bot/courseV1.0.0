@@ -7,6 +7,7 @@ import type {
   Category, Certificate, CertificateVerification, CheckoutSessionResponse, ConceptDefinition,
   Coupon, Course, Discussion, LearningPath, PaginatedDiscussions, PaginatedReplies,
   Progress, Reply, Review, StreamToken, Subscription, SubscriptionTier, User,
+  AdminAdaptiveStats, AdminConcept, AdminConceptCreate, AdminConceptUpdate, AdminPrerequisiteGap,
 } from "@/types";
 
 const API_ORIGIN = process.env.NEXT_PUBLIC_API_URL || "";
@@ -325,6 +326,35 @@ const apiClient = {
     supportTicketAssign: (ticketId: string, body: { admin_id: string }) =>
       typedRequest("post", "POST /admin/support/tickets/{id}/assign", { params: { id: ticketId }, body }),
     supportStats: () => typedRequest("get", "GET /admin/support/stats"),
+    adaptive: {
+      listConcepts: (courseId?: string) =>
+        typedRequest<"get", string, AdminConcept[]>("get", "GET /admin/adaptive/concepts", {
+          query: courseId ? { course_id: courseId } : undefined,
+        }),
+      createConcept: (body: AdminConceptCreate) =>
+        typedRequest<"post", string, AdminConcept>("post", "POST /admin/adaptive/concepts", { body }),
+      updateConcept: (conceptId: string, body: AdminConceptUpdate) =>
+        typedRequest<"put", string, AdminConcept>("put", "PUT /admin/adaptive/concepts/{concept_id}", {
+          params: { concept_id: conceptId },
+          body,
+        }),
+      deleteConcept: (conceptId: string) =>
+        typedRequest<"delete", string, { deleted: boolean }>("delete", "DELETE /admin/adaptive/concepts/{concept_id}", {
+          params: { concept_id: conceptId },
+        }),
+      bulkCreateConcepts: (courseId: string, concepts: AdminConceptCreate[]) =>
+        typedRequest<"post", string, { created: number }>("post", "POST /admin/adaptive/concepts/bulk", {
+          body: { course_id: courseId, concepts },
+        }),
+      stats: (courseId: string) =>
+        typedRequest<"get", string, AdminAdaptiveStats>("get", "GET /admin/adaptive/stats/{course_id}", {
+          params: { course_id: courseId },
+        }),
+      gaps: (courseId: string) =>
+        typedRequest<"get", string, AdminPrerequisiteGap[]>("get", "GET /admin/adaptive/gaps/{course_id}", {
+          params: { course_id: courseId },
+        }),
+    },
   },
   adaptive: {
     listConcepts: (courseId: string) =>

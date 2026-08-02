@@ -5,22 +5,14 @@ import type {
   ConceptDefinition,
   ConceptMastery,
   RecommendedLessonSequence,
-  QuizQuestion,
+  AdaptiveQuizQuestion,
   QuizResult,
   AdaptiveQuiz,
   AdminAdaptiveStats,
   AdminPrerequisiteGap,
+  RemedialContent,
+  RemedialQuestion,
 } from "@/types";
-
-/**
- * A practice question shown in adaptive remediation content.
- */
-interface RemedialQuestion {
-  question: string;
-  options: string[];
-  correct: number;
-  explanation: string;
-}
 
 /**
  * Adaptive learning client for interacting with the adaptive learning API
@@ -279,7 +271,7 @@ export const adaptiveClient = {
    * Get quiz questions by quiz ID
    * This is a mock implementation
    */
-  async getQuizQuestions(quizId: string): Promise<QuizQuestion[]> {
+  async getQuizQuestions(quizId: string): Promise<AdaptiveQuizQuestion[]> {
     try {
       // Mock implementation
       return [
@@ -396,7 +388,7 @@ export const adaptiveClient = {
     }
   },
 
-  async remediationContent(courseId: string, conceptId: string) {
+  async remediationContent(courseId: string, conceptId: string): Promise<RemedialContent> {
     try {
       const explanations: Record<string, string> = {
         "concept-1": "Variables are used to store information in memory. In Python, you create a variable by assigning a value with the = operator.",

@@ -1,15 +1,10 @@
 "use client";
 
-type ConceptCardConcept = {
-  id: string;
-  name: string;
-  mastery_score: number;
-  trend?: "improving" | "declining" | "stable";
-};
+import type { ConceptMasterySummary } from "@/types/adaptive";
 
 type ConceptCardProps = {
-  concept: ConceptCardConcept;
-  onRequestRemediation?: (concept: ConceptCardConcept) => void;
+  concept: ConceptMasterySummary;
+  onRequestRemediation?: (concept: ConceptMasterySummary) => void;
 };
 
 function masteryLabel(score: number) {

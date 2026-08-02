@@ -6,12 +6,20 @@ Infrastructure, CI/CD, and local developer tooling for the Ascendly monorepo.
 
 | Path | Purpose |
 |---|---|
-| `docker/` | Dockerfiles (`Dockerfile.api`, `Dockerfile.web`) + local observability config (`prometheus.yml`, `grafana/`) |
+| `docker/` | Dockerfiles (`Dockerfile.api`, `Dockerfile.web`) + local observability config (`prometheus.yml`, `grafana/`, `prometheus/alerts.yml`) |
 | `helm/` | Helm charts: `platform-base`, `ascendly-api`, `ascendly-runtime` |
 | `k8s/` | Hardened Kubernetes manifests (namespaces, network policies, PDBs, HPA, RBAC…) |
-| `prometheus/` | Prometheus alerting rules |
+| `prometheus/` | Canonical Prometheus scrape config (`prometheus.yml`) + alerting rules (`alerts.yml`) — used by the Kubernetes / self-hosted Prometheus |
 | `scripts/` | CI helper scripts (e.g. `ci-migration-check.sh`) |
 | `.github/workflows/` | CI + Preview deployment workflows (repo root) |
+
+Prometheus config lives in two places:
+
+- `devops/docker/prometheus.yml` — the **docker-compose** stack's config
+  (mounted into the `prometheus` service; `rule_files` → `docker/prometheus/alerts.yml`).
+- `devops/prometheus/prometheus.yml` — the **canonical/Kubernetes** config
+  (`rule_files` → `prometheus/alerts.yml`), for a Prometheus scraping the
+  `ascendly-worker-metrics` / `ascendly-cron-metrics` Services.
 
 The repo root `Makefile` drives local dev. Docker contexts are the **repo root**
 (they must be: the Dockerfiles `COPY apps/api/…` and `COPY apps/web/…`).
@@ -126,16 +134,83 @@ delivers real SMTP messages you can read in the UI instead of only
   `worker_jobs_completed_total{task="run_proactive_support_checks",status="error"}`.
 - **Grafana** (`devops/docker/grafana/dashboards/api-metrics.json`): LLM
   panels + proactive run / email-sent panels.
-- **Backend dependency**: `worker_jobs_completed_total` is defined in
-  `apps/api/app/core/telemetry.py` but the arq hooks
-  (`on_job_complete`/`on_job_failed` in `apps/api/app/worker.py` are `None`)
-  are not wired and the worker/cron process does not serve `/metrics` (only
-  the API process does, and Prometheus scrapes `api:8000`). For the proactive
-  alert and dashboard panels to go live, the backend must (a) wire the arq
-  hooks to increment `worker_jobs_completed_total{task,status}` (or export a
-  dedicated `proactive_checks_total{status}` counter), and (b) expose those
-  counters on a scraped `/metrics` endpoint (e.g. start a metrics HTTP server
-  in the worker/cron runtime and add a scrape target).
+- **Backend dependency (Phase 4, resolved)**: `worker_jobs_completed_total` is
+  defined in `apps/api/app/core/telemetry.py`; the worker/cron processes now
+  start a Prometheus `/metrics` HTTP server on `PROMETHEUS_PORT` (default
+  **9101**) via `prometheus_client.start_http_server` when telemetry is
+  enabled (`apps/api/app/core/telemetry.py:start_metrics_server`), and arq
+  job outcomes are recorded by the `_tracked` wrappers in
+  `apps/api/app/worker.py`. Prometheus scrapes `worker:9101` / `cron:9101`
+  (compose) or the `ascendly-worker-metrics` / `ascendly-cron-metrics`
+  Services (k8s). See the Phase 4 section below for the scrape topology.
+
+## Phase 4 — Adaptive learning: worker/cron metrics scraping + seed
+
+### Worker/cron `/metrics` scraping
+
+The API process exposes `/metrics` on `:8000` (FastAPI). The **worker** and
+**cron** processes each bind their own Prometheus `/metrics` HTTP server on
+`PROMETHEUS_PORT` (default `9101`, see `apps/api/app/core/config.py`), sharing
+the default registry, so all `worker_*` and `llm_*` series are exportable from
+the runtime process that produces them.
+
+| Environment | Prometheus config | Targets |
+|---|---|---|
+| docker compose | `devops/docker/prometheus.yml` | `ascendly-api` → `api:8000`, `ascendly-worker` → `worker:9101`, `ascendly-cron` → `cron:9101` |
+| Kubernetes / self-hosted | `devops/prometheus/prometheus.yml` | `ascendly-api:8000`, `ascendly-worker-metrics:9101`, `ascendly-cron-metrics:9101` |
+
+Notes:
+
+- **Compose connectivity**: Prometheus (a compose service) reaches the worker
+  and cron containers over the compose network by service name — no host port
+  publish is required. `docker-compose.yml` publishes `9101:9101` for the
+  **worker** only (a convenience for `curl localhost:9101/metrics`); the cron
+  container also binds `9101` internally but is intentionally not published to
+  the host (would collide with the worker's host port). Both are scraped
+  in-network.
+- **K8s**: `devops/k8s/service.yaml` (and the `ascendly-runtime` Helm chart)
+  define ClusterIP Services `ascendly-worker-metrics` and
+  `ascendly-cron-metrics` (selector `app: ascendly-worker` / `app:
+  ascendly-cron`, port `9101`). `devops/k8s/networkpolicy.yaml` (and the
+  `platform-base` chart) add:
+  - `allow-prometheus-metrics-ingress` — ingress to worker/cron pods on `9101`
+    from a Prometheus in the `monitoring` namespace **or** a same-namespace
+    pod labelled `app: prometheus`;
+  - `allow-egress-prometheus` — egress from a same-namespace `app: prometheus`
+    pod to worker/cron `:9101` + DNS. (A Prometheus hosted in another
+    namespace is governed by that namespace's policies; the egress rule is
+    inert there by design.)
+- **Alerts are live once the series exist**: with the scrape targets above,
+  `ProactiveCheckJobFailed` fires when
+  `worker_jobs_completed_total{task="run_proactive_support_checks",status="error"}`
+  increases, and `LLMHighErrorRate` / `LLMSpikeInRequests` / `LLMCostSpike`
+  fire from `llm_requests_total{provider,status}` / `llm_cost_usd_total{provider}`
+  exported by the worker/cron process. Alert metric names were aligned with
+  the backend counter names (`llm_cost_usd_total`, not `llm_cost_total_usd`).
+- **Metric contract** (backend, exported via `/metrics`):
+  `worker_queue_depth`, `worker_dlq_count`, `worker_jobs_enqueued_total{task}`,
+  `worker_jobs_completed_total{task,status}`, `llm_requests_total{provider,status}`,
+  `llm_tokens_total{provider}`, `llm_cost_usd_total{provider}`.
+- **Grafana** datasource already points at the compose Prometheus
+  (`devops/docker/grafana/datasources/prometheus.yml` → `http://prometheus:9090`),
+  so the worker/proactive/LLM panels query the new jobs automatically.
+
+### Adaptive seed data (dev)
+
+AI-A ships an idempotent concept seeder (`apps/api/app/db/seed_concepts.py`,
+`seed_concepts(db)`): it inserts `concept_definitions` for 3 sample courses
+(`course-python-data`, `course-js`, `course-sql`; 5–6 concepts each with
+`difficulty_base`, `tags`, `lesson_ids`) and skips when the collection is
+non-empty. Indexes for `concept_definitions` / `concept_mastery` are defined in
+`apps/api/app/db/indexes.py`.
+
+**Hooked at startup (confirmed)**: `seed_db()` in `apps/api/app/db/mongodb.py`
+calls `seed_concepts(db)` (guarded, idempotent), and `seed_db()` runs in the
+FastAPI lifespan on every API start (`apps/api/app/main.py`). Dev therefore
+gets the adaptive sample data automatically on `make compose-up` /
+`make dev` — no extra infra step. `make migrate` (migrations + `app.core.cli
+seed`) and `make seed-support` (articles/tickets/messages) are unchanged and
+independent.
 
 ## CI (`.github/workflows/ci.yml`)
 

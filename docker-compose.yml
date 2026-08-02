@@ -105,12 +105,15 @@ services:
       dockerfile: devops/docker/Dockerfile.api
       target: worker
     restart: unless-stopped
+    ports:
+      - "9101:9101"   # Prometheus /metrics (worker process)
     environment:
       - MONGODB_URI=mongodb://mongo:27017/ascendly
       - REDIS_URL=redis://redis:6379/0
       - MEILI_URL=http://meilisearch:7700
       - MEILI_MASTER_KEY=ascendly-dev-master-key
       - PROCESS_MODE=worker
+      - PROMETHEUS_PORT=${PROMETHEUS_PORT:-9101}
       # LLM providers (empty = fallback/disabled); see .env.example
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
@@ -153,6 +156,7 @@ services:
       - MEILI_URL=http://meilisearch:7700
       - MEILI_MASTER_KEY=ascendly-dev-master-key
       - PROCESS_MODE=cron
+      - PROMETHEUS_PORT=${PROMETHEUS_PORT:-9101}
       # LLM providers (empty = fallback/disabled); see .env.example
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}

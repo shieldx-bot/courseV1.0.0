@@ -3,46 +3,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RemedialPanel } from "./RemedialPanel";
-
-export type QuizQuestion = {
-  concept_id: string;
-  concept_name: string;
-  difficulty: number;
-  question: string;
-  options: string[];
-  correct: number;
-  explanation: string;
-};
-
-export type QuizResult = {
-  quiz_id: string;
-  score: number;
-  total_questions: number;
-  score_pct: number;
-  passed: boolean;
-  results: Array<{
-    question_index: number;
-    concept_id: string;
-    correct: boolean;
-    selected_answer: number;
-    correct_answer: number;
-    explanation: string;
-    mastery_delta?: number;
-  }>;
-  concept_results: Array<{
-    concept_id: string;
-    concept_name: string;
-    mastery_before: number;
-    mastery_after: number;
-    mastery_delta: number;
-    correct: boolean;
-  }>;
-  weak_concepts: Array<{
-    concept_id: string;
-    concept_name: string;
-    mastery_after: number;
-  }>;
-};
+import type {
+  AdaptiveQuiz as AdaptiveQuizEnvelope,
+  AdaptiveQuizQuestion,
+  QuizResult,
+} from "@/types/adaptive";
 
 type AdaptiveQuizProps = {
   courseId: string;
@@ -53,10 +18,7 @@ type AdaptiveQuizProps = {
 export function AdaptiveQuiz({ courseId, lessonId, userId }: AdaptiveQuizProps) {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [quiz, setQuiz] = useState<{
-    quiz_id: string | null;
-    questions: QuizQuestion[];
-  } | null>(null);
+  const [quiz, setQuiz] = useState<Pick<AdaptiveQuizEnvelope, "quiz_id" | "questions"> | null>(null);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
   const [error, setError] = useState<string | null>(null);

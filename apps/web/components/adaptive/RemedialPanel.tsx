@@ -3,22 +3,7 @@
 import { useEffect, useState } from "react";
 import { adaptiveClient } from "@/lib/adaptive-client";
 import { Button } from "@/components/ui/button";
-
-type RemedialQuestion = {
-  question: string;
-  options: string[];
-  correct: number;
-  explanation: string;
-};
-
-type RemedialContent = {
-  concept_id: string;
-  concept_name: string;
-  explanation: string;
-  exercise: { questions: RemedialQuestion[] };
-  analogies: string[];
-  generated: boolean;
-};
+import type { RemedialContent } from "@/types/adaptive";
 
 type RemedialPanelProps = {
   courseId: string;

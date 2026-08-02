@@ -151,3 +151,67 @@ spec:
           port: 7700
         - protocol: TCP
           port: 443
+---
+# ── Prometheus -> worker/cron metrics (port 9101) ────────────────────────────
+# INGRESS side (default-deny-ingress applies to every pod): allow the
+# Prometheus pod to scrape worker/cron /metrics. Sources: a Prometheus in the
+# `monitoring` namespace (kube-prometheus-stack default) OR a same-namespace
+# pod labelled app=prometheus (self-hosted).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-prometheus-metrics-ingress
+  namespace: ascendly
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: ["ascendly-worker", "ascendly-cron"]
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - port: 9101
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
+      ports:
+        - port: 9101
+---
+# EGRESS side: if Prometheus itself runs in the ascendly namespace
+# (default-deny-egress applies), let it reach worker/cron :9101 + DNS.
+# A Prometheus in another namespace (e.g. monitoring) is governed by that
+# namespace's policies — this rule is inert there by design.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-egress-prometheus
+  namespace: ascendly
+spec:
+  podSelector:
+    matchLabels:
+      app: prometheus
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values: ["ascendly-worker", "ascendly-cron"]
+      ports:
+        - port: 9101
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

@@ -1,0 +1,41 @@
+# ClusterIP Services exposing the worker/cron Prometheus /metrics endpoints.
+# Worker/cron processes bind 0.0.0.0:9101 (PROMETHEUS_PORT) when telemetry is
+# enabled. Prometheus scrapes these via the canonical config
+# devops/prometheus/prometheus.yml.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ascendly-worker-metrics
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: ascendly-worker
+    app.kubernetes.io/instance: ascendly-worker
+    app.kubernetes.io/component: worker
+    {{- include "ascendly-runtime.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: ascendly-worker
+  ports:
+    - name: metrics
+      port: 9101
+      targetPort: 9101
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ascendly-cron-metrics
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: ascendly-cron
+    app.kubernetes.io/instance: ascendly-cron
+    app.kubernetes.io/component: cron
+    {{- include "ascendly-runtime.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app: ascendly-cron
+  ports:
+    - name: metrics
+      port: 9101
+      targetPort: 9101

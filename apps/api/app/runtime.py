@@ -42,7 +42,11 @@ async def run_api() -> None:
 
 
 async def run_worker() -> None:
-    """Reuse the existing arq worker bootstrap unchanged."""
+    """Reuse the existing arq worker bootstrap unchanged.
+
+    The worker bootstrap (app.worker.main) starts the Prometheus /metrics
+    server on PROMETHEUS_PORT when telemetry is enabled.
+    """
     from app.worker import main as worker_main
 
     await worker_main()
@@ -57,11 +61,15 @@ async def run_cron() -> None:
     from arq.worker import Worker
     from app.worker import WorkerSettings
 
+    if settings.telemetry_enabled:
+        from app.core.telemetry import start_metrics_server
+        start_metrics_server(settings.prometheus_port)
+
     worker = Worker(
         functions=[],
         redis_settings=WorkerSettings.redis_settings,
-        max_retries=WorkerSettings.max_retries,
-        keep_result_seconds=WorkerSettings.keep_result_seconds,
+        max_tries=WorkerSettings.max_retries,
+        keep_result=WorkerSettings.keep_result_seconds,
         keep_result_forever=WorkerSettings.keep_result_forever,
         poll_delay=WorkerSettings.poll_delay,
         max_burst_jobs=WorkerSettings.max_burst_jobs,

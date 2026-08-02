@@ -104,12 +104,15 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("user_id", ASCENDING), ("status", ASCENDING)], name="user_id_1_status_1"),
     ],
     "concept_definitions": [
+        IndexModel([("course_id", ASCENDING), ("slug", ASCENDING)], name="course_id_1_slug_1"),
+        IndexModel([("course_id", ASCENDING)], name="course_id_1"),
         IndexModel([("course_id", ASCENDING), ("is_active", ASCENDING)], name="course_id_1_is_active_1"),
         IndexModel([("slug", ASCENDING)], name="slug_1", unique=True),
         IndexModel([("tags", ASCENDING)], name="tags_1"),
     ],
     "concept_mastery": [
         IndexModel([("user_id", ASCENDING), ("course_id", ASCENDING), ("concept_id", ASCENDING)], name="user_id_1_course_id_1_concept_id_1", unique=True),
+        IndexModel([("user_id", ASCENDING), ("concept_id", ASCENDING)], name="user_id_1_concept_id_1"),
         IndexModel([("user_id", ASCENDING), ("course_id", ASCENDING)], name="user_id_1_course_id_1"),
         IndexModel([("concept_id", ASCENDING)], name="concept_id_1"),
     ],

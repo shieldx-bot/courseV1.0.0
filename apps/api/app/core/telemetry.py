@@ -36,8 +36,12 @@ LLM_TOKENS = Counter(
     "Total LLM tokens (estimated) by provider",
     ["provider"],
 )
+# Note: prometheus_client appends `_total` to Counter names automatically, so
+# the base name here (`llm_cost_usd`) is exposed on /metrics as
+# `llm_cost_usd_total{provider}`. Alert/dashboard queries must use the
+# `_total`-suffixed series name.
 LLM_COST_USD = Counter(
-    "llm_cost_total_usd",
+    "llm_cost_usd",
     "Estimated LLM cost in USD by provider",
     ["provider"],
 )
@@ -149,3 +153,22 @@ def setup_telemetry(app: FastAPI, environment: str = "development") -> None:
         return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     app.add_middleware(TelemetryMiddleware)
+
+
+def start_metrics_server(port: int = 9101) -> None:
+    """Start a micro Prometheus HTTP server (GET /metrics) in a daemon thread.
+
+    Used by the worker/cron processes which don't run FastAPI — Prometheus
+    scrapes the API on :8000 and the worker/cron on :9101 (override with
+    PROMETHEUS_PORT). Shares the default registry with the API process so all
+    counters (http_*, worker_*, llm_*) are exposed.
+    """
+    from prometheus_client import start_http_server
+
+    try:
+        start_http_server(port)
+        logging.getLogger(__name__).info("Prometheus metrics server listening on :%d/metrics", port)
+    except OSError as exc:
+        logging.getLogger(__name__).warning(
+            "Prometheus metrics server on :%d failed to start (already bound?): %s", port, exc
+        )

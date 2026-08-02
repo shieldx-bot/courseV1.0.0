@@ -1,8 +1,11 @@
+import logging
 import os
 from datetime import datetime, timezone
 from typing import Any
 from motor.motor_asyncio import AsyncIOMotorClient
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class _DeleteResult:
@@ -1004,3 +1007,10 @@ async def seed_db():
             },
         ]
         await db.help_articles.insert_many(help_articles)
+
+    # Adaptive Learning sample concepts (idempotent — no-op if already seeded).
+    try:
+        from app.db.seed_concepts import seed_concepts
+        await seed_concepts(db)
+    except Exception as exc:
+        logger.warning("Concept seeding skipped: %s", exc)
