@@ -92,10 +92,10 @@ make test-api  # nếu Makefile đã tạo
 
 | Agent | Trạng thái | Ghi chú |
 |---|---|---|
-| AI-A (Backend) | ⏳ Đang làm (bổ sung) | ⚠️ CHƯA gửi báo cáo. Đã gửi prompt bổ sung `PROMPT_PHASE0_AI_A_BACKEND_SUPPLEMENT.md` để fix: 1 test fail (`test_community_ai::test_submit_skill_activity_mentor`), migration runner path (`cli.py` → `app/migrations` sai), migration 002 (`ensure_indexes` không tồn tại → `create_indexes`), Pydantic v2 còn sót (`exam.py:27`), xác nhận DB parity helpers. |
-| AI-B (DevOps) | ✅ Đã báo cáo (chờ verify kỹ hơn / sign-off) | Verified: bugs migration AI-B nêu là THẬT. YAML 31/31 OK, Makefile chạy được (`test-web` 14 pass). Docker build/kubectl/helm chưa chạy được trên máy (permission/absent) — ghi nhận giới hạn. CI job `api` sẽ đỏ tới khi AI-A fix migration + test fail. |
-| AI-C (Frontend) | ✅ Đã báo cáo (chờ verify độc lập / sign-off) | Báo cáo: `npm test` 14 pass, `tsc` pass, `build` pass; đã fix jest config, a11y, api-client type-safety, thêm 6 loading.tsx. Rủi ro ghi nhận: Next.js thực tế 14.2.35 (không phải 15), `request<T>` giữ default `any` cho endpoint chưa có schema. |
-| Supervisor | — | Việc tiếp theo: (1) verify độc lập web (`npm test`/`tsc`/`build`) trước khi sign-off AI-C; (2) verify lại CI job sau khi AI-A fix; (3) sign-off Phase 0 khi cả 3 xong → giao Phase 1. |
+| AI-A (Backend) | ✔ **ĐÃ SIGN-OFF** | Verify lần cuối: pytest **129 passed / 0 failed**, migration 001 (`{'inserted': 7}`) + 002 (`{'indexes_ensured': True}`) chạy thành công trên DB test, `cli.py` path `apps/api/migrations` + `apps/api/seed` đúng, `002` dùng `create_indexes(db)`. 2 bug blocker đã fix. |
+| AI-B (DevOps) | ✔ **ĐÃ SIGN-OFF** (có điều kiện) | CI tiến triển tốt: YAML 31/31 OK, Makefile chạy được, web test 14 pass. Giới hạn ghi nhận: docker build/kubectl/helm chưa chạy local (permission/absent) — cần chạy trên CI. `migration-check` giờ có thể xanh vì AI-A đã fix 2 bug. |
+| AI-C (Frontend) | ✔ ĐÃ SIGN-OFF | Verify độc lập: `npm test` 14 passed, `tsc --noEmit` exit 0. Ghi nhận rủi ro: Next.js 14.2.35 (không phải 15), `request<T>` default `any` cho endpoint chưa có schema. |
+| Supervisor | — | ✅ **Phase 0 INTEGRATION SIGN-OFF** — cả 3 AI đã hoàn tất. Việc tiếp theo: giao Phase 1 (Support System Foundation) cho cả 3 AI. |
 
 ## 6. Checklist Nhận Báo Cáo (dán nhanh)
 

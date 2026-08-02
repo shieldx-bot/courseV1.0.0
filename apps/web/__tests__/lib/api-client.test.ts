@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { apiFetch, ApiClientError, isApiSuccess } from "@/lib/api-client";
+import { apiFetch, ApiClientError, isApiSuccess, typedRequest } from "@/lib/api-client";
 
 describe("apiFetch", () => {
   beforeEach(() => {
@@ -46,6 +46,18 @@ describe("apiFetch", () => {
     expect(err).toMatchObject({ status: 200, code: "COURSE_NOT_FOUND", message: "No such course" });
   });
 
+  it("throws ApiClientError with string error from envelope", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ success: false, error: "Flat failure message" }),
+    });
+
+    const err = await apiFetch("/test").catch((e) => e);
+    expect(err).toBeInstanceOf(ApiClientError);
+    expect(err).toMatchObject({ message: "Flat failure message", code: undefined });
+  });
+
   it("unwraps success envelope data", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
@@ -77,6 +89,65 @@ describe("apiFetch", () => {
 
     const result = await apiFetch("/test");
     expect(result).toBeUndefined();
+  });
+});
+
+describe("typedRequest", () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+  });
+
+  it("resolves params, appends query string, and sends JSON body", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ success: true, data: { id: 1 } }),
+    });
+    global.fetch = fetchMock;
+
+    await typedRequest<"post", string, { id: number }>("post", "POST /courses/{course_id}/discussions", {
+      params: { course_id: "abc 123" },
+      query: { page: 2, sort: "newest", flag: null, maybe: undefined },
+      body: { title: "Hi" },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain("/api/v1/courses/abc%20123/discussions");
+    expect(url).toContain("page=2");
+    expect(url).toContain("sort=newest");
+    expect(url).not.toContain("flag=");
+    expect(url).not.toContain("maybe=");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({ title: "Hi" });
+  });
+
+  it("unwraps success envelope data with the typed generic", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve({ success: true, data: { user: { id: "u1" } } }),
+    });
+
+    const result = await typedRequest<"get", string, { user: { id: string } }>("get", "GET /auth/me");
+    expect(result.user.id).toBe("u1");
+  });
+
+  it("retries the original request after a successful refresh on 401", async () => {
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 401, text: () => Promise.resolve("unauthorized") })
+      .mockResolvedValueOnce({ ok: true, status: 200, text: () => Promise.resolve("ok") })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ success: true, data: { ok: true } }),
+      });
+    global.fetch = fetchMock;
+
+    const result = await apiFetch("/test");
+    expect(result).toEqual({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });
 

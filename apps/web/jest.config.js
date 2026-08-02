@@ -8,6 +8,7 @@ const config = {
     "^@/(.*)$": "<rootDir>/$1",
   },
   testMatch: ["<rootDir>/__tests__/**/*.test.(ts|tsx)"],
+  modulePathIgnorePatterns: ["<rootDir>/.next/", "<rootDir>/node_modules/"],
   transform: {
     "^.+\\.(ts|tsx)$": [
       "ts-jest",

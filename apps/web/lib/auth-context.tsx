@@ -20,7 +20,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     apiClient.auth.me()
-      .then((data) => setUser(data as any))
+      .then((data) => setUser(data.user))
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);

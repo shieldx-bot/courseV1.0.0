@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 async def run_migration(name: str):
     db = get_db()
-    path = Path(__file__).parent.parent / "migrations" / f"{name}.py"
+    path = Path(__file__).parent.parent.parent / "migrations" / f"{name}.py"
     if not path.exists():
         logger.error("Migration not found: %s", name)
         return
@@ -33,7 +33,7 @@ async def run_seed():
     from pathlib import Path
 
     db = get_db()
-    seed_dir = Path(__file__).parent.parent / "seed"
+    seed_dir = Path(__file__).parent.parent.parent / "seed"
     for f in sorted(seed_dir.glob("*.json")):
         collection = f.stem
         count = await db[collection].count_documents({})

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app.core.deps import require_admin
+from app.core.deps import get_current_user, require_admin
 from app.core.response import api_response
 from app.services.knowledge_base import (
     create_article as create_article_svc,
@@ -92,7 +92,7 @@ async def get_article_by_id_endpoint(article_id: str):
 
 
 @router.post("/articles/{article_id}/feedback")
-async def article_feedback(article_id: str, body: FeedbackIn):
+async def article_feedback(article_id: str, body: FeedbackIn, user=Depends(get_current_user)):
     article = await get_article(article_id)
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")

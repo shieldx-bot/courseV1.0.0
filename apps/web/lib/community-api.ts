@@ -85,7 +85,7 @@ export const communityApi = {
     }),
 
   submitChallenge: (id: string, answer: unknown, time_seconds?: number) =>
-    request<any>(`/challenges/${id}/submit`, {
+    request<{ is_correct: boolean; attempt_id: string; correct_answer?: string }>(`/challenges/${id}/submit`, {
       method: "POST",
       body: JSON.stringify({ answer, time_seconds }),
     }),

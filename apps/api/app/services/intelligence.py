@@ -14,8 +14,6 @@ Outputs:
 
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import Any
-
 from app.db.mongodb import get_read_db
 
 logger = logging.getLogger(__name__)
@@ -28,13 +26,6 @@ def _now_iso() -> str:
 def _days_ago_iso(days: int) -> str:
     return (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
 
-
-def _safe(col, attr: str, default):
-    """Call a collection method, defaulting gracefully on in-memory gaps."""
-    try:
-        return getattr(col, attr)(*default) if not isinstance(default, tuple) else getattr(col, attr)(*default[1:])
-    except Exception:
-        return default[0] if isinstance(default, tuple) else default
 
 
 async def _count_users_active(db, since_iso: str) -> int:

@@ -7,6 +7,7 @@ from app.core.response import api_response
 from app.db.mongodb import get_db
 from app.services.support_tickets import (
     VALID_STATUSES,
+    add_message,
     create_ticket,
     get_ticket,
     get_ticket_messages,
@@ -15,6 +16,7 @@ from app.services.support_tickets import (
     rate_ticket,
     update_ticket_status,
     assign_ticket as assign_ticket_svc,
+    get_stats,
     send_ticket_notification,
 )
 from app.services.support_ai import chat as support_ai_chat, get_chat_history as get_support_chat_history, clear_chat_history as clear_support_chat_history

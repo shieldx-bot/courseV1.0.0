@@ -5,6 +5,13 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from app.core.config import settings
 
 
+class _DeleteResult:
+    """Minimal stand-in for pymongo's DeleteResult (parity for `.deleted_count`)."""
+
+    def __init__(self, deleted_count: int):
+        self.deleted_count = deleted_count
+
+
 class InMemoryCollection:
     def __init__(self):
         self.data: list[dict] = []
@@ -59,11 +66,14 @@ class InMemoryCollection:
         for i, d in enumerate(self.data):
             if self._match(d, query):
                 self.data.pop(i)
-                return
+                return _DeleteResult(1)
+        return _DeleteResult(0)
 
     async def delete_many(self, query=None):
         query = query or {}
+        before = len(self.data)
         self.data = [d for d in self.data if not self._match(d, query)]
+        return _DeleteResult(before - len(self.data))
 
     @staticmethod
     def _resolve(doc: dict, key: str):

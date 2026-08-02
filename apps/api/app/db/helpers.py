@@ -121,3 +121,73 @@ async def safe_add_to_set(
     entries.append(value)
     await collection.update_one(query, {"$set": {array_field: entries}})
     return {"success": True, "modified": True, "field": array_field, "length": len(entries)}
+
+
+# ── Canonical mutation helpers (shared by real Mongo + in-memory) ────────────
+
+
+async def create_doc(
+    collection_name: str,
+    doc: dict,
+    *,
+    db=None,
+) -> dict:
+    """Insert a document. Falls back to upsert if the ``_id`` already exists."""
+    db = db or get_db()
+    if "_id" in doc and await db[collection_name].find_one({"_id": doc["_id"]}):
+        await db[collection_name].update_one({"_id": doc["_id"]}, {"$set": doc}, upsert=True)
+        return {"success": True, "created": False, "doc": doc}
+    await db[collection_name].insert_one(doc)
+    return {"success": True, "created": True, "doc": doc}
+
+
+async def update_doc(
+    collection_name: str,
+    query: dict,
+    updates: dict,
+    *,
+    upsert: bool = False,
+    db=None,
+) -> dict:
+    """Portable ``$set`` update. Returns ``{"success", "modified"}``."""
+    db = db or get_db()
+    await db[collection_name].update_one(query, {"$set": updates}, upsert=upsert)
+    return {"success": True, "modified": True}
+
+
+async def push_to_array(
+    collection_name: str,
+    query: dict,
+    array_field: str,
+    value,
+    *,
+    db=None,
+) -> dict:
+    """Alias of ``safe_push_to_array`` — portable ``$push``."""
+    return await safe_push_to_array(collection_name, query, array_field, value, db=db)
+
+
+async def increment_field(
+    collection_name: str,
+    query: dict,
+    field: str,
+    amount: float = 1,
+    *,
+    db=None,
+) -> dict:
+    """Portable ``$inc`` — ``field`` may be a dotted path (e.g. ``stats.attempts``)."""
+    db = db or get_db()
+    await db[collection_name].update_one(query, {"$inc": {field: amount}})
+    return {"success": True, "field": field, "amount": amount}
+
+
+async def set_fields(
+    collection_name: str,
+    query: dict,
+    fields: dict,
+    *,
+    upsert: bool = False,
+    db=None,
+) -> dict:
+    """Alias of ``update_doc`` — portable ``$set`` for multiple fields."""
+    return await update_doc(collection_name, query, fields, upsert=upsert, db=db)

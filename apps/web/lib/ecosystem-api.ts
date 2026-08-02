@@ -1,4 +1,5 @@
 import type {
+  CreatorAchievement,
   CreatorAnalytics,
   CreatorLeaderboardEntry,
   MarketplaceCollection,
@@ -39,7 +40,7 @@ export const ecosystemApi = {
     request<CreatorAnalytics>(`/ecosystem/creators/me/analytics?days=${days}`),
 
   refreshCreatorAchievements: () =>
-    request<{ new_achievements: any[]; new_badges: string[]; achievements: string[]; badges: string[]; level: string; level_score: number }>(
+    request<{ new_achievements: CreatorAchievement[]; new_badges: string[]; achievements: string[]; badges: string[]; level: string; level_score: number }>(
       "/ecosystem/creators/me/refresh",
       { method: "POST" }
     ),

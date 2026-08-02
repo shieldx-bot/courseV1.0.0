@@ -70,7 +70,6 @@ async def update_article(article_id: str, data: dict[str, Any]) -> dict[str, Any
     if "title" in data:
         updates["title"] = data["title"]
         updates["slug"] = data.get("slug") or _slugify(data["title"])
-        updates["_id"] = f"article-{updates['slug']}"
     if "category" in data:
         updates["category"] = _normalize_category(data["category"])
     if "content" in data:
@@ -82,13 +81,8 @@ async def update_article(article_id: str, data: dict[str, Any]) -> dict[str, Any
     if "is_published" in data:
         updates["is_published"] = data["is_published"]
 
-    slug = updates.get("slug", existing["slug"])
-    await db.help_articles.update_one(
-        {"_id": article_id},
-        {"$set": updates},
-    )
-    updated = await db.help_articles.find_one({"_id": f"article-{slug}"})
-    return updated
+    await db.help_articles.update_one({"_id": article_id}, {"$set": updates})
+    return await db.help_articles.find_one({"_id": article_id})
 
 
 async def delete_article(article_id: str) -> bool:

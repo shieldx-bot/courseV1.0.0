@@ -10,14 +10,9 @@
 # The runner logs `Migration not found: <name>` (and exits 0) when the source
 # path is wrong. This script fails fast in that case instead of silently green.
 #
-# NOTE (Phase 0 known limitation): `python -m app.cli migrate ...` as documented
-# in apps/api/migrations/README.md is currently NOT executable because:
-#   - the module lives at `app/core/cli.py` (not `app.cli`), and
-#   - the CLI resolves migrations relative to `apps/api/app/migrations/`
-#     while the files live in `apps/api/migrations/`.
-# This script therefore runs the real module (`app.core.cli`) and uses the full
-# migration names; once the backend fixes the aliases/README, the checks below
-# remain valid. See the Phase 0 report for the Supervisor.
+# NOTE: the in-memory Mongo backend is process-local, so state cannot survive
+# across separate CLI invocations. Idempotency + final DB state are therefore
+# verified in a single Python process (see "Verify DB state" below).
 set -euo pipefail
 
 # Portable interpreter, in order of preference:
@@ -57,27 +52,37 @@ run_migrate() {
   }
 }
 
-echo "::group::Migration 001 (seed categories) on clean DB"
+echo "::group::CLI smoke — python -m app.core.cli migrate 001_seed_categories"
 run_migrate "001_seed_categories" "$LOG_DIR/mig-001.log"
 if grep -q "Migration not found" "$LOG_DIR/mig-001.log"; then
-  echo "::error::Migration runner could not locate apps/api/migrations/001_seed_categories.py (path bug in app.core.cli)."
+  echo "::error::Migration runner could not locate apps/api/migrations/001_seed_categories.py."
   cat "$LOG_DIR/mig-001.log"
   exit 1
 fi
+grep -E "Migration 001_seed_categories result:" "$LOG_DIR/mig-001.log" || {
+  echo "::error::CLI migration 001 produced no result — runner did not execute."
+  cat "$LOG_DIR/mig-001.log"
+  exit 1
+}
 cat "$LOG_DIR/mig-001.log"
 echo "::endgroup::"
 
-echo "::group::Migration 002 (add indexes) on clean DB"
+echo "::group::CLI smoke — python -m app.core.cli migrate 002_add_indexes"
 run_migrate "002_add_indexes" "$LOG_DIR/mig-002.log"
 if grep -q "Migration not found" "$LOG_DIR/mig-002.log"; then
-  echo "::error::Migration runner could not locate apps/api/migrations/002_add_indexes.py (path bug in app.core.cli)."
+  echo "::error::Migration runner could not locate apps/api/migrations/002_add_indexes.py."
   cat "$LOG_DIR/mig-002.log"
   exit 1
 fi
+grep -E "Migration 002_add_indexes result:" "$LOG_DIR/mig-002.log" || {
+  echo "::error::CLI migration 002 produced no result — runner did not execute."
+  cat "$LOG_DIR/mig-002.log"
+  exit 1
+}
 cat "$LOG_DIR/mig-002.log"
 echo "::endgroup::"
 
-echo "::group::Seed (JSON seed data)"
+echo "::group::CLI smoke — python -m app.core.cli seed"
 "$PY" -m app.core.cli seed > "$LOG_DIR/seed.log" 2>&1 || {
   echo "::error::Seed command failed."
   cat "$LOG_DIR/seed.log"
@@ -86,31 +91,41 @@ echo "::group::Seed (JSON seed data)"
 cat "$LOG_DIR/seed.log"
 echo "::endgroup::"
 
-echo "::group::Idempotency check (re-run migration 001)"
-run_migrate "001_seed_categories" "$LOG_DIR/mig-001-rerun.log"
-if grep -q "Migration not found" "$LOG_DIR/mig-001-rerun.log"; then
-  echo "::error::Migration runner could not locate migration on second run."
-  cat "$LOG_DIR/mig-001-rerun.log"
-  exit 1
-fi
-cat "$LOG_DIR/mig-001-rerun.log"
-echo "::endgroup::"
-
-echo "::group::Verify DB state"
+echo "::group::Verify DB state (in-process — memory:// is process-local)"
 "$PY" - <<'PY'
 import asyncio
 import os
 
 os.environ["MONGODB_URI"] = "memory://test"
 
+from app.core.cli import run_migration, run_seed
 from app.db.mongodb import get_db
 
 
 async def main():
     db = get_db()
+
+    # Fresh run on clean DB -> inserts 7 categories.
+    await run_migration("001_seed_categories")
     categories = await db.categories.count_documents({})
-    assert categories > 0, f"expected >0 categories after seed, got {categories}"
-    print(f"OK: categories={categories} (non-empty after seed)")
+    assert categories == 7, f"expected 7 categories after 001, got {categories}"
+
+    # Re-run -> idempotent (still 7, no duplicates).
+    await run_migration("001_seed_categories")
+    categories = await db.categories.count_documents({})
+    assert categories == 7, f"expected 7 categories after re-run (idempotent), got {categories}"
+
+    # Indexes.
+    await run_migration("002_add_indexes")
+
+    # Seed -> categories already present (no dup), tiers inserted (5).
+    await run_seed()
+    categories = await db.categories.count_documents({})
+    tiers = await db.tiers.count_documents({})
+    assert categories == 7, f"expected 7 categories after seed, got {categories}"
+    assert tiers == 5, f"expected 5 tiers, got {tiers}"
+    print(f"OK: categories={categories}, tiers={tiers}")
+    print("OK: 001 inserted once then skipped -> idempotent; seed idempotent")
     print("OK: in-memory DB state verified")
 
 
@@ -118,4 +133,4 @@ asyncio.run(main())
 PY
 echo "::endgroup::"
 
-echo "✅ Migration check passed: migrations resolved, executed, seed applied, and 001 is idempotent."
+echo "✅ Migration check passed: CLI executes, migrations+seed run, and 001 is idempotent."

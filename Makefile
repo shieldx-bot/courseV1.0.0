@@ -17,7 +17,7 @@ VENV_PY    := $(VENV)/bin/python
 API_PY     := $(if $(wildcard $(VENV_PY)),$(VENV_PY),$(PYTHON))
 
 .PHONY: help setup compose-up compose-up-all compose-down \
-        test-api test-web build-api build-web lint migrate \
+        test-api test-web build-api build-web lint migrate seed-support \
         dev dev-api dev-web
 
 help: ## Show available targets
@@ -33,6 +33,7 @@ help: ## Show available targets
 	@echo "  make build-web       Build Next.js production bundle"
 	@echo "  make lint            Lint backend (ruff, if installed) + frontend (next lint)"
 	@echo "  make migrate         Run documented DB migrations + seed (apps/api/migrations/README.md)"
+	@echo "  make seed-support    Seed dev support data (articles, tickets, messages) — idempotent"
 	@echo "  make dev             Run api (8000) + web (3000) dev servers concurrently"
 	@echo "  make dev-api         Run only the FastAPI dev server"
 	@echo "  make dev-web         Run only the Next.js dev server"
@@ -76,6 +77,9 @@ migrate: ## Run documented migrations + seed (see apps/api/migrations/README.md)
 	cd $(API_DIR) && $(API_PY) -m app.core.cli migrate 001_seed_categories
 	cd $(API_DIR) && $(API_PY) -m app.core.cli migrate 002_add_indexes
 	cd $(API_DIR) && $(API_PY) -m app.core.cli seed
+
+seed-support: ## Seed dev support data (help_articles, support_tickets, ticket_messages) — idempotent
+	$(API_PY) devops/scripts/seed_support.py
 
 dev: ## Run API (8000) + Web (3000) dev servers concurrently
 	@echo "Starting API  → http://localhost:8000"
