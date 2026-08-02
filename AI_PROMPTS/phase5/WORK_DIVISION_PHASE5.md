@@ -139,7 +139,13 @@ Cuối Phase: Supervisor verify end-to-end (quiz adaptive → submit → mastery
 | P5 | ✔ **SIGN-OFF** (190 pytest) | ✔ **SIGN-OFF** (dashboard/alerts OK) | ✔ **SIGN-OFF** (carry-over xong: time_seconds + flaky 4/4) | ✔ |
 | P6 | ✔ **SIGN-OFF** (205 pytest) | ✔ **SIGN-OFF** (dashboard 11 panel) | ✔ **SIGN-OFF** (100 test, 4/4 xanh, tsc+build) | ✔ **INTEGRATION SIGN-OFF** |
 | P7 | ✔ **SIGN-OFF** (231 pytest; split + 12 events + snapshot) | ✔ **SIGN-OFF** (request-ID + cron + CI gates) | ✔ **SIGN-OFF** (118 test, tsc+build) | ✔ **INTEGRATION SIGN-OFF** ⚠️ 2 carry-over → P8 |
-| P8 | ⏳ `phase8/PROMPT_PHASE8_AI_A_BACKEND.md` — **W0 CO1 TTL** + smoke suite (gate promote) | ⏳ `phase8/PROMPT_PHASE8_AI_B_DEVOPS.md` — **W0 CO2 alert + CO1 retention** + release.yml/HPA web/SOPS/rollback + **deploy staging (W2 gate)** | ⏳ `phase8/PROMPT_PHASE8_AI_C_FRONTEND.md` — performance + lighthouse + **E2E staging (W2 gate)** | ❌ |
+| P8 | ✔ **SIGN-OFF** (242 pass + 4 skip; CO1 TTL + smoke suite) | ✔ **SIGN-OFF** (CO2 alert + CO1 retention; release.yml/HPA/SOPS/rollback) | ✔ **SIGN-OFF** (118 test + E2E 17/17 local + 2 bug CRITICAL auth) | ✔ **CODE SIGN-OFF** 🔴 **RELEASE GATE chờ credentials thật (Supervisor cấp)** |
+
+### RELEASE GATE — cần Supervisor cấp credentials THẬT (không AI nào làm thay được)
+- [ ] `KUBECONFIG_STAGING` (GitHub secret) để AI-B `deploy.sh` deploy staging thật.
+- [ ] `SMOKE_BASE_URL_STAGING` + `SMOKE_USER`/`SMOKE_PASSWORD` (AI-A smoke gate trên staging).
+- [ ] `AGE_SECRET_KEY` (private key SOPS — AI-B có `age.key` local gitignored, cần backup).
+- Sau khi cấp: AI-B deploy staging → AI-A smoke(staging) → AI-C E2E(staging) → gate xanh → promote prod.
 
 ### Wave Phase 8
 ```

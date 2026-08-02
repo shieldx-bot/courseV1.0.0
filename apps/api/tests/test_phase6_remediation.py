@@ -353,9 +353,11 @@ def test_ai_tutor_injects_weak_concept_context():
     )
     assert "Student is weak at SELECT & FROM" in context_msg["content"]
     assert "Review the basics of SELECT & FROM." in context_msg["content"]
-    # Response shape is frozen (Phase 6 contract): unchanged.
-    assert set(result.keys()) == {"answer", "session_id", "message_count"}
+    # Response shape is frozen (Phase 6 contract): additive focus_concepts only.
+    assert set(result.keys()) == {"answer", "session_id", "message_count", "focus_concepts"}
     assert result["answer"] == "Here is the answer."
+    # Phase 6 (NV4 follow-up): focus_concepts drives the AI-C "Focus:" hint.
+    assert result["focus_concepts"] == ["SELECT & FROM"]
 
 
 def test_ai_tutor_skips_context_when_no_weak_concepts():
@@ -384,7 +386,8 @@ def test_ai_tutor_skips_context_when_no_weak_concepts():
         if m["role"] == "user" and "lesson context" in m["content"].lower()
     )
     assert "Student is weak at" not in context_msg["content"]
-    assert set(result.keys()) == {"answer", "session_id", "message_count"}
+    assert set(result.keys()) == {"answer", "session_id", "message_count", "focus_concepts"}
+    assert result["focus_concepts"] == [], "no weak concepts -> empty focus list"
 
 
 # ── NV3: skip returns updated_sequence ───────────────────────────────────────

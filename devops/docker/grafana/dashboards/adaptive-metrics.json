@@ -167,18 +167,84 @@
     },
     {
       "title": "Remediation Effectiveness (% users improved)",
-      "type": "text",
-      "datasource": "Prometheus",
-      "targets": [],
-      "options": {
-        "mode": "markdown",
-        "content": "**Data source: analytics API (NOT Prometheus).**\n\nComputes the share of users whose mastery increased after remediation by comparing `quiz_attempts.concept_results` mastery before/after deltas and the micro-exercise submit payload (`mastery_before`/`mastery_after`, Phase 6).\n\nThis metric is aggregated from MongoDB documents, so it needs an analytics endpoint (e.g. `GET /admin/adaptive/analytics/remediation-effectiveness`). This panel is a **placeholder** until that API exists — no fabricated Prometheus query.\n\nOnce the API ships, point this panel (or a table) at it via the data source; current value: pending."
-      },
+      "type": "table",
+      "datasource": "Adaptive Analytics API",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "ascendly-analytics-json"
+          },
+          "query": "remediation-effectiveness?window_days=30",
+          "targetPath": "data",
+          "format": "table",
+          "fields": [
+            {
+              "name": "total_users",
+              "type": "number"
+            },
+            {
+              "name": "improved_pct",
+              "type": "number"
+            },
+            {
+              "name": "avg_mastery_delta",
+              "type": "number"
+            },
+            {
+              "name": "avg_gap_resolution_days",
+              "type": "number"
+            },
+            {
+              "name": "window_days",
+              "type": "number"
+            }
+          ]
+        }
+      ],
       "gridPos": {
         "h": 8,
         "w": 12,
         "x": 12,
         "y": 32
+      }
+    },
+    {
+      "title": "Remediation Effectiveness — top weak concepts",
+      "type": "table",
+      "datasource": "Adaptive Analytics API",
+      "targets": [
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "marcusolsson-json-datasource",
+            "uid": "ascendly-analytics-json"
+          },
+          "query": "remediation-effectiveness?window_days=30",
+          "targetPath": "data.by_concept",
+          "format": "table",
+          "fields": [
+            {
+              "name": "concept_name",
+              "type": "string"
+            },
+            {
+              "name": "weak_events",
+              "type": "number"
+            },
+            {
+              "name": "avg_mastery_delta",
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
       }
     },
     {
@@ -194,7 +260,7 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 40
       }
     },
@@ -211,8 +277,8 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 12,
-        "y": 40
+        "x": 0,
+        "y": 48
       }
     },
     {
@@ -222,13 +288,13 @@
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "The adaptive_* and intelligence/retention series are exported by the backend. Panels populate as soon as AI-A instruments M1-M9 (M6/M7 = remediation feedback + exercise submit, Phase 6; M8/M9 = intelligence snapshot + retention cleanup, Phase 7). Alerts evaluate on these same series. The Remediation Effectiveness panel needs an analytics API over quiz_attempts, not a metric."
+        "content": "The adaptive_* and intelligence/retention series are exported by the backend. Panels populate as soon as AI-A instruments M1-M9 (M6/M7 = remediation feedback + exercise submit, Phase 6; M8/M9 = intelligence snapshot + retention cleanup, Phase 7). Alerts evaluate on these same series. The Remediation Effectiveness panels query the analytics endpoint (GET /api/v1/admin/adaptive/analytics/remediation-effectiveness) via the Adaptive Analytics API JSON datasource — they show real data from quiz_attempts once admin credentials are configured."
       },
       "gridPos": {
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 48
+        "y": 56
       }
     }
   ]

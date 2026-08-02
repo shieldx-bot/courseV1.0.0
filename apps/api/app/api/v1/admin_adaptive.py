@@ -159,6 +159,17 @@ async def admin_update_concept(concept_id: str, body: ConceptUpdateIn, _=Depends
                 {"$set": {"prerequisite_concepts": ref_prereqs}},
             )
     doc = await db.concept_definitions.find_one({"_id": new_id})
+
+    # Refresh policy (Phase 6 follow-up): stale remedial_content keyed by this
+    # concept is invalidated on edit so the next request regenerates content
+    # that matches the updated definition.
+    try:
+        from app.services.remediation import flush_remedial_content
+
+        await flush_remedial_content(concept_id, existing.get("course_id") or None)
+    except Exception as exc:
+        logger.warning("Failed to flush remedial content after concept update: %s", exc)
+
     return api_response(_format_concept(doc))
 
 
@@ -257,6 +268,41 @@ async def admin_course_stats(course_id: str, _=Depends(require_admin)):
 async def admin_prerequisite_gaps(course_id: str, _=Depends(require_admin)):
     gaps = await get_prerequisite_gaps("", course_id)
     return api_response(gaps)
+
+
+# ── Admin Remediation refresh ────────────────────────────────────────────────
+
+
+@admin_router.post("/remediation/flush/{concept_id}")
+async def admin_flush_remedial_content(
+    concept_id: str,
+    course_id: str | None = Query(default=None),
+    _=Depends(require_admin),
+):
+    """Invalidate cached remedial_content + Redis entries for a concept.
+
+    The next content request regenerates fresh LLM content. Optional
+    ``course_id`` scopes the persisted-doc deletion to one course.
+    """
+    from app.services.remediation import flush_remedial_content
+
+    result = await flush_remedial_content(concept_id, course_id)
+    return api_response(result)
+
+
+# ── Admin Analytics ──────────────────────────────────────────────────────────
+
+
+@admin_router.get("/analytics/remediation-effectiveness")
+async def admin_remediation_effectiveness(
+    window_days: int = Query(default=30, ge=1, le=365),
+    course_id: str | None = Query(default=None),
+    _=Depends(require_admin),
+):
+    from app.services.analytics import remediation_effectiveness
+
+    result = await remediation_effectiveness(window_days=window_days, course_id=course_id)
+    return api_response(result)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

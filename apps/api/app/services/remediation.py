@@ -294,6 +294,33 @@ async def submit_remedial_exercise(
     }
 
 
+async def flush_remedial_content(
+    concept_id: str, course_id: str | None = None
+) -> dict[str, Any]:
+    """Invalidate persisted + cached remedial content for a concept.
+
+    Phase 6 follow-up (refresh policy): ``remedial_content`` docs are keyed by
+    ``rc-{concept_id}-{hash}`` and reused across users, so stale LLM content
+    would otherwise live forever. This removes the persisted docs (optionally
+    scoped to one course) and the per-user Redis entries for the concept; the
+    next ``generate_remedial_content`` call regenerates fresh content.
+
+    Returns ``{concept_id, course_id, deleted, flushed}``.
+    """
+    db = get_db()
+    query: dict[str, Any] = {"concept_id": concept_id}
+    if course_id:
+        query["course_id"] = course_id
+    result = await db.remedial_content.delete_many(query)
+    await _flush_redis_cache_for_concept(concept_id)
+    return {
+        "concept_id": concept_id,
+        "course_id": course_id,
+        "deleted": result.deleted_count,
+        "flushed": True,
+    }
+
+
 async def submit_remediation_feedback(
     user_id: str,
     course_id: str,
@@ -473,6 +500,17 @@ async def _set_redis_cache(key: str, value: str, ttl_seconds: int) -> None:
         import redis as _redis
         client = _redis.from_url(settings.redis_url)
         await client.setex(key, ttl_seconds, value)
+    except Exception:
+        pass
+
+
+async def _flush_redis_cache_for_concept(concept_id: str) -> None:
+    """Delete all per-user Redis remediation cache keys for a concept."""
+    try:
+        import redis as _redis
+        client = _redis.from_url(settings.redis_url)
+        async for key in client.scan_iter(match=f"remediation:*:{concept_id}", count=500):
+            await client.delete(key)
     except Exception:
         pass
 

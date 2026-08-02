@@ -38,6 +38,7 @@ htmlcov/
 
 # Logs
 *.log
+apps/api/logs/errors/*.jsonl
 
 # OS generated files
 .DS_Store

@@ -484,13 +484,23 @@ status` wait → smoke (`make smoke SMOKE_BASE_URL=<env>/api/v1`).
 
 **Triggers** (release.yml):
 - `workflow_dispatch` with `environment: staging|production` (+ optional
-  `version` alias).
+  `version` alias, + optional debug-only `allow-smoke-skip`).
 - push of a `v*` tag → full pipeline to production.
 
-**Promotion gate**: staging is always deployed first; its smoke must be green
-before `deploy-prod` runs. `deploy-prod` targets the GitHub **production
-environment** — add a manual-approval protection rule in
+**Promotion gate (fail-closed for production)**: staging is always deployed
+first; its smoke must be green before `deploy-prod` runs. `deploy-prod` targets
+the GitHub **production environment** — add a manual-approval protection rule in
 `Settings → Environments → production` for a human gate.
+
+Smoke gate semantics:
+- **Staging**: if `SMOKE_BASE_URL_STAGING` is unset the smoke step logs a
+  warning and is skipped — *unless* the workflow is dispatched with
+  `allow-smoke-skip=true` (dev/debug only, explicitly authorizes the skip).
+- **Production (fail-closed)**: `SMOKE_BASE_URL_PRODUCTION` is **required** and
+  the smoke suite **must pass**. There is **no skip path**: if the secret is
+  missing or smoke is red, `deploy-prod` **fails and promotion is blocked**.
+  This is verified by `ci-release-dry-run.sh` (group 4), which simulates the
+  "production + unset `SMOKE_BASE_URL_PRODUCTION`" path and asserts it exits 1.
 
 **Required repo secrets** (`Settings → Secrets → Actions`):
 
@@ -514,6 +524,54 @@ scale-up/down behavior as `api-hpa.yaml`. `web-deployment.yaml` floor is
 dev runs on docker compose (no k8s, no autoscaling). The KEDA
 `ScaledObject` for the worker (`worker-scaledobject.yaml` / `ascendly-runtime`
 chart) is unchanged and still valid.
+
+### Deploy staging thật (chờ Supervisor cấp credentials)
+
+Khi Supervisor cấp các GitHub secrets `KUBECONFIG_STAGING`, `SMOKE_BASE_URL_STAGING`
+(+ `SMOKE_USER` / `SMOKE_PASSWORD`) và `AGE_SECRET_KEY`, staging được deploy theo
+2 cách:
+
+**1. Qua GitHub Actions (khuyến nghị)** — chạy workflow `Release` với
+`environment: staging`:
+`Actions → Release → Run workflow → environment: staging`. Pipeline build + push
+image → `deploy.sh staging` → SOPS decrypt → rollout → smoke staging. Nếu
+`SMOKE_BASE_URL_STAGING` chưa cấu hình, smoke bị **skip** (warning) trừ khi bật
+`allow-smoke-skip=true` (dev/debug). **Production luôn fail-closed** — xem mục
+"Promotion gate" bên dưới.
+
+**2. CLI trực tiếp** — cần `KUBECONFIG` vs `SMOKE_BASE_URL` env (cách chạy khi có
+quyền cluster):
+
+```bash
+# Deploy staging (yêu cầu KUBECONFIG + registry creds + AGE_SECRET_KEY):
+KUBECONFIG=~/.kube/staging.yaml \
+REGISTRY_USERNAME=<actor> REGISTRY_PASSWORD=<token> \
+AGE_SECRET_KEY=<age-private-key> \
+bash devops/scripts/deploy.sh staging ghcr.io/<owner>/ascendly-api ghcr.io/<owner>/ascendly-web <sha>
+
+# Smoke thủ công sau deploy (yêu cầu base URL + optional user/pass):
+make smoke SMOKE_BASE_URL=https://staging.<host>/api/v1 \
+           SMOKE_USER=<u> SMOKE_PASSWORD=<p>
+```
+
+`deploy.sh` và `rollback.sh` đã nhận đúng env `KUBECONFIG` / `SMOKE_BASE_URL` /
+`SMOKE_USER` / `SMOKE_PASSWORD` qua release.yml — không cần sửa script (đã
+kiểm chứng bằng `ci-release-dry-run.sh` group 3 + bash -n).
+
+### Conflicts/Bảo mật — Checklist backup `age.key` (SOPS private key)
+
+Private key **không bao giờ được commit**. Khi Supervisor cấp `AGE_SECRET_KEY`
+(cần cho CI decrypt `secrets.{staging,production}.enc.yaml`), phải backup key
+bản sao nếu mất thì decrypt mọi env thất bại:
+
+- [ ] Sao chép private key ra nơi an toàn ngoài repo: `~/.config/sops/age/keys.txt`
+      (dòng đầu, `AGE-SECRET-KEY-1...`).
+- [ ] Verify key khớp `age.pubkey.txt`: `age -i <keyfile> -d` decrypt 1 bản thử,
+      hoặc `sops -d devops/secrets/secrets.staging.enc.yaml` không báo lỗi.
+- [ ] Lưu một bản vào password manager / Vault của team (ngoài repo).
+- [ ] KHÔNG commit private key; `.gitignore` đã loại `age.key`/`AGE_SECRET_KEY`
+      (xem `scripts/secrets-*.sh` + `.gitignore`).
+- [ ] Nếu mất key → regenerate cặp age, re-encrypt lại 2 file `.enc.yaml`.
 
 ### Secrets (NV5 — SOPS + age)
 
@@ -661,3 +719,27 @@ Playwright e2e, Lighthouse CI and visual regression when secrets are configured.
 - **NV6**: `rollback.sh --dry-run` validated; runbook written.
 - **NV7**: lint-regression gate green — ruff 752 (baseline 753), mypy 125
   (baseline 125): no new findings from Phase 8 files.
+
+## Verified in Completion round (AI-A A1–A4 + AI-B B1–B4)
+
+- **B1 fail-closed**: `release.yml` production smoke gate is now **fail-closed** —
+  no skip path. `SMOKE_BASE_URL_PRODUCTION` missing or smoke red → `deploy-prod`
+  fails. Staging keeps warning+skip and honors the new `allow-smoke-skip` debug
+  input (default `false`). Verified by `ci-release-dry-run.sh` groups 4/4b
+  (static code-path assert + executed simulation of "prod + unset URL" → exit 1).
+- **B2 dashboard**: "Remediation Effectiveness" panels (aggregate table + top
+  weak concepts) now query the AI-A analytics endpoint
+  `GET /api/v1/admin/adaptive/analytics/remediation-effectiveness` via the
+  provisioned **Adaptive Analytics API** JSON datasource
+  (`devops/docker/grafana/datasources/json-api.yml`, plugin
+  `marcusolsson-json-datasource` added to `docker-compose.yml`). Placeholder
+  `targets: []` and the "needs an analytics API" note are gone. Dashboard JSON
+  re-validated (14 panels, no overlaps, P5–P8 fields intact).
+- **B3 baseline**: ruff re-measured → **758** (committed baseline updated from
+  753 — AI-A's completion code added analytics/admin_adaptive/test files; mypy
+  stays **125**). `make test-api` → **253 passed, 4 skipped** (≥ 242+4 target).
+  YAML/JSON parse + dry-run green locally; helm lint/kubeconform run in CI
+  `manifest-check` (no local helm/kubeconform).
+- **B4 staging**: README documents both deploy paths (Actions workflow vs CLI
+  `KUBECONFIG`/`SMOKE_BASE_URL` envs) and the `age.key` backup checklist
+  (see "Deploy staging thật" + "Checklist backup age.key").

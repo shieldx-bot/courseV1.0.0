@@ -5,8 +5,17 @@
 # smoke must pass before production (promotion gate + optional manual approval
 # via the GitHub "production" environment protection rule).
 #
+# Smoke gate semantics (fail-closed for production):
+#   - Staging: if SMOKE_BASE_URL_STAGING is missing the smoke step logs a
+#     warning and is skipped, UNLESS the workflow_dispatch input
+#     `allow-smoke-skip=true` explicitly authorizes the skip (dev/debug only).
+#   - Production: SMOKE_BASE_URL_PRODUCTION is REQUIRED and the smoke suite MUST
+#     pass. There is no skip path — deploy-prod fails closed when the secret is
+#     missing or smoke is red. Tag pushes (v*) always go to production.
+#
 # Triggers:
-#   - workflow_dispatch (environment: staging|production; version: optional)
+#   - workflow_dispatch (environment: staging|production; version: optional;
+#     allow-smoke-skip: staging-only debug flag)
 #   - push of a v* tag  → full pipeline to production
 #
 # Required repository secrets:
@@ -34,6 +43,10 @@ on:
         description: Semver alias (e.g. 1.0.0). Defaults to the pushed tag (vX.Y.Z) or 0.0.0-<sha>.
         type: string
         required: false
+      allow-smoke-skip:
+        description: Allow the STAGING smoke gate to be skipped when SMOKE_BASE_URL_STAGING is not configured (debug/dev only). PRODUCTION smoke can never be skipped — the deploy-prod job always fails closed.
+        type: boolean
+        default: false
   push:
     tags: ['v*']
 
@@ -167,8 +180,13 @@ jobs:
           SMOKE_BASE_URL: ${{ secrets.SMOKE_BASE_URL_STAGING }}
           SMOKE_USER: ${{ secrets.SMOKE_USER }}
           SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          ALLOW_SMOKE_SKIP: ${{ inputs.allow-smoke-skip }}
         run: |
           if [ -z "$SMOKE_BASE_URL" ]; then
+            if [ "$ALLOW_SMOKE_SKIP" = "true" ]; then
+              echo "::warning::SMOKE_BASE_URL_STAGING not configured — staging smoke SKIPPED because allow-smoke-skip=true (dev/debug only). Production smoke can never be skipped."
+              exit 0
+            fi
             echo "::warning::SMOKE_BASE_URL_STAGING not configured — smoke skipped. Configure it to gate the promotion to production."
             exit 0
           fi
@@ -227,15 +245,19 @@ jobs:
             "${{ env.API_IMAGE }}" "${{ env.WEB_IMAGE }}" \
             "${{ needs.push-images.outputs.sha_tag }}"
 
-      - name: Smoke tests (production)
+      - name: Smoke tests (production) — REQUIRED gate (fail-closed)
         env:
           SMOKE_BASE_URL: ${{ secrets.SMOKE_BASE_URL_PRODUCTION }}
           SMOKE_USER: ${{ secrets.SMOKE_USER }}
           SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
         run: |
+          # FAIL-CLOSED: production promotion is impossible without a live smoke
+          # gate. Missing SMOKE_BASE_URL_PRODUCTION is a hard error — there is
+          # intentionally NO skip path for production (unlike staging, which
+          # honors the allow-smoke-skip debug input).
           if [ -z "$SMOKE_BASE_URL" ]; then
-            echo "::warning::SMOKE_BASE_URL_PRODUCTION not configured — smoke skipped."
-            exit 0
+            echo "::error::SMOKE_BASE_URL_PRODUCTION is not configured — production smoke gate cannot run. Configure the SMOKE_BASE_URL_PRODUCTION secret, then re-run. Deploy-prod FAILS CLOSED: promotion is blocked."
+            exit 1
           fi
           python3 -m pip install --upgrade pip
           python3 -m pip install -r apps/api/requirements.txt

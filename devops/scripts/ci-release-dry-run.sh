@@ -60,7 +60,99 @@ done
 bash devops/scripts/rollback.sh staging 3 --dry-run > /dev/null && echo "OK rollback.sh --dry-run"
 echo "::endgroup::"
 
-echo "::group::4. SOPS artifacts"
+echo "::group::4. Release smoke gate semantics (fail-closed production)"
+"$PY" - <<'PYEOF'
+import sys, yaml
+
+wf = yaml.safe_load(open(".github/workflows/release.yml"))
+errs = []
+
+# 1. allow-smoke-skip input exists, boolean, default false
+# NOTE: YAML 1.1 parses the workflow key `on` as the boolean True.
+dispatch = wf.get(True, wf.get("on", {}))
+inputs = (dispatch.get("workflow_dispatch") or {}).get("inputs") or {}
+ass = (inputs.get("allow-smoke-skip") or {})
+if ass.get("type") != "boolean" or ass.get("default") is not False:
+    errs.append("allow-smoke-skip input must be a boolean defaulting to false")
+
+jobs = wf.get("jobs") or {}
+prod = jobs.get("deploy-prod") or {}
+stag = jobs.get("deploy-staging") or {}
+
+def steps_of(job):
+    return job.get("steps") or []
+
+def find_step(job, name_part):
+    for step in steps_of(job):
+        if name_part.lower() in (step.get("name") or "").lower():
+            return step
+    return None
+
+# Production smoke: MUST fail closed (no skip; missing URL -> exit 1)
+prod_smoke = find_step(prod, "Smoke tests (production)")
+if prod_smoke is None:
+    errs.append("deploy-prod missing 'Smoke tests (production)' step")
+else:
+    run = prod_smoke.get("run") or ""
+    if "exit 0" in run:
+        errs.append("deploy-prod smoke step contains a skip path (exit 0) — must be fail-closed")
+    if "::error::" not in run or "exit 1" not in run:
+        errs.append("deploy-prod smoke step must hard-fail (::error:: + exit 1) when SMOKE_BASE_URL_PRODUCTION is missing")
+    if "[ -z \"$SMOKE_BASE_URL\" ]" not in run:
+        errs.append("deploy-prod smoke step must guard on empty SMOKE_BASE_URL")
+
+# Staging smoke: keeps warning+skip, honors allow-smoke-skip
+stag_smoke = find_step(stag, "Smoke tests (staging)")
+if stag_smoke is None:
+    errs.append("deploy-staging missing 'Smoke tests (staging)' step")
+else:
+    run = stag_smoke.get("run") or ""
+    if "ALLOW_SMOKE_SKIP" not in run:
+        errs.append("deploy-staging smoke step must honor ALLOW_SMOKE_SKIP")
+
+if errs:
+    for e in errs:
+        print(f"::error::release.yml gate check: {e}", file=sys.stderr)
+    sys.exit(1)
+print("OK release.yml smoke gates: production fail-closed, staging flag-gated skip allowed")
+PYEOF
+echo "::endgroup::"
+
+echo "::group::4b. Simulate production smoke gate without SMOKE_BASE_URL_PRODUCTION"
+# Extract the deploy-prod smoke step's guard from release.yml and execute it with
+# an EMPTY SMOKE_BASE_URL — the guard must hard-fail (exit 1). This exercises the
+# exact code path release.yml ships with (no pip install / make smoke involved).
+GUARD="$("$PY" - <<'PYEOF'
+import yaml
+wf = yaml.safe_load(open(".github/workflows/release.yml"))
+prod = (wf.get("jobs") or {}).get("deploy-prod") or {}
+for step in prod.get("steps") or []:
+    if "smoke tests (production" in (step.get("name") or "").lower():
+        run = step.get("run") or ""
+        start = run.find('if [ -z "$SMOKE_BASE_URL" ]; then')
+        assert start != -1, "prod smoke guard not found"
+        end = run.find("\nfi", start)
+        assert end != -1, "prod smoke guard closing fi not found"
+        print(run[start:end + 4])
+        break
+PYEOF
+)"
+if [ -z "$GUARD" ]; then
+  echo "::error::could not extract production smoke guard from release.yml" >&2
+  exit 1
+fi
+if SMOKE_BASE_URL="" bash -c "$GUARD" >/tmp/prod-smoke-guard.out 2>&1; then
+  echo "::error::production smoke gate DID NOT fail with SMOKE_BASE_URL_PRODUCTION unset (fail-open!)" >&2
+  cat /tmp/prod-smoke-guard.out >&2
+  exit 1
+fi
+grep -q "SMOKE_BASE_URL_PRODUCTION is not configured" /tmp/prod-smoke-guard.out \
+  || { echo "::error::unexpected guard output:" >&2; cat /tmp/prod-smoke-guard.out >&2; exit 1; }
+rm -f /tmp/prod-smoke-guard.out
+echo "OK production smoke gate fails closed (exit 1) when SMOKE_BASE_URL_PRODUCTION is unset"
+echo "::endgroup::"
+
+echo "::group::5. SOPS artifacts"
 [ -f devops/secrets/age.pubkey.txt ] || { echo "::error::missing devops/secrets/age.pubkey.txt" >&2; exit 1; }
 grep -qE '^age1[a-z0-9]+$' devops/secrets/age.pubkey.txt || { echo "::error::no bare age1... key in age.pubkey.txt" >&2; exit 1; }
 for env in staging production; do

@@ -65,6 +65,26 @@ def _build_lesson_context(course: dict, lesson: dict) -> str:
     return "\n".join(lines)
 
 
+async def _weak_concept_suggestions(
+    user_id: str,
+    course_id: str,
+    lesson_id: str,
+) -> list[dict[str, Any]]:
+    """Return remediation suggestions for weak concepts mapped to this lesson."""
+    try:
+        lesson_concepts = await get_concepts_by_lesson(course_id, lesson_id)
+        if not lesson_concepts:
+            return []
+        suggestions = await get_remediation_suggestions(user_id, course_id)
+        by_concept = {s["concept_id"]: s for s in suggestions}
+        return [by_concept[c["_id"]] for c in lesson_concepts if c["_id"] in by_concept]
+    except Exception as exc:
+        logger.warning(
+            "Failed to build weak-concept context for %s/%s: %s", user_id, lesson_id, exc
+        )
+        return []
+
+
 async def _build_weak_concept_context(
     user_id: str,
     course_id: str,
@@ -77,29 +97,27 @@ async def _build_weak_concept_context(
     empty string on cold start (no mastery data) or when no weak concept maps
     to this lesson, so existing behavior is unchanged.
     """
-    try:
-        lesson_concepts = await get_concepts_by_lesson(course_id, lesson_id)
-        if not lesson_concepts:
-            return ""
-        suggestions = await get_remediation_suggestions(user_id, course_id)
-        by_concept = {s["concept_id"]: s for s in suggestions}
-        lines = []
-        for c in lesson_concepts:
-            suggestion = by_concept.get(c["_id"])
-            if not suggestion:
-                continue
-            lines.append(
-                f"Student is weak at {suggestion['concept_name']}: {suggestion['suggestion']}"
-            )
-        if not lines:
-            return ""
-        return (
-            "\n\n--- Student mastery context (remediation) ---\n"
-            + "\n".join(lines)
-        )
-    except Exception as exc:
-        logger.warning("Failed to build weak-concept context for %s/%s: %s", user_id, lesson_id, exc)
+    suggestions = await _weak_concept_suggestions(user_id, course_id, lesson_id)
+    if not suggestions:
         return ""
+    lines = [
+        f"Student is weak at {s['concept_name']}: {s['suggestion']}"
+        for s in suggestions
+    ]
+    return (
+        "\n\n--- Student mastery context (remediation) ---\n"
+        + "\n".join(lines)
+    )
+
+
+async def _get_focus_concepts(
+    user_id: str,
+    course_id: str,
+    lesson_id: str,
+) -> list[str]:
+    """Names of weak concepts for this lesson (additive response field)."""
+    suggestions = await _weak_concept_suggestions(user_id, course_id, lesson_id)
+    return [s["concept_name"] for s in suggestions]
 
 
 async def get_or_create_session(
@@ -149,6 +167,7 @@ async def ask_ai_tutor(
     )
     if weak_context:
         lesson_context = f"{lesson_context}\n\n{weak_context}"
+    focus_concepts = await _get_focus_concepts(user_id, course["_id"], lesson["id"])
 
     session = await get_or_create_session(
         user_id, course["_id"], lesson["id"]
@@ -199,6 +218,7 @@ async def ask_ai_tutor(
             "answer": answer,
             "session_id": session["_id"],
             "message_count": len(messages) // 2,
+            "focus_concepts": focus_concepts,
         }
 
     except Exception as e:
@@ -207,6 +227,7 @@ async def ask_ai_tutor(
             "answer": "Xin lỗi, tôi không thể xử lý câu hỏi của bạn ngay lúc này. Vui lòng thử lại sau.",
             "session_id": session["_id"],
             "message_count": len(messages) // 2,
+            "focus_concepts": focus_concepts,
             "error": str(e),
         }
 

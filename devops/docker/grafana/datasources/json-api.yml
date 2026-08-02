@@ -1,0 +1,28 @@
+apiVersion: 1
+
+datasources:
+  # JSON API datasource (marcusolsson-json-datasource) for the Adaptive
+  # analytics endpoint shipped by the backend (AI-A A1):
+  #   GET /api/v1/admin/adaptive/analytics/remediation-effectiveness
+  #
+  # Envelope (app/core/response.py): { success, data: {...}, error, meta }.
+  # data fields: total_users, improved_pct, avg_mastery_delta,
+  # avg_gap_resolution_days, by_concept[], window_days, course_id.
+  #
+  # Used by the "Remediation Effectiveness" panel in adaptive-metrics.json.
+  # In docker-compose the API service is reachable as `api` on port 8000.
+  - name: Adaptive Analytics API
+    type: marcusolsson-json-datasource
+    uid: ascendly-analytics-json
+    access: proxy
+    url: http://api:8000/api/v1/admin/adaptive/analytics
+    isDefault: false
+    editable: true
+    jsonData:
+      # The endpoint requires admin auth. Override via the grafana service
+      # environment (JSON API datasource custom headers) when a token is set:
+      #   - GF_DATASOURCES_ASCENDLY_ANALYTICS_JSON_JSONDATA_CUSTOMHEADERS ...
+      # For local dev (no auth configured) the request goes through unauthenticated.
+      cacheTime: 60
+      maxIdleConns: 2
+      tlsSkipVerify: false
