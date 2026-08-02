@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from app.db.mongodb import get_db, get_read_db
+from app.db.helpers import safe_push_to_array
 
 logger = logging.getLogger(__name__)
 
@@ -138,9 +139,17 @@ async def update_task_status(task_id: str, status: str, actor: str = "admin", no
         return {"error": True, "message": "Task not found."}
 
     now = _now()
-    entries = list(task.get("history", []) or [])
-    entries.append({"ts": now, "actor": actor, "action": status, "note": note or f"Moved to {status}"})
-    updates: dict[str, Any] = {"status": status, "history": entries}
+    # Use the portable read-modify-write helper instead of the native
+    # `$push` operator. The in-memory test DB only understands `$set`, so
+    # `$push` would silently no-op and the audit history would never grow.
+    # Read → modify → write produces identical results on both backends.
+    await safe_push_to_array(
+        "ops_tasks",
+        {"_id": task_id},
+        "history",
+        {"ts": now, "actor": actor, "action": status, "note": note or f"Moved to {status}"},
+    )
+    updates: dict[str, Any] = {"status": status}
     if status in ("resolved", "closed"):
         updates["completed_at"] = now
     await db.ops_tasks.update_one({"_id": task_id}, {"$set": updates})

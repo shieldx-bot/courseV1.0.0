@@ -22,7 +22,12 @@ def _auth(token: str) -> dict:
 def _seed_challenge(db):
     from app.services.skill_graph import seed_skills
 
-    asyncio.get_event_loop().run_until_complete(seed_skills())
+    # asyncio.run() is safe on all Python versions (3.10+):
+    #  - It creates a *fresh* event loop for the coroutine.
+    #  - It always closes that loop when done, so repeated calls never
+    #    hit the "no running event loop" / loop-reuse RuntimeError that
+    #    `get_event_loop()` raises on newer Python (3.12/3.13/3.14…).
+    asyncio.run(seed_skills())
     cid = "ch-test-linux-permissions"
     db.challenges.insert_one({
         "_id": cid, "title": "Linux File Permissions", "description": "chmod",

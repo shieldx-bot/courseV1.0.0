@@ -13,6 +13,7 @@ from app.services.adaptive_quiz import generate_adaptive_quiz, grade_quiz
 from app.services.concept_mastery import (
     get_concept_definition,
     get_course_mastery_details,
+    get_course_mastery_map,
     get_strong_concepts,
     get_weak_concepts,
     get_all_concepts_for_course,
