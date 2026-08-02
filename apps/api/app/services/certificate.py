@@ -206,6 +206,19 @@ async def issue_certificate(user_id: str, course_id: str) -> dict | None:
     await db.certificates.insert_one(doc)
     logger.info("Certificate %s issued for user %s course %s", cert_id, user_id, course_id)
 
+    # Publish domain event — learner notification / achievement domains react.
+    from app.core.events import Event, bus
+    await bus.publish(Event(
+        name="CertificateIssued",
+        producer="certificate.issue_certificate",
+        payload={
+            "certificate_id": cert_id,
+            "user_id": user_id,
+            "course_id": course_id,
+            "course_title": course_title,
+        },
+    ))
+
     return {
         "id": cert_id,
         "user_id": user_id,

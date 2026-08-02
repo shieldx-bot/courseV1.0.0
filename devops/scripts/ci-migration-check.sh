@@ -128,9 +128,19 @@ async def main():
     print("OK: 001 inserted once then skipped -> idempotent; seed idempotent")
     print("OK: in-memory DB state verified")
 
+    # Phase 7 NV3: verify the app startup seed hook (seed_db) actually runs on
+    # a clean DB — main content collections must be non-empty or the API would
+    # boot with an empty catalog/support base. Fail if seed didn't run.
+    from app.db.mongodb import seed_db
+    await seed_db()
+    for col in ("users", "categories", "courses", "help_articles", "concept_definitions"):
+        n = await db[col].count_documents({})
+        assert n > 0, f"seed_db did not seed {col}: count={n}"
+    print("OK: seed_db seeded users/categories/courses/help_articles/concept_definitions")
+
 
 asyncio.run(main())
 PY
 echo "::endgroup::"
 
-echo "✅ Migration check passed: CLI executes, migrations+seed run, and 001 is idempotent."
+echo "✅ Migration check passed: CLI executes, migrations+seed run, 001 is idempotent, and seed_db verified."

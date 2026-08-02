@@ -90,6 +90,44 @@ describe("apiFetch", () => {
     const result = await apiFetch("/test");
     expect(result).toBeUndefined();
   });
+
+  it("captures the X-Request-ID header into ApiClientError.meta.request_id on envelope errors", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: (name: string) => (name === "X-Request-ID" ? "req-123" : null) },
+      json: () => Promise.resolve({ success: false, error: { code: "RATE_LIMIT", message: "Slow down" } }),
+    });
+
+    const err = (await apiFetch("/test").catch((e) => e)) as ApiClientError;
+    expect(err).toBeInstanceOf(ApiClientError);
+    expect(err.meta?.request_id).toBe("req-123");
+  });
+
+  it("captures the X-Request-ID header on non-ok responses", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 503,
+      headers: { get: (name: string) => (name === "X-Request-ID" ? "req-999" : null) },
+      text: () => Promise.resolve("unavailable"),
+    });
+
+    const err = (await apiFetch("/test").catch((e) => e)) as ApiClientError;
+    expect(err).toBeInstanceOf(ApiClientError);
+    expect(err.meta?.request_id).toBe("req-999");
+  });
+
+  it("leaves meta.request_id undefined when the response has no X-Request-ID header", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      text: () => Promise.resolve("boom"),
+    });
+
+    const err = (await apiFetch("/test").catch((e) => e)) as ApiClientError;
+    expect(err).toBeInstanceOf(ApiClientError);
+    expect(err.meta?.request_id).toBeUndefined();
+  });
 });
 
 describe("typedRequest", () => {

@@ -1,4 +1,4 @@
-# Ascendly — DevOps (Phase 0 → Phase 6)
+# Ascendly — DevOps (Phase 0 → Phase 7)
 
 Infrastructure, CI/CD, and local developer tooling for the Ascendly monorepo.
 
@@ -363,24 +363,128 @@ remediation (then wire
   eviction/`expire` behavior needs **no change** — `expire` is natural, no
   `maxmemory` policy update required.
 
+## Phase 7 — Architecture hardening: request-ID, scheduler, retention, CI gates
+
+### Request-ID / trace correlation (NV1)
+
+- **Middleware**: `RequestIDMiddleware` (`apps/api/app/core/middleware.py`) is the
+  **outermost** HTTP middleware in `apps/api/app/main.py`. It accepts a
+  client-supplied `X-Request-ID` header, otherwise generates a fresh UUID4, and
+  echoes it back in the response `X-Request-ID` header.
+- **Contextvar**: the id lives in `apps/api/app/core/context.py`
+  (`get_request_id()` / `set_request_id()` / `reset_request_id()`) and is
+  readable anywhere inside the request — handlers, exception handlers, the
+  HTTP access log, and background tasks spawned from the request.
+- **Trace correlation points**:
+  - `error_logs` records now carry `request_id` (all three exception handlers
+    in `app/main.py` pass `get_request_id()`; `error_logger.log()/log_exception()`
+    accept a `request_id` field).
+  - HTTP access log (`access` logger, `app/core/telemetry.py`) includes
+    `request_id` in the structured extra fields.
+  - **Not** added as a Prometheus label on `http_requests_total`: request ids
+    are high-cardinality and would explode the metric — the correlation path is
+    error_logs + response header + access log (per the "at least error_logs +
+    response header" requirement).
+- **Tests**: `apps/api/tests/test_request_id.py` — echo of supplied id, UUID4
+  generation, propagation into `error_logs` on a 404, and uniqueness across
+  requests.
+
+### Cron schedule (NV2) — arq `cron_jobs` in `apps/api/app/worker.py`
+
+| Time (UTC) | Job | Function | Notes |
+|---|---|---|---|
+| 01:30 | Intelligence snapshot | `run_intelligence_snapshot` → `build_intelligence_snapshot()` (AI-A) | Before the 02:00 analytics run; persists `intelligence_snapshots` (TTL 30d) |
+| 05:00 | Intelligence → ops-tasks sync | `run_intelligence_sync` → `sync_from_intelligence_snapshot()` (AI-A) | Reads the latest snapshot, creates deduplicated ops tasks |
+| 06:00 | Retention cleanup | `run_retention_cleanup` | Explicit delete only for collections without a TTL index |
+
+Deployment note: the cron process (`PROCESS_MODE=cron`, compose `cron` service
+/ `devops/k8s/cron-deployment.yaml` / `ascendly-runtime` chart) reuses
+`WorkerSettings.cron_jobs`, so the new entries are picked up on deploy with
+**no infra change** (same pattern as P5 mastery_decay).
+
+### Retention (NV2.4)
+
+- TTL indexes are owned by **AI-A** (`apps/api/app/db/indexes.py`):
+  `activity_events` 180d, `notifications` 90d, `intelligence_snapshots`
+  30d (on `expire_at`).
+- `run_retention_cleanup` (`apps/api/app/core/tasks.py`) checks each collection
+  for an `expireAfterSeconds` index first: when MongoDB owns expiry it is
+  **skipped** (status=`skipped`); otherwise it deletes documents older than the
+  window (status=`success`). This makes the job safe on real MongoDB *and* the
+  in-memory test backend (which has no TTL support).
+- Retention windows live in `RETENTION_CONFIG` (days + timestamp field:
+  `created_at` for activity/notifications, `generated_at` for snapshots).
+
+### Metric contract M8–M9 (frozen Phase 7; M1–M7 unchanged)
+
+| Mã | Metric (on-wire) | Type | Labels | Notes |
+|---|---|---|---|---|
+| M8 | `intelligence_snapshot_runs_total` | Counter | `status` (`success`\|`live_fallback`\|`error`) | `success`/`live_fallback` incremented by AI-A inside `build_intelligence_snapshot`; `error` incremented by the 01:30 cron wrapper on failure |
+| M9 | `retention_cleanup_runs_total` | Counter | `collection`, `status` (`success`\|`skipped`\|`error`) | Incremented by `run_retention_cleanup` per collection |
+
+### Alerts (added to both `devops/prometheus/alerts.yml` and
+`devops/docker/prometheus/alerts.yml` — new group `intelligence-retention`)
+
+| Alert | Expression | For | Meaning |
+|---|---|---|---|
+| `IntelligenceSnapshotJobFailed` | `rate(intelligence_snapshot_runs_total{status="error"}[5m]) > 0` | 10m | `build_intelligence_snapshot` failed — check worker/cron logs and DLQ |
+| `RetentionCleanupJobFailed` | `rate(retention_cleanup_runs_total{status="error"}[5m]) > 0` | 10m | `run_retention_cleanup` failed for a collection — data may grow past its window |
+
+Empty series → no fires until the backend exports them. Both rule files were
+kept in sync (alert counts verified: canonical 15, docker 13).
+
+### Grafana dashboard (`devops/docker/grafana/dashboards/adaptive-metrics.json`)
+
+- New panel **Intelligence snapshot runs (by status)** (M8, 1h increase by
+  status).
+- New panel **Retention cleanup runs (by collection, status)** (M9, 1h increase
+  by collection + status).
+- **Submit Latency** panel extended to **p50 / p95 / p99** (M3 histogram —
+  `histogram_quantile` on 5m rate; p99 is a real query on
+  `adaptive_quiz_submit_duration_seconds_bucket`, not a placeholder).
+- `api-metrics.json` already carried a generic **Request Duration (p99)** panel
+  on `http_request_duration_seconds_bucket`.
+- All dashboard JSONs are validated in CI (`manifest-check` job) and were
+  re-validated locally (adaptive: 13 panels, api: 10 panels).
+
+### p99 feasibility (NV4)
+
+- Scrape interval **15s** (both `devops/docker/prometheus.yml` and
+  `devops/prometheus/prometheus.yml`) — ~20 samples per 5m rate window, enough
+  for `histogram_quantile`.
+- Retention: Prometheus **default 15d** (compose does not override
+  `--storage.tsdb.retention.time`; k8s/self-hosted also defaults) — comfortably
+  covers the 5m/1h ranges used by the latency panels.
+- No data exists yet for the adaptive submit histogram in dev → panels render
+  "No data" until traffic/instrumentation lands (no fabricated values).
+
 ## CI (`.github/workflows/ci.yml`)
 
 Jobs run in parallel and all must pass for the `gate` job to go green:
 
 1. **api** — pip install (cached via `actions/setup-python`), `ruff` + `mypy`
    (report-only, non-blocking: the baseline is not lint/type-clean), full
-   `pytest` against the in-memory Mongo backend (no external services).
-2. **web** — `npm ci` (cached via `actions/setup-node`), `next lint`, `tsc --noEmit`,
+   `pytest` against the in-memory Mongo backend (no external services) with a
+   **coverage gate** `--cov-fail-under=45`.
+2. **lint-regression** — runs `scripts/ci-lint-report.sh` (Phase 7): measures
+   ruff/mypy error counts and **fails when the count increases** versus the
+   committed baselines `devops/ci/{ruff,mypy}.count`. Fixing findings is fine;
+   update the baseline files deliberately.
+3. **web** — `npm ci` (cached via `actions/setup-node`), `next lint`, `tsc --noEmit`,
    `next build`, jest unit tests + a11y tests. Build is independent of a running API.
-3. **migration-check** — runs `scripts/ci-migration-check.sh` on a clean in-memory
-   DB; fails fast if the runner cannot locate/execute migrations or seed.
-4. **docker-build** — builds `devops/docker/Dockerfile.api` (api stage) and
+4. **migration-check** — runs `scripts/ci-migration-check.sh` on a clean in-memory
+   DB; fails fast if the runner cannot locate/execute migrations or seed, and
+   verifies the app seed hook (`seed_db`) populated the main content collections
+   (`users`, `categories`, `courses`, `help_articles`, `concept_definitions`).
+5. **docker-build** — builds `devops/docker/Dockerfile.api` (api stage) and
    `devops/docker/Dockerfile.web` from the repo root.
-5. **security-scan** — Trivy filesystem scan, SARIF upload.
-6. **manifest-check** — `helm lint` + `helm template` (3 charts, dev values) and
+6. **security-scan** — Trivy filesystem scan, SARIF upload.
+7. **manifest-check** — `helm lint` + `helm template` (3 charts, dev values),
    offline `kubeconform` validation of `devops/k8s/` (KEDA `ScaledObject` is a
-   CRD and is skipped). No cluster required.
-7. **gate** — summary + required status check for PRs.
+   CRD and is skipped), and **Grafana dashboard JSON validation**
+   (`devops/docker/grafana/dashboards/*.json` must parse and have panels).
+   No cluster required.
+8. **gate** — summary + required status check for PRs.
 
 `preview.yml` deploys PR previews (Vercel frontend, Railway backend) and runs
 Playwright e2e, Lighthouse CI and visual regression when secrets are configured.
@@ -398,3 +502,17 @@ Playwright e2e, Lighthouse CI and visual regression when secrets are configured.
 - Docker image builds **not run locally** (daemon not accessible in this
   environment) — the CI `docker-build` job covers them.
 - `make setup` recreates `apps/api/.venv` when it is stale/missing.
+
+## Verified in Phase 7
+
+- `make test-api` → **231 passed** (target ≥ 215; includes AI-A's Phase 7
+  hardening tests + request-ID/retention tests), coverage **54%**.
+- Coverage gate `--cov-fail-under=45` set from the measured 52% baseline
+  (headroom 7pp; the current measured coverage is 54%).
+- Lint regression gate green: ruff 753, mypy 125 (baselines updated to the
+  Phase 7 shared-work state in `devops/ci/`).
+- `devops/scripts/ci-migration-check.sh` passes with the new seed-verify step.
+- Alert rule files (canonical 15 / docker 13) + both Grafana dashboards
+  (api 10 / adaptive 13 panels) parse and validate.
+- Cron schedule verified in-process: 01:30 snapshot, 05:00 sync, 06:00
+  retention registered in `WorkerSettings.cron_jobs`.

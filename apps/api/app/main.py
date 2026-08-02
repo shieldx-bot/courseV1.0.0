@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, timezone
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,38 +10,66 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from app.core.config import settings
-from app.core.ratelimit import limiter
-from app.core.response import api_response, error_response
-from app.db.mongodb import seed_db, get_db
-from app.db.indexes import create_indexes
-from app.api.v1 import courses, auth, subscriptions, reviews, admin, stream, progress, contact, blog, worker, learning_paths, certificates, discussions, ai_tutor, affiliate, quiz, code_assistant, support, knowledge, proactive, adaptive, community, community_hub, tournaments, arena
+
+from app.api.v1 import (
+    adaptive,
+    admin,
+    affiliate,
+    ai_tutor,
+    arena,
+    auth,
+    blog,
+    certificates,
+    code_assistant,
+    community,
+    community_hub,
+    contact,
+    courses,
+    discussions,
+    knowledge,
+    learning_paths,
+    proactive,
+    progress,
+    quiz,
+    reviews,
+    stream,
+    subscriptions,
+    support,
+    tournaments,
+    worker,
+)
+from app.api.v1 import challenges as challenges_module
 from app.api.v1 import ecosystem as ecosystem_module
-from app.api.v1 import notifications as notifications_module
+from app.api.v1 import error_log as error_log_module
 from app.api.v1 import events_governance as events_governance_module
 from app.api.v1 import intelligence as intelligence_module
+from app.api.v1 import notifications as notifications_module
 from app.api.v1 import platform_ops as platform_ops_module
-from app.api.v1 import challenges as challenges_module
-from app.services.skill_graph import seed_skills as seed_skill_taxonomy
 from app.api.v1.enterprise import router as enterprise_router
 from app.api.v1.exams import router as exam_router
-from app.api.v1 import error_log as error_log_module
-from app.services.learning_paths import seed_learning_paths
-from app.services.event_handlers import register_default_handlers
-from app.core.events import bus as event_bus
-from app.services.r2_storage import r2_storage
-from app.services import search as search_service
-from app.core.telemetry import setup_telemetry
-from app.core.worker import get_redis_pool, close_redis_pool
+from app.core.config import settings
+from app.core.context import get_request_id
 from app.core.error_logger import (
-    get_error_logger,
-    SOURCE_BACKEND,
-    LEVEL_WARNING,
-    LEVEL_ERROR,
     CATEGORY_HTTP,
     CATEGORY_VALIDATION,
-    CATEGORY_SYSTEM,
+    LEVEL_ERROR,
+    LEVEL_WARNING,
+    SOURCE_BACKEND,
+    get_error_logger,
 )
+from app.core.events import bus as event_bus
+from app.core.middleware import RequestIDMiddleware
+from app.core.ratelimit import limiter
+from app.core.response import api_response, error_response
+from app.core.telemetry import setup_telemetry
+from app.core.worker import close_redis_pool, get_redis_pool
+from app.db.indexes import create_indexes
+from app.db.mongodb import get_db, seed_db
+from app.services import search as search_service
+from app.services.event_handlers import register_default_handlers
+from app.services.learning_paths import seed_learning_paths
+from app.services.r2_storage import r2_storage
+from app.services.skill_graph import seed_skills as seed_skill_taxonomy
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +155,12 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
+# Request-ID must be the OUTERMOST middleware: added last (Starlette wraps
+# middleware in reverse registration order) so the contextvar is set before
+# any other middleware or handler runs and the response header is injected
+# on the way out. Runs first, so X-Request-ID is available to everything else.
+app.add_middleware(RequestIDMiddleware)
+
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
@@ -140,6 +175,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         status_code=exc.status_code,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
+        request_id=get_request_id(),
     )
     return error_response(str(exc.detail), exc.status_code)
 
@@ -157,6 +193,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
+        request_id=get_request_id(),
         context={"errors": exc.errors()},
     )
     return error_response(str(exc.errors()), 422)
@@ -171,6 +208,7 @@ async def general_exception_handler(request: Request, exc: Exception):
         method=request.method,
         ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent"),
+        request_id=get_request_id(),
     )
     logger.exception("Unhandled exception")
     return error_response("Internal server error", 500)

@@ -138,7 +138,7 @@ Cuối Phase: Supervisor verify end-to-end (quiz adaptive → submit → mastery
 | P4 | ✔ | ✔ | ✔ | ✔ |
 | P5 | ✔ **SIGN-OFF** (190 pytest) | ✔ **SIGN-OFF** (dashboard/alerts OK) | ✔ **SIGN-OFF** (carry-over xong: time_seconds + flaky 4/4) | ✔ |
 | P6 | ✔ **SIGN-OFF** (205 pytest) | ✔ **SIGN-OFF** (dashboard 11 panel) | ✔ **SIGN-OFF** (100 test, 4/4 xanh, tsc+build) | ✔ **INTEGRATION SIGN-OFF** |
-| P7 | ⏳ Hardening: split ecosystem.py, events, scheduler (AI_WORKFORCE_PLAN §P7) | ⏳ Scheduler, TTL job, request-ID, CI coverage | ⏳ Regression + contract ổn định | ❌ |
+| P7 | ⏳ `phase7/PROMPT_PHASE7_AI_A_BACKEND.md`: split ecosystem/challenges + events + snapshot + TTL (≥215) | ⏳ `phase7/PROMPT_PHASE7_AI_B_DEVOPS.md`: request-ID + cron 01:30/05:00/06:00 + CI gates | ⏳ `phase7/PROMPT_PHASE7_AI_C_FRONTEND.md`: regression (≥105) | ❌ |
 | P6 | ⏸ | ⏸ | ⏸ | ❌ |
 
 ---

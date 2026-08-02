@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 MASTERY_MIN = 0.0
 MASTERY_MAX = 10.0
 DEFAULT_MASTERY = 5.0
+MASTERED_THRESHOLD = 7.0
 MASTERY_MAP_CACHE_TTL = 120  # seconds (Phase 5: read-through cache, NV5)
 
 
@@ -222,6 +223,21 @@ async def update_mastery(
     )
     doc = await db.concept_mastery.find_one({"_id": mastery_id})
     await _invalidate_mastery_cache(user_id, course_id)
+
+    # Publish domain event when mastery crosses the mastered threshold.
+    if old_score < MASTERED_THRESHOLD and new_score >= MASTERED_THRESHOLD:
+        from app.core.events import Event, bus
+        await bus.publish(Event(
+            name="SkillMastered",
+            producer="concept_mastery.update_mastery",
+            payload={
+                "user_id": user_id,
+                "course_id": course_id,
+                "concept_id": concept_id,
+                "mastery_score": new_score,
+            },
+        ))
+
     return _format_mastery(doc)
 
 

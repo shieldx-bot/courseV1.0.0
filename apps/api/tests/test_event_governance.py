@@ -144,6 +144,6 @@ def test_admin_governance_endpoints():
         res = client.get("/api/v1/admin/events/diagnostics", headers=headers)
         assert res.status_code == 200, res.text
         diag = res.json()["data"]
-        assert diag["total_events"] == 2
+        assert diag["total_events"] == 12  # ChallengeCompleted, EventCreated + 10 Phase 7 events
         assert "slowest_handlers" in diag
         assert diag["orphan_listeners"] == []  # every listener documented

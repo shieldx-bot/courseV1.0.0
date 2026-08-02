@@ -48,6 +48,21 @@ function isEnvelope(value: unknown): value is ApiEnvelope {
   return typeof value === "object" && value !== null && "success" in (value as Record<string, unknown>);
 }
 
+/**
+ * Trace correlation (Phase 7 hardening): when the backend middleware echoes an
+ * `X-Request-ID` response header, surface it on errors as `meta.request_id` so
+ * error pages can display it for tracing. Fully guarded — absent header → no
+ * change to the error shape.
+ */
+function requestIdFromResponse(res: Response): string | undefined {
+  const headers = res.headers;
+  if (headers && typeof headers.get === "function") {
+    const id = headers.get("X-Request-ID");
+    if (typeof id === "string" && id.length > 0) return id;
+  }
+  return undefined;
+}
+
 // ── token refresh / single-flight queue ─────────────────────────────────
 
 let _refreshing: Promise<boolean> | null = null;
@@ -86,6 +101,7 @@ async function parseErrorResponse(res: Response): Promise<ApiClientError> {
   let message = res.statusText || `Request failed (${res.status})`;
   let code: string | undefined;
   let meta: Record<string, unknown> | undefined;
+  const requestId = requestIdFromResponse(res);
   try {
     const json = (await res.json()) as unknown;
     if (isEnvelope(json)) {
@@ -99,6 +115,7 @@ async function parseErrorResponse(res: Response): Promise<ApiClientError> {
     const text = await res.text().catch(() => "");
     if (text) message = text;
   }
+  if (requestId) meta = { ...(meta ?? {}), request_id: requestId };
   return new ApiClientError(message, res.status, code, meta);
 }
 
@@ -113,7 +130,11 @@ async function unwrapResponse<T>(res: Response): Promise<T> {
       : `Request failed (${res.status})`;
     const code =
       env.error && typeof env.error === "object" && typeof env.error.code === "string" ? env.error.code : undefined;
-    throw new ApiClientError(message, res.status, code, env.meta);
+    const requestId = requestIdFromResponse(res);
+    throw new ApiClientError(message, res.status, code, {
+      ...(env.meta ?? {}),
+      ...(requestId ? { request_id: requestId } : {}),
+    });
   }
   return json as T;
 }

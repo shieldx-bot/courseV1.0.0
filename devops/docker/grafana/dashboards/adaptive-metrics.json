@@ -56,10 +56,14 @@
       }
     },
     {
-      "title": "Submit Latency (p50 / p95)",
+      "title": "Submit Latency (p50 / p95 / p99)",
       "type": "graph",
       "datasource": "Prometheus",
       "targets": [
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(adaptive_quiz_submit_duration_seconds_bucket[5m])) by (le, course_id))",
+          "legendFormat": "p99 {{course_id}}"
+        },
         {
           "expr": "histogram_quantile(0.95, sum(rate(adaptive_quiz_submit_duration_seconds_bucket[5m])) by (le, course_id))",
           "legendFormat": "p95 {{course_id}}"
@@ -178,19 +182,53 @@
       }
     },
     {
+      "title": "Intelligence snapshot runs (by status)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(increase(intelligence_snapshot_runs_total[1h])) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 40
+      }
+    },
+    {
+      "title": "Retention cleanup runs (by collection, status)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(increase(retention_cleanup_runs_total[1h])) by (collection, status)",
+          "legendFormat": "{{collection}} / {{status}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 40
+      }
+    },
+    {
       "title": "Note: waiting for data",
       "type": "text",
       "datasource": "Prometheus",
       "targets": [],
       "options": {
         "mode": "markdown",
-        "content": "The adaptive_* series are exported by the backend. Panels populate as soon as AI-A instruments M1-M7 (M6/M7 = remediation feedback + exercise submit, Phase 6). Alerts evaluate on these same series. The Remediation Effectiveness panel needs an analytics API over quiz_attempts, not a metric."
+        "content": "The adaptive_* and intelligence/retention series are exported by the backend. Panels populate as soon as AI-A instruments M1-M9 (M6/M7 = remediation feedback + exercise submit, Phase 6; M8/M9 = intelligence snapshot + retention cleanup, Phase 7). Alerts evaluate on these same series. The Remediation Effectiveness panel needs an analytics API over quiz_attempts, not a metric."
       },
       "gridPos": {
         "h": 4,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 48
       }
     }
   ]

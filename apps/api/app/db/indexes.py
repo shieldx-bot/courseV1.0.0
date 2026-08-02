@@ -2,6 +2,8 @@ import logging
 from pymongo import IndexModel, ASCENDING, DESCENDING
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
+from app.core.collections import Collections as C
+
 logger = logging.getLogger(__name__)
 
 COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
@@ -153,6 +155,19 @@ COLLECTION_INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("service", ASCENDING)], name="service_1"),
         IndexModel([("environment", ASCENDING)], name="environment_1"),
         IndexModel([("id", ASCENDING)], name="id_1", unique=True),
+    ],
+    # ── Phase 7 (NV5) retention TTL indexes — AI-B's retention cron relies on these.
+    C.ACTIVITY_EVENTS: [
+        IndexModel([("created_at", ASCENDING)], name="created_at_1_ttl", expireAfterSeconds=180 * 24 * 3600),
+    ],
+    C.NOTIFICATIONS: [
+        IndexModel([("created_at", ASCENDING)], name="created_at_1_ttl", expireAfterSeconds=90 * 24 * 3600),
+    ],
+    C.INTELLIGENCE_SNAPSHOTS: [
+        IndexModel([("expire_at", ASCENDING)], name="expire_at_1_ttl", expireAfterSeconds=0),
+    ],
+    C.EVENT_DELIVERIES: [
+        IndexModel([("processed_at", ASCENDING)], name="processed_at_1_ttl", expireAfterSeconds=30 * 24 * 3600),
     ],
 }
 

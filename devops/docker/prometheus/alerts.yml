@@ -126,3 +126,30 @@ groups:
         annotations:
           summary: "Mastery decay job failed"
           description: "run_mastery_decay reported {{ $value }} failed run(s) over the last 5 minutes — check worker/cron logs and DLQ."
+
+  # ── Platform Intelligence + Retention (Phase 7) ────────────────────────────
+  # Metric contract M8/M9 (see devops/README.md):
+  #   M8 intelligence_snapshot_runs_total{status="success"|"error"}
+  #        — instrumented by AI-A inside build_intelligence_snapshot
+  #   M9 retention_cleanup_runs_total{collection,status="success"|"error"|"skipped"}
+  #        — incremented by the 06:00 retention cron (run_retention_cleanup)
+  # Empty series → no fires until the backend exports them.
+  - name: intelligence-retention
+    rules:
+      - alert: IntelligenceSnapshotJobFailed
+        expr: rate(intelligence_snapshot_runs_total{status="error"}[5m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Intelligence snapshot job failed"
+          description: "build_intelligence_snapshot reported {{ $value }} failed run(s) over the last 5 minutes — check worker/cron logs and DLQ."
+
+      - alert: RetentionCleanupJobFailed
+        expr: rate(retention_cleanup_runs_total{status="error"}[5m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Retention cleanup job failed"
+          description: "run_retention_cleanup reported {{ $value }} failed run(s) over the last 5 minutes — collections may be growing past their retention window."

@@ -1,11 +1,20 @@
-import time
-import logging
 import json
+import logging
+import time
+
 from fastapi import FastAPI, Response
-from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import (
+    CONTENT_TYPE_LATEST,
+    Counter,
+    Gauge,
+    Histogram,
+    generate_latest,
+)
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response as StarletteResponse
+
+from app.core.context import get_request_id
 
 REQUEST_COUNT = Counter(
     "http_requests_total",
@@ -87,6 +96,22 @@ ADAPTIVE_REMEDIATION_EXERCISE_SUBMITTED = Counter(
     ["concept_id", "passed"],
 )
 
+# Phase 7 (NV5) contract M8 — added on top of M1–M7, name frozen for AI-B
+# (alerts/dashboards). `prometheus_client` appends `_total` to Counter names.
+INTELLIGENCE_SNAPSHOT_RUNS = Counter(
+    "intelligence_snapshot_runs",
+    "Intelligence snapshot runs by status (success/live_fallback/failed)",
+    ["status"],
+)
+
+# Phase 7 (NV5) contract M9 — retention cron outcome by collection+status,
+# consumed by AI-B's retention job (app/core/tasks.py::run_retention_cleanup).
+RETENTION_CLEANUP_RUNS = Counter(
+    "retention_cleanup_runs",
+    "Retention cleanup runs by collection and status (success/skipped/error)",
+    ["collection", "status"],
+)
+
 
 class TelemetryMiddleware(BaseHTTPMiddleware):
     async def dispatch(
@@ -117,14 +142,21 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
                 "duration_ms": round(duration * 1000, 2),
                 "client_ip": request.client.host if request.client else None,
                 "user_agent": request.headers.get("user-agent"),
+                "request_id": get_request_id(),
             },
         )
 
         # Log 5xx responses as errors to error logger
         if status >= 500:
             try:
-                from app.core.error_logger import get_error_logger, SOURCE_BACKEND, LEVEL_ERROR, CATEGORY_HTTP
                 import asyncio
+
+                from app.core.error_logger import (
+                    CATEGORY_HTTP,
+                    LEVEL_ERROR,
+                    SOURCE_BACKEND,
+                    get_error_logger,
+                )
                 # Fire-and-forget: don't await to avoid blocking response
                 asyncio.create_task(get_error_logger().log(
                     source=SOURCE_BACKEND,
@@ -137,6 +169,7 @@ class TelemetryMiddleware(BaseHTTPMiddleware):
                     status_code=status,
                     ip_address=request.client.host if request.client else None,
                     user_agent=request.headers.get("user-agent"),
+                    request_id=get_request_id(),
                 ))
             except Exception:
                 # Don't let logging errors break the response

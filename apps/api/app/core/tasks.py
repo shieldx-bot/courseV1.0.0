@@ -18,6 +18,19 @@ from app.services.proactive_support import (
 logger = logging.getLogger(__name__)
 
 
+# Retention policy — mirrors the TTL indexes AI-A adds in app/db/indexes.py
+# (Phase 7 NV5): (retention_days, timestamp_field). The cron falls back to an
+# explicit delete only when MongoDB does NOT own expiry for a collection (no
+# TTL index), so the job is safe on both the in-memory test DB and real
+# MongoDB. `intelligence_snapshots` timestamps its docs with `generated_at`
+# (AI-A NV5 doc shape), the other collections use `created_at`.
+RETENTION_CONFIG: dict[str, tuple[int, str]] = {
+    "activity_events": (180, "created_at"),
+    "notifications": (90, "created_at"),
+    "intelligence_snapshots": (30, "generated_at"),
+}
+
+
 async def send_email_task(ctx: dict, to: str, subject: str, body: str) -> dict:
     retry_count = ctx.get("job_try", 0)
     try:
@@ -26,8 +39,8 @@ async def send_email_task(ctx: dict, to: str, subject: str, body: str) -> dict:
             return {"sent": True, "via": "dev"}
 
         import smtplib
-        from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
 
         msg = MIMEMultipart()
         msg["From"] = settings.from_email
@@ -385,3 +398,141 @@ async def run_proactive_support_checks(ctx: dict) -> dict:
             if redis:
                 await push_to_dlq(redis, "run_proactive_support_checks", (), {}, str(exc), retry_count)
         raise
+
+
+# ── Phase 7: intelligence snapshot + sync + retention ────────────────────────
+#
+# These crons depend on backend work delivered by AI-A in parallel (Phase 7):
+#   - `build_intelligence_snapshot()`        -> app/services/intelligence.py (NV5)
+#   - `sync_from_intelligence_snapshot()`    -> app/services/platform_ops.py (NV5)
+#   - TTL indexes for activity_events / notifications / intelligence_snapshots
+#     -> app/db/indexes.py (NV5)
+# The snapshot/sync jobs import lazily and return {"status": "skipped"} when
+# the backend function is not yet available, so the cron scheduler itself never
+# crashes during the coordination window. M8 `intelligence_snapshot_runs_total`
+# is instrumented inside `build_intelligence_snapshot` by AI-A; M9
+# `retention_cleanup_runs_total{collection,status}` is incremented here when
+# the counter exists (defined by AI-A per the M8/M9 contract).
+
+
+async def run_intelligence_snapshot(ctx: dict) -> dict:
+    """Daily intelligence snapshot — 01:30 UTC (before the 02:00 analytics run).
+
+    AI-A instruments M8 `intelligence_snapshot_runs_total` with
+    status="success"/"live_fallback" inside ``build_intelligence_snapshot``;
+    the failure path is recorded here (status="error") so the
+    ``IntelligenceSnapshotJobFailed`` alert has a real series to fire on.
+    """
+    from app.core.telemetry import INTELLIGENCE_SNAPSHOT_RUNS
+
+    try:
+        from app.services.intelligence import build_intelligence_snapshot
+    except ImportError:
+        logger.warning("run_intelligence_snapshot: build_intelligence_snapshot not available (AI-A Phase 7 pending)")
+        return {"status": "skipped", "reason": "build_intelligence_snapshot not implemented"}
+    try:
+        result = await build_intelligence_snapshot()
+    except Exception as exc:
+        logger.error("Intelligence snapshot failed: %s", exc)
+        INTELLIGENCE_SNAPSHOT_RUNS.labels(status="error").inc()
+        raise
+    logger.info("Intelligence snapshot completed")
+    return {"status": "success", "result": result}
+
+
+async def run_intelligence_sync(ctx: dict) -> dict:
+    """Daily ops-task sync from the intelligence snapshot — 05:00 UTC."""
+    try:
+        from app.services.platform_ops import sync_from_intelligence_snapshot
+    except ImportError:
+        logger.warning("run_intelligence_sync: sync_from_intelligence_snapshot not available (AI-A Phase 7 pending)")
+        return {"status": "skipped", "reason": "sync_from_intelligence_snapshot not implemented"}
+    try:
+        result = await sync_from_intelligence_snapshot()
+    except Exception as exc:
+        logger.error("Intelligence sync failed: %s", exc)
+        raise
+    logger.info("Intelligence sync completed: %s", result)
+    return {"status": "success", "result": result}
+
+
+async def _has_ttl_index(db, collection: str) -> bool:
+    """True when MongoDB owns expiry for a collection via a TTL index."""
+    try:
+        info = await db[collection].index_information()
+    except AttributeError:
+        # InMemoryDB exposes no index metadata -> fall back to explicit cleanup.
+        return False
+    for idx in info.values():
+        if isinstance(idx, dict) and idx.get("expireAfterSeconds"):
+            return True
+    return False
+
+
+async def _delete_older_than(db, collection: str, cutoff_iso: str, field: str) -> int:
+    """Delete documents whose ISO-string ``field`` predates the cutoff.
+
+    Uses a read-filter-delete loop instead of ``{field: {"$lt": ...}}`` because
+    the in-memory test backend only implements ``$regex``/``$in`` comparators.
+    Real MongoDB would delete the same set in one call. Unexpected DB errors
+    propagate to the per-collection handler in ``run_retention_cleanup``.
+    """
+    deleted = 0
+    try:
+        docs = await db[collection].find({}).to_list(length=200000)
+    except (AttributeError, TypeError):
+        return 0
+    for doc in docs:
+        value = doc.get(field, "")
+        if isinstance(value, str) and value and value < cutoff_iso:
+            try:
+                result = await db[collection].delete_one({"_id": doc["_id"]})
+                deleted += getattr(result, "deleted_count", 0)
+            except (KeyError, TypeError):
+                pass
+    return deleted
+
+
+async def run_retention_cleanup(ctx: dict) -> dict:
+    """Daily data retention cleanup — 06:00 UTC.
+
+    For each collection in RETENTION_CONFIG, delete/expire documents older
+    than the retention window. Collections MongoDB already expires via a TTL
+    index are skipped (the TTL owns cleanup); collections without one get an
+    explicit bounded delete. Emits M9 `retention_cleanup_runs_total
+    {collection,status}` when the counter exists.
+    """
+    from app.core import telemetry as _telemetry
+    from app.db.mongodb import get_db
+
+    metric = (
+        getattr(_telemetry, "RETENTION_CLEANUP_RUNS", None)
+        or getattr(_telemetry, "RETENTION_RUNS", None)
+    )
+
+    db = get_db()
+    now = datetime.now(timezone.utc)
+    results: dict[str, Any] = {}
+
+    for collection, (days, field) in RETENTION_CONFIG.items():
+        try:
+            cutoff = (now - timedelta(days=days)).isoformat()
+            if await _has_ttl_index(db, collection):
+                status, deleted = "skipped", 0
+                results[collection] = {"status": status, "deleted": deleted, "reason": "ttl_index"}
+            else:
+                deleted = await _delete_older_than(db, collection, cutoff, field)
+                status = "success"
+                results[collection] = {"status": status, "deleted": deleted}
+            if metric is not None:
+                metric.labels(collection=collection, status=status).inc()
+        except Exception as exc:  # noqa: BLE001 — one collection must not kill the whole cron
+            status = "error"
+            results[collection] = {"status": status, "error": str(exc)}
+            if metric is not None:
+                metric.labels(collection=collection, status=status).inc()
+            logger.warning("Retention cleanup failed for %s: %s", collection, exc)
+
+    logger.info("Retention cleanup: %s", results)
+    return {"collections": results, "generated_at": now.isoformat()}
+

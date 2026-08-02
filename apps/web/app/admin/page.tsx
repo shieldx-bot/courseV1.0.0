@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { apiFetch } from "@/lib/api-client";
+import IntelligenceSnapshotBadge from "@/components/admin/intelligence-snapshot-badge";
 
 interface DashboardData {
   total_members: number;
@@ -90,7 +91,10 @@ export default function AdminDashboard() {
   return (
     <section className="py-12">
       <div>
-        <h1 className="text-3xl font-semibold text-primary-900">Admin dashboard</h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-3xl font-semibold text-primary-900">Admin dashboard</h1>
+          <IntelligenceSnapshotBadge />
+        </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {stats.map((s) => (

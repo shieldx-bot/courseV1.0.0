@@ -123,6 +123,19 @@ async def signup(body: AuthIn, response: Response, request: Request):
         "role": "user",
     }
     await db.users.insert_one(user)
+
+    # Publish domain event — welcome notification / onboarding domains react.
+    from app.core.events import Event, bus
+    await bus.publish(Event(
+        name="UserRegistered",
+        producer="auth.signup",
+        payload={
+            "user_id": user["_id"],
+            "email": user["email"],
+            "name": user.get("name", ""),
+        },
+    ))
+
     return api_response(_auth_response(user, response, request))
 
 

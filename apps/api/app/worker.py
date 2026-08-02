@@ -4,26 +4,29 @@ import logging
 from typing import Any
 
 from arq.connections import RedisSettings
-from arq.worker import Worker, Retry
 from arq.cron import cron
+from arq.worker import Retry, Worker
 
 from app.core.config import settings
 from app.core.tasks import (
+    index_search_task,
+    migrate_video_task,
+    run_analytics_task,
+    run_email_campaigns_task,
+    run_intelligence_snapshot,
+    run_intelligence_sync,
+    run_mastery_decay,
+    run_proactive_support_checks,
+    run_retention_cleanup,
+    send_batch_renewal_reminders_task,
+    send_password_reset_task,
     send_receipt_task,
-    send_welcome_task,
     send_renewal_reminder_task,
     send_trial_started_task,
-    send_password_reset_task,
-    index_search_task,
-    run_analytics_task,
-    send_batch_renewal_reminders_task,
-    run_email_campaigns_task,
-    migrate_video_task,
-    run_proactive_support_checks,
-    run_mastery_decay,
+    send_welcome_task,
 )
 from app.core.telemetry import WORKER_JOBS_COMPLETED, start_metrics_server
-from app.core.worker import MAX_RETRIES, KEEP_RESULT_SECONDS, POLL_DELAY
+from app.core.worker import KEEP_RESULT_SECONDS, MAX_RETRIES, POLL_DELAY
 
 logging.basicConfig(
     level=settings.log_level,
@@ -87,6 +90,9 @@ _BASE_FUNCTIONS = [
     migrate_video_task,
     run_proactive_support_checks,
     run_mastery_decay,
+    run_intelligence_snapshot,
+    run_intelligence_sync,
+    run_retention_cleanup,
 ]
 
 
@@ -114,6 +120,9 @@ class WorkerSettings:
             max_tries=3,
             keep_result=KEEP_RESULT_SECONDS,
         ),
+        cron(_tracked(run_intelligence_snapshot), hour=1, minute=30, timeout=900),
+        cron(_tracked(run_intelligence_sync), hour=5, minute=0, timeout=600),
+        cron(_tracked(run_retention_cleanup), hour=6, minute=0, timeout=900),
     ]
 
 

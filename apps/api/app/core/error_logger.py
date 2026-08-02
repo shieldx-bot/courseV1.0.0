@@ -30,7 +30,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -189,7 +188,7 @@ class ErrorLogger:
                 self._enabled = False
         return self._writer
 
-    async def log(  # noqa: C901 — keep readable
+    async def log(
         self,
         *,
         source: str,
@@ -203,6 +202,7 @@ class ErrorLogger:
         user_id: str | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        request_id: str | None = None,
         request_body: Any = None,
         query_params: Any = None,
         context: dict[str, Any] | None = None,
@@ -246,6 +246,7 @@ class ErrorLogger:
             "user_id": user_id,
             "ip_address": ip_address,
             "user_agent": user_agent,
+            "request_id": request_id,
             "request_body": _sanitize_for_json(request_body),
             "query_params": _sanitize_for_json(query_params),
             "context": _sanitize_for_json(context) or {},
@@ -293,6 +294,7 @@ class ErrorLogger:
         user_id: str | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        request_id: str | None = None,
         request_body: Any = None,
         query_params: Any = None,
         context: dict[str, Any] | None = None,
@@ -318,6 +320,7 @@ class ErrorLogger:
             user_id=user_id,
             ip_address=ip_address,
             user_agent=user_agent,
+            request_id=request_id,
             request_body=request_body,
             query_params=query_params,
             context=context,

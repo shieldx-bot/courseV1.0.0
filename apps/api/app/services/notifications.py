@@ -58,6 +58,7 @@ NOTIFICATION_TYPES = {
     # Events
     "event_starts_soon": {"label": "Event starting soon", "emoji": "⏰"},
     "event_joined_confirmation": {"label": "Event joined", "emoji": "✅"},
+    "event_attendee_joined": {"label": "New attendee", "emoji": "🎪"},
 
     # Learning
     "skill_levelup": {"label": "Skill level up", "emoji": "📈"},

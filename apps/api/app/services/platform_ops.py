@@ -159,16 +159,9 @@ async def update_task_status(task_id: str, status: str, actor: str = "admin", no
 
 # ── Automation: intelligence → actionable tasks ──────────────────────────────
 
-async def sync_from_intelligence(actor: str = "system") -> dict:
-    """Pull intelligence recommendations and create tasks (deduplicated).
-
-    Reuses `intelligence.self_recommendations()`. A task is only created if
-    no OPEN task exists for the same (recommendation kind + entity id).
-    """
-    from app.services import intelligence as intel
-
+async def _sync_recommendations(recs: list[dict], actor: str = "system") -> dict:
+    """Create deduplicated tasks from intelligence recommendations."""
     db = get_db()
-    recs = await intel.self_recommendations()
     created: list[str] = []
     skipped = 0
 
@@ -211,6 +204,33 @@ async def sync_from_intelligence(actor: str = "system") -> dict:
                 pass
 
     return {"created": created, "created_count": len(created), "skipped_duplicates": skipped, "recommendations_seen": len(recs)}
+
+
+async def sync_from_intelligence(actor: str = "system") -> dict:
+    """Pull intelligence recommendations and create tasks (deduplicated).
+
+    Reuses `intelligence.self_recommendations()`. A task is only created if
+    no OPEN task exists for the same (recommendation kind + entity id).
+    """
+    from app.services import intelligence as intel
+
+    recs = await intel.self_recommendations()
+    return await _sync_recommendations(recs, actor=actor)
+
+
+async def sync_from_intelligence_snapshot(actor: str = "cron") -> dict:
+    """Cron-friendly variant of `sync_from_intelligence`.
+
+    Reads the latest intelligence overview snapshot (`intelligence.overview()`
+    — snapshot-backed with live fallback) instead of recomputing every
+    recommendation from raw collections. Safe to run on a schedule; the
+    endpoint-based admin flow (`POST /admin/ops/sync`) is unchanged.
+    """
+    from app.services import intelligence as intel
+
+    data = await intel.overview()
+    recs = data.get("recommendations", [])
+    return await _sync_recommendations(recs, actor=actor)
 
 
 async def overview() -> dict:
