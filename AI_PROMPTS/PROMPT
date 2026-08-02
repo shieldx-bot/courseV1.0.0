@@ -1,0 +1,98 @@
+# PROMPT BỔ SUNG — AI-A (Backend) — PHASE 0: Hoàn Thiện Nợ Kỹ Thuật
+
+> **Từ:** Supervisor (người giám sát)
+> **Cho:** AI-A — Chuyên viên Backend
+> **Bối cảnh:** AI-B (DevOps) và AI-C (Frontend) đã gửi báo cáo Phase 0 và được Supervisor verify. AI-B đã dựng CI + Makefile + migration-check fail-fast. Tuy nhiên phần việc backend của bạn **chưa có báo cáo** và code backend hiện vẫn còn các vấn đề dưới đây. Đây là prompt **bổ sung để hoàn tất Phase 0**, không phải phase mới.
+
+---
+
+## 1. Kết quả Verify Độc Lập Của Supervisor (hiện trạng code thực tế)
+
+Supervisor đã chạy lại và xác nhận:
+
+| # | Vấn đề | Trạng thái verify |
+|---|---|---|
+| 1 | `pytest tests/ -q` (dùng `.venv/bin/python`) | **120 pass / 1 fail** — fail: `tests/test_community_ai.py::test_submit_skill_activity_mentor` (AttributeError) |
+| 2 | Pydantic v2 deprecation | Vẫn còn: `app/schemas/exam.py:27` cảnh báo `PydanticDeprecatedSince20` (class-based `config`) |
+| 3 | Migration runner path (`apps/api/app/core/cli.py`) | **BUG thật**: dòng 14 `Path(__file__).parent.parent / "migrations"` → trỏ `app/migrations` (không tồn tại). Đúng phải là `apps/api/migrations/`. |
+| 4 | Migration `002_add_indexes.py` | **BUG thật**: import `ensure_indexes` từ `app.db.indexes` nhưng file đó chỉ có `create_indexes` → sẽ `ImportError` khi chạy. |
+| 5 | README migration | README hiện ghi lệnh sai (`python -m app.cli migrate 001`) — module đúng là `app.core.cli`, và cần full name (vd `001_seed_categories`). |
+| 6 | Test isolation (429) | KHÔNG còn vấn đề 429 — `conftest.py` đã có fixture `disable_rate_limiter` autouse phủ. Không cần sửa thêm. |
+| 7 | `asyncio.get_event_loop()` | KHÔNG còn — `test_community_ai.py` đã dùng `asyncio.run`. (File này vừa được chỉnh — xem lại trạng thái hiện tại của bạn.) |
+| 8 | DB `$push` parity helpers | **Chưa rõ AI-A đã làm chưa** — cần xác nhận trong báo cáo. Audit H1 yêu cầu mutation helpers + parity test ở `apps/api/app/db/helpers.py` + `tests/test_db_parity.py`. |
+
+> ⚠️ Lưu ý: `apps/api/app/db/mongodb.py` và `apps/api/tests/test_community_ai.py` **vừa được sửa gần đây** (có thể do bạn hoặc quy trình khác). Hãy kiểm tra git status/diff của bạn trước khi tiếp tục để tránh đè công việc.
+
+## 2. Nhiệm vụ bổ sung (theo thứ tự ưu tiên)
+
+### Nhiệm vụ B1 — Fix 1 test fail backend
+1. Chạy lại đúng lệnh: `cd apps/api && .venv/bin/python -m pytest tests/test_community_ai.py -q` để xem chi tiết lỗi `test_submit_skill_activity_mentor`.
+2. Sửa nguyên nhân gốc (không xóa test). Báo cáo rõ nguyên nhân.
+
+### Nhiệm vụ B2 — Fix migration runner (quan trọng nhất — CI đang đỏ vì blocker này)
+1. Sửa `apps/api/app/core/cli.py` dòng 14: trỏ đúng thư mục migrations. Đề xuất:
+   ```python
+   # Lấy repo root = parent.parent.parent.parent của file này? 
+   # apps/api/app/core/cli.py -> parent: app/core -> parent: app -> parent: api -> parent: repo
+   # Đường dẫn migration thật: <repo>/apps/api/migrations
+   ```
+   Xác định đúng root một cách bền vững (dùng `Path(__file__).resolve()` và đếm bậc đúng).
+2. Sửa `apps/api/migrations/002_add_indexes.py`: import `create_indexes` (đã tồn tại) thay vì `ensure_indexes`, và gọi `await create_indexes(db)` (nếu hàm nhận `db`).
+3. Cập nhật `apps/api/migrations/README.md`: ghi lệnh chạy đúng `python -m app.core.cli migrate <full_name>`, ví dụ `001_seed_categories`, `002_add_indexes`.
+4. Kiểm tra alias `app.cli` nếu có (AI-B ghi chú README cũ trỏ `app.cli`): nếu không có alias, bỏ qua; nếu có, đảm bảo không phá.
+5. Chạy thử migration trên DB test: `MONGODB_URI=memory://test .venv/bin/python -m app.core.cli migrate 001_seed_categories` rồi `002_add_indexes` → xác nhận chạy được + seed idempotent.
+   - Lưu ý: 001 là `.py` (seed categories) theo listing; nếu đúng tên là `001_seed_categories.py` thì tham số không có `.py`.
+
+### Nhiệm vụ B3 — Dọn nốt Pydantic v2 deprecation
+1. Quét toàn bộ `apps/api/app/schemas/` (và models nếu có), đặc biệt `app/schemas/exam.py:27`.
+2. Chuyển class-based `config` → `model_config = ConfigDict(...)`.
+3. Grep xác nhận không còn `PydanticDeprecatedSince20` nào liên quan `class ...Config`.
+
+### Nhiệm vụ B4 — Xác nhận/hoàn tất DB mutation helpers + parity test (H1)
+1. Nếu đã làm từ prompt cũ → chỉ xác nhận các hàm đã có trong `helpers.py` và `tests/test_db_parity.py` pass.
+2. Nếu chưa → tạo:
+   - `create_doc(db, collection, data)`
+   - `update_doc(db, collection, doc_id, update_ops)` (dùng chung operator)
+   - `push_to_array(db, collection, doc_id, field, value)` (qua helper để parity)
+   - `increment_field(db, collection, doc_id, field, amount=1)`
+   - Test `tests/test_db_parity.py` chứng minh `$push`/`$inc` persist trên in-memory.
+3. Đừng phá các caller đang dùng trực tiếp — chỉ thêm helpers, không bắt buộc migrate caller trong phase này (trừ khi rủi ro thấp).
+
+### Nhiệm vụ B5 — Dọn dead code (nếu chưa làm)
+- Xóa helper `_safe` + unused imports trong `app/services/intelligence.py` nếu còn (Audit L1). Verify trước khi xóa.
+
+## 3. Định Nghĩa Hoàn Thành (DoD) — Bổ sung
+
+- [ ] `cd apps/api && .venv/bin/python -m pytest tests/ -q` → **100% pass** (không còn fail nào).
+- [ ] `python -m app.core.cli migrate 001_seed_categories` + `002_add_indexes` chạy thành công trên DB test, không ImportError.
+- [ ] Readme migration ghi đúng lệnh.
+- [ ] Không còn cảnh báo `PydanticDeprecatedSince20` class-based `config`.
+- [ ] `helpers.py` có đủ mutation helpers; `test_db_parity.py` pass.
+- [ ] Chạy lại full suite lần cuối trước khi báo cáo.
+- [ ] KHÔNG sửa file ngoài `apps/api/**`.
+
+## 4. MẪU BÁO CÁO (bắt buộc)
+
+```
+=== BÁO CÁO AI-A — PHASE 0 (BỔ SUNG) ===
+1. Tổng quan: [tóm tắt những gì đã hoàn tất]
+2. Kết quả từng nhiệm vụ B1–B5: [chi tiết từng mục]
+3. Kết quả test cuối:
+   - `pytest tests/ -q`: [X pass / Y fail] (ghi rõ)
+   - Migration test: [kết quả từng migration]
+   - Grep Pydantic v2: [kết quả/còn mấy chỗ]
+4. File đã sửa/tạo: [danh sách]
+5. Xác nhận git status: [chỉ có file apps/api được thay đổi]
+6. Rủi ro/điểm cần chú ý: [nếu có]
+7. Sẵn sàng cho Phase 1: [CÓ/KHÔNG]
+=== HẾT BÁO CÁO ===
+```
+
+## 5. Quy trình
+
+- Sau khi xong → gửi báo cáo cho Supervisor.
+- Supervisor sẽ verify lại (chạy full suite + thử migration) rồi mới sign-off Phase 0 → giao Phase 1.
+
+---
+
+*— Supervisor. Note: AI-B đang chờ bạn fix migration để CI xanh hoàn toàn.*

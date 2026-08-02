@@ -190,7 +190,7 @@ async def update_user_skill(
     prev_score = existing.get("mastery_score", DEFAULT_MASTERY) if existing else DEFAULT_MASTERY
     prev_attempts = existing.get("attempts", 0) if existing else 0
     prev_correct = existing.get("correct_count", 0) if existing else 0
-    prev_avg_time = existing.get("avg_time_seconds")
+    prev_avg_time = existing.get("avg_time_seconds") if existing else None
     prev_times = existing.get("time_history", []) if existing else []
 
     alpha = max(_ALPHA_BASE * (0.85 ** prev_attempts), 0.05)

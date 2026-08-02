@@ -29,7 +29,7 @@ def _seed_challenge(db):
     #    `get_event_loop()` raises on newer Python (3.12/3.13/3.14…).
     asyncio.run(seed_skills())
     cid = "ch-test-linux-permissions"
-    db.challenges.insert_one({
+    asyncio.run(db.challenges.insert_one({
         "_id": cid, "title": "Linux File Permissions", "description": "chmod",
         "topic": "Linux", "domain": "technology", "difficulty": "easy",
         "difficulty_score": 2, "type": "theory",
@@ -43,7 +43,7 @@ def _seed_challenge(db):
         "source": "user", "creator_id": None, "status": "published", "quality_score": 4.2,
         "stats": {"attempts": 0, "completion_rate": 0.0, "avg_rating": 0.0, "bookmarks": 0},
         "created_at": "2026-07-31T00:00:00+00:00", "updated_at": "2026-07-31T00:00:00+00:00",
-    })
+    }))
     return cid
 
 
@@ -92,9 +92,11 @@ def test_creator_follow_and_list():
         me = client.get("/api/v1/creators/me", headers=_auth(token)).json()["data"]
         assert me["level"] in ["beginner", "trusted", "expert", "legend"]
 
+        # The admin user's creator profile is keyed by the user id
+        # (`user-admin@ascendly.io`), so follow that creator.
         client.post("/api/v1/creators/follow",
-                    json={"creator_id": "admin@ascendly.io"}, headers=_auth(token))
-        prof = client.get("/api/v1/creators/admin@ascendly.io", headers=_auth(token)).json()["data"]
+                    json={"creator_id": "user-admin@ascendly.io"}, headers=_auth(token))
+        prof = client.get("/api/v1/creators/user-admin@ascendly.io", headers=_auth(token)).json()["data"]
         assert prof["followers_count"] >= 1
 
         res = client.get("/api/v1/challenges?skill=linux&difficulty=easy", headers=_auth(token))

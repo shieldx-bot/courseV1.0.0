@@ -25,7 +25,7 @@ router = APIRouter()
 
 def _user_payload(user: dict):
     return {
-        "id": user["_id"],
+        "id": user.get("id") or user.get("_id"),
         "email": user["email"],
         "name": user.get("name") or "",
         "role": user["role"],

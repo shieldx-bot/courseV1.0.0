@@ -38,7 +38,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: docker/Dockerfile.api
+      dockerfile: devops/docker/Dockerfile.api
       target: api
     restart: unless-stopped
     ports:
@@ -70,7 +70,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: docker/Dockerfile.api
+      dockerfile: devops/docker/Dockerfile.api
       target: worker
     restart: unless-stopped
     environment:
@@ -95,7 +95,7 @@ services:
   cron:
     build:
       context: .
-      dockerfile: docker/Dockerfile.api
+      dockerfile: devops/docker/Dockerfile.api
       target: cron
     restart: unless-stopped
     environment:
@@ -120,7 +120,7 @@ services:
   web:
     build:
       context: .
-      dockerfile: docker/Dockerfile.web
+      dockerfile: devops/docker/Dockerfile.web
     restart: unless-stopped
     ports:
       - "3000:3000"
@@ -144,8 +144,8 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./docker/prometheus:/etc/prometheus/prometheus
+      - ./devops/docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./devops/docker/prometheus:/etc/prometheus/prometheus
       - prometheus_data:/prometheus
     depends_on:
       - api
@@ -161,8 +161,8 @@ services:
       - GF_INSTALL_PLUGINS=
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
-      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./devops/docker/grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./devops/docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
     depends_on:
       - prometheus
 

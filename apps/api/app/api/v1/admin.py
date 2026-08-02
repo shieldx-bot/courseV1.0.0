@@ -1,3 +1,4 @@
+import re
 from datetime import datetime, timezone, timedelta
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
@@ -268,7 +269,7 @@ async def create_course(body: CourseIn):
         ],
         "outcome": body.outcome,
     }
-    await sync_syllabus_from_chapters(course)
+    sync_syllabus_from_chapters(course)
     await db.courses.insert_one(course)
     await enqueue_task_with_retry("index_search_task", "index", course, _max_retries=5, _job_timeout=30)
     WORKER_JOBS_ENQUEUED.labels(task="index_search_task").inc()
@@ -325,7 +326,7 @@ async def update_course(course_id: str, body: CourseIn):
         {"$set": update},
     )
     course = await db.courses.find_one({"_id": course_id})
-    await sync_syllabus_from_chapters(course or {})
+    sync_syllabus_from_chapters(course or {})
     if course:
         await db.courses.update_one(
             {"_id": course_id},

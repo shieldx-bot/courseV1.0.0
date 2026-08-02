@@ -1,5 +1,5 @@
 from typing import List, Optional, Any, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from ..domain.entities.exam import Difficulty, QuestionType, ExamStatus
 
@@ -31,8 +31,7 @@ class ExamResponse(ExamBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Question Schemas ---
 class OptionSchema(BaseModel):

@@ -88,6 +88,15 @@ make test-api  # nếu Makefile đã tạo
 
 - ✅ Xong + verified · ⏳ Đang làm · ⏸ Chờ giao việc · ❌ Chưa sign-off · ✔ Đã sign-off
 
+### Trạng thái hiện tại — Phase 0 (cập nhật lần cuối: sau khi nhận báo cáo AI-B + AI-C)
+
+| Agent | Trạng thái | Ghi chú |
+|---|---|---|
+| AI-A (Backend) | ⏳ Đang làm (bổ sung) | ⚠️ CHƯA gửi báo cáo. Đã gửi prompt bổ sung `PROMPT_PHASE0_AI_A_BACKEND_SUPPLEMENT.md` để fix: 1 test fail (`test_community_ai::test_submit_skill_activity_mentor`), migration runner path (`cli.py` → `app/migrations` sai), migration 002 (`ensure_indexes` không tồn tại → `create_indexes`), Pydantic v2 còn sót (`exam.py:27`), xác nhận DB parity helpers. |
+| AI-B (DevOps) | ✅ Đã báo cáo (chờ verify kỹ hơn / sign-off) | Verified: bugs migration AI-B nêu là THẬT. YAML 31/31 OK, Makefile chạy được (`test-web` 14 pass). Docker build/kubectl/helm chưa chạy được trên máy (permission/absent) — ghi nhận giới hạn. CI job `api` sẽ đỏ tới khi AI-A fix migration + test fail. |
+| AI-C (Frontend) | ✅ Đã báo cáo (chờ verify độc lập / sign-off) | Báo cáo: `npm test` 14 pass, `tsc` pass, `build` pass; đã fix jest config, a11y, api-client type-safety, thêm 6 loading.tsx. Rủi ro ghi nhận: Next.js thực tế 14.2.35 (không phải 15), `request<T>` giữ default `any` cho endpoint chưa có schema. |
+| Supervisor | — | Việc tiếp theo: (1) verify độc lập web (`npm test`/`tsc`/`build`) trước khi sign-off AI-C; (2) verify lại CI job sau khi AI-A fix; (3) sign-off Phase 0 khi cả 3 xong → giao Phase 1. |
+
 ## 6. Checklist Nhận Báo Cáo (dán nhanh)
 
 ```

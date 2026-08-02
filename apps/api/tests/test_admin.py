@@ -8,12 +8,12 @@ from app.main import app
 
 def _admin_token(client):
     res = client.post("/api/v1/auth/login", json={"email": "admin@ascendly.io", "password": "password"})
-    return res.json()["access_token"]
+    return res.json()["data"]["access_token"]
 
 
 def _user_token(client, email="order@test.com"):
     res = client.post("/api/v1/auth/signup", json={"email": email, "password": "password123", "name": "User"})
-    return res.json()["access_token"]
+    return res.json()["data"]["access_token"]
 
 
 def test_admin_dashboard():

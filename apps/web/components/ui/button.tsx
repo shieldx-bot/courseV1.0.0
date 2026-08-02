@@ -58,6 +58,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ref={buttonRef}
         className={cn(baseStyles, variantStyles[variant], sizeStyles[size], pressScale, className)}
         disabled={disabled || loading}
+        onClick={onClick}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}

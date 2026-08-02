@@ -125,13 +125,25 @@ def test_no_hardcoded_api_keys():
     """SECURITY BUG FIX: Verify no hardcoded API keys in config."""
     from app.core.config import settings
     
-    # The openai_api_key should be empty (not hardcoded)
+    # All API keys / secrets must be empty (loaded from env, not hardcoded)
     assert settings.openai_api_key == ""
+    assert settings.openrouter_api_key == ""
+    assert settings.gemini_api_key == ""
+    assert settings.stripe_secret_key == ""
+    assert settings.paypal_client_secret == ""
+    assert settings.google_oauth_client_secret == ""
+    assert settings.tavily_api_key == ""
+    assert settings.google_search_api_key == ""
+    assert settings.serpapi_api_key == ""
+    assert settings.sms_provider_api_key == ""
     
-    # Verify the actual key is not in the source code
+    # Verify the source does not embed any long secret-like literal values
+    # (e.g. 32+ hex/base64 chars) for the known secret fields.
     with open("app/core/config.py", "r") as f:
         content = f.read()
-        assert " " not in content
+    # Secret settings must be initialized to empty string, never a literal key
+    for field in ["openai_api_key", "openrouter_api_key", "gemini_api_key"]:
+        assert f'{field}: str = ""' in content, f"{field} must default to empty string"
 
 
 def test_cors_uses_configured_origins():

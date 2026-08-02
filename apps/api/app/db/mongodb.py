@@ -25,7 +25,7 @@ class InMemoryCollection:
         query = query or {}
         return len([d for d in self.data if self._match(d, query)])
 
-    async def insert_many(self, docs: list[dict]):
+    async def insert_many(self, docs: list[dict], ordered: bool = True):
         self.data.extend(docs)
 
     async def insert_one(self, doc: dict):
@@ -34,23 +34,53 @@ class InMemoryCollection:
     async def update_one(self, query, update, upsert=False):
         for d in self.data:
             if self._match(d, query):
-                if "$set" in update:
-                    d.update(update["$set"])
+                self._apply_update(d, update)
                 return
-        if upsert and "$set" in update:
+        if upsert:
             doc = dict(query)
-            doc.update(update["$set"])
+            self._apply_update(doc, update)
             self.data.append(doc)
 
     async def update_many(self, query, update):
         for d in self.data:
             if self._match(d, query):
-                if "$set" in update:
-                    d.update(update["$set"])
+                self._apply_update(d, update)
+
+    async def replace_one(self, query, replacement, upsert=False):
+        for i, d in enumerate(self.data):
+            if self._match(d, query):
+                self.data[i] = replacement
+                return
+        if upsert:
+            self.data.append(replacement)
+
+    async def delete_one(self, query=None):
+        query = query or {}
+        for i, d in enumerate(self.data):
+            if self._match(d, query):
+                self.data.pop(i)
+                return
 
     async def delete_many(self, query=None):
         query = query or {}
         self.data = [d for d in self.data if not self._match(d, query)]
+
+    @staticmethod
+    def _resolve(doc: dict, key: str):
+        """Resolve a possibly dotted path (e.g. ``related_entity.id``).
+
+        Mirrors MongoDB's behaviour of treating ``{"a.b": v}`` as
+        ``{"a": {"b": v}}`` for nested documents.
+        """
+        if "." not in key:
+            return doc.get(key)
+        node: Any = doc
+        for part in key.split("."):
+            if isinstance(node, dict):
+                node = node.get(part)
+            else:
+                return None
+        return node
 
     def _match(self, doc: dict, query: dict) -> bool:
         for key, value in query.items():
@@ -62,15 +92,115 @@ class InMemoryCollection:
                 if "$regex" in value:
                     import re
 
-                    if not re.search(value["$regex"], str(doc.get(key, "")), re.I):
+                    if not re.search(value["$regex"], str(self._resolve(doc, key) or ""), re.I):
                         return False
                 if "$in" in value:
-                    if doc.get(key) not in value["$in"]:
+                    if self._resolve(doc, key) not in value["$in"]:
                         return False
                 continue
-            if doc.get(key) != value:
+            field_value = self._resolve(doc, key)
+            # Array containment parity: MongoDB matches a document when the
+            # field is an array that *contains* the queried scalar, e.g.
+            # ``find({"lesson_ids": "sql-1"})`` matches
+            # ``{"lesson_ids": ["sql-1", ...]}``.
+            if isinstance(field_value, list):
+                if value not in field_value:
+                    return False
+            elif field_value != value:
                 return False
         return True
+
+    @staticmethod
+    def _set_path(doc: dict, path: str, value: Any) -> None:
+        """Set ``value`` at a (possibly dotted) path, creating parents."""
+        node = doc
+        parts = path.split(".")
+        for part in parts[:-1]:
+            nxt = node.get(part)
+            if not isinstance(nxt, dict):
+                nxt = {}
+                node[part] = nxt
+            node = nxt
+        node[parts[-1]] = value
+
+    @staticmethod
+    def _get_path(doc: dict, path: str, default=None):
+        node = doc
+        for part in path.split("."):
+            if isinstance(node, dict) and part in node:
+                node = node[part]
+            else:
+                return default
+        return node
+
+    @staticmethod
+    def _del_path(doc: dict, path: str) -> None:
+        node = doc
+        parts = path.split(".")
+        for part in parts[:-1]:
+            if not isinstance(node, dict):
+                return
+            node = node.get(part)
+            if not isinstance(node, dict):
+                return
+        if isinstance(node, dict):
+            node.pop(parts[-1], None)
+
+    def _apply_update(self, doc: dict, update: dict) -> None:
+        """Apply a MongoDB-style update document to ``doc`` in place.
+
+        Supports the operators used across the codebase and tests:
+        ``$set``, ``$push``, ``$addToSet``, ``$inc``, ``$unset``,
+        ``$setOnInsert``, ``$currentDate``. Dotted paths (e.g.
+        ``"stats.attempts"``) are resolved as nested fields, mirroring
+        MongoDB. Unsupported operators are silently ignored (mirrors the
+        previous permissive behaviour).
+        """
+        for op, payload in update.items():
+            if op == "$set":
+                for k, v in payload.items():
+                    self._set_path(doc, k, v)
+            elif op == "$setOnInsert":
+                for k, v in payload.items():
+                    if self._get_path(doc, k) is None:
+                        self._set_path(doc, k, v)
+            elif op == "$unset":
+                for k in payload:
+                    self._del_path(doc, k)
+            elif op == "$inc":
+                for k, v in payload.items():
+                    cur = self._get_path(doc, k, 0) or 0
+                    self._set_path(doc, k, cur + v)
+            elif op == "$push":
+                for k, v in payload.items():
+                    bucket = self._get_path(doc, k)
+                    if not isinstance(bucket, list):
+                        bucket = []
+                        self._set_path(doc, k, bucket)
+                    if isinstance(v, dict) and "$each" in v:
+                        bucket.extend(v["$each"])
+                    else:
+                        bucket.append(v)
+            elif op == "$addToSet":
+                for k, v in payload.items():
+                    bucket = self._get_path(doc, k)
+                    if not isinstance(bucket, list):
+                        bucket = []
+                        self._set_path(doc, k, bucket)
+                    if isinstance(v, dict) and "$each" in v:
+                        for item in v["$each"]:
+                            if item not in bucket:
+                                bucket.append(item)
+                    elif v not in bucket:
+                        bucket.append(v)
+            elif op == "$currentDate":
+                import datetime as _dt
+
+                for k, v in payload.items():
+                    if v is True or (isinstance(v, dict) and v.get("$type") == "date"):
+                        self._set_path(doc, k, _dt.datetime.now(_dt.timezone.utc))
+            # Unknown operators are intentionally ignored to keep the
+            # in-memory backend tolerant (matches previous behaviour).
 
 
 class InMemoryCursor:

@@ -10,7 +10,7 @@ def test_list_reviews():
     with TestClient(app) as client:
         res = client.get("/api/v1/reviews")
         assert res.status_code == 200
-        reviews = res.json()
+        reviews = res.json()["data"]
         assert len(reviews) > 0
 
 
@@ -24,6 +24,6 @@ def test_create_review():
             "quote": "Great course",
         })
         assert res.status_code == 200
-        data = res.json()
+        data = res.json()["data"]
         assert data["name"] == "Test User"
         assert data["rating"] == 5

@@ -23,7 +23,10 @@ describe("Accessibility", () => {
   });
 
   it("CategoryGrid has no axe violations", async () => {
-    const { container } = await render(<CategoryGrid />);
+    // CategoryGrid is an async server component — await it to resolve
+    // into renderable JSX before running axe checks.
+    const element = await CategoryGrid();
+    const { container } = render(element);
     const results = await axe(container);
     expect(results).toHaveNoViolations();
   });

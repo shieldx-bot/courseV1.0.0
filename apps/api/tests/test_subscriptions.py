@@ -8,14 +8,14 @@ from app.main import app
 
 def _get_token(client, email="sub@test.com"):
     res = client.post("/api/v1/auth/signup", json={"email": email, "password": "password123", "name": "Sub"})
-    return res.json()["access_token"]
+    return res.json()["data"]["access_token"]
 
 
 def test_list_tiers():
     with TestClient(app) as client:
         res = client.get("/api/v1/subscriptions/tiers")
         assert res.status_code == 200
-        tiers = res.json()
+        tiers = res.json()["data"]
         assert len(tiers) > 0
         assert tiers[0]["label"]
 
@@ -30,12 +30,12 @@ def test_checkout_creates_subscription():
             headers={"Authorization": f"Bearer {token}"},
         )
         assert res.status_code == 200
-        data = res.json()
+        data = res.json()["data"]
         assert data["provider"] == "test"
 
         res = client.get("/api/v1/subscriptions/me", headers={"Authorization": f"Bearer {token}"})
         assert res.status_code == 200
-        assert res.json()["status"] == "active"
+        assert res.json()["data"]["status"] == "active"
 
 
 def test_cancel_subscription():
@@ -49,4 +49,4 @@ def test_cancel_subscription():
         assert res.json()["canceled"] is True
 
         res = client.get("/api/v1/subscriptions/me", headers={"Authorization": f"Bearer {token}"})
-        assert res.json() is None
+        assert res.json()["data"] is None

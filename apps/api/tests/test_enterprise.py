@@ -1,13 +1,13 @@
-import pytest
+import asyncio
 from unittest.mock import MagicMock
 from datetime import datetime
-from app.domain.entities.enterprise import Contest, ContestStatus, ContestType, ContestParticipant
+from app.domain.entities.enterprise import Contest, ContestStatus, ContestType
 from app.domain.services.enterprise_usecase import EnterpriseUseCase
 from app.domain.services.grading import ContestCodingStrategy
 from app.domain.entities.exam import Question
 
-@pytest.mark.asyncio
-async def test_contest_coding_strategy():
+
+def test_contest_coding_strategy():
     strategy = ContestCodingStrategy()
     # Fixed Question entity creation with required fields
     question = Question(
@@ -27,8 +27,7 @@ async def test_contest_coding_strategy():
     assert score == 0
     assert is_correct == False
 
-@pytest.mark.asyncio
-async def test_enterprise_usecase_registration():
+def test_enterprise_usecase_registration():
     mock_repo = MagicMock()
     
     # Helper to return a coroutine for async methods
@@ -46,7 +45,7 @@ async def test_enterprise_usecase_registration():
     mock_repo.register_participant = mock_register
     
     usecase = EnterpriseUseCase(mock_repo)
-    # Await the async method
-    result = await usecase.register_for_contest("c1", "user1")
+    # Await the async method via asyncio.run (no pytest-asyncio dependency)
+    result = asyncio.run(usecase.register_for_contest("c1", "user1"))
     
     assert result == True
