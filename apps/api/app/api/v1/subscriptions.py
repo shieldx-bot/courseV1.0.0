@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
@@ -11,8 +12,23 @@ from app.services import email as email_service
 from app.core.worker import enqueue_task_with_retry
 from app.core.telemetry import WORKER_JOBS_ENQUEUED
 from app.core.idempotency import deduplicate
+from app.services.proactive_support import track_event
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+async def _track_checkout_completed(user_id: str, order_id: str, provider: str) -> None:
+    """Record a completed checkout for proactive drop detection."""
+    try:
+        await track_event(
+            user_id,
+            "checkout_completed",
+            metadata={"order_id": order_id, "provider": provider},
+        )
+    except Exception as exc:
+        logger.warning("Failed to track checkout_completed for %s: %s", user_id, exc)
 
 
 def _end_date(months: int):
@@ -144,6 +160,16 @@ async def create_checkout(body: CheckoutIn, user: dict = Depends(get_current_use
     coupon = await _apply_coupon(body.coupon_code) if body.coupon_code else None
     amount = _calculate_amount(tier, coupon)
 
+    # Track checkout start for proactive checkout-drop detection.
+    try:
+        await track_event(
+            user["id"],
+            "checkout_started",
+            metadata={"tier_id": body.tier_id, "provider": body.payment_provider, "amount": amount},
+        )
+    except Exception as exc:
+        logger.warning("Failed to track checkout_started for %s: %s", user["id"], exc)
+
     success_url = f"{settings.frontend_url}/checkout?success=1&provider={body.payment_provider}"
     cancel_url = f"{settings.frontend_url}/checkout?canceled=1"
 
@@ -165,6 +191,7 @@ async def create_checkout(body: CheckoutIn, user: dict = Depends(get_current_use
 
     # Dev/test fallback: immediately create subscription
     sub_id, order_id = await _create_subscription_and_order(user["id"], tier, coupon, "test", amount)
+    await _track_checkout_completed(user["id"], order_id, "test")
     return api_response({
         "session_url": "/learn",
         "provider": "test",
@@ -184,7 +211,8 @@ async def capture_paypal(order_id: str, user: dict = Depends(get_current_user)):
             tier = await _get_tier(parts[1])
             coupon = await _apply_coupon(parts[2]) if len(parts) > 2 and parts[2] else None
             amount = _calculate_amount(tier, coupon)
-            await _create_subscription_and_order(user["id"], tier, coupon, "paypal", amount, order_id)
+            _, internal_order_id = await _create_subscription_and_order(user["id"], tier, coupon, "paypal", amount, order_id)
+            await _track_checkout_completed(user["id"], internal_order_id, "paypal")
         return api_response({"captured": True})
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"PayPal capture error: {exc}")
@@ -221,7 +249,8 @@ async def stripe_webhook(request: Request):
         tier = await _get_tier(tier_id)
         coupon = await _apply_coupon(coupon_code) if coupon_code else None
         amount = session.get("amount_total", _calculate_amount(tier, coupon) * 100) / 100
-        await _create_subscription_and_order(user_id, tier, coupon, "stripe", amount, session.get("id"))
+        _, internal_order_id = await _create_subscription_and_order(user_id, tier, coupon, "stripe", amount, session.get("id"))
+        await _track_checkout_completed(user_id, internal_order_id, "stripe")
 
     return api_response({"received": True})
 
@@ -252,7 +281,8 @@ async def paypal_webhook(request: Request):
                 tier = await _get_tier(tier_id)
                 coupon = await _apply_coupon(coupon_code) if coupon_code else None
                 amount = float(resource.get("amount", {}).get("value", _calculate_amount(tier, coupon)))
-                await _create_subscription_and_order(user_id, tier, coupon, "paypal", amount, resource.get("id"))
+                _, internal_order_id = await _create_subscription_and_order(user_id, tier, coupon, "paypal", amount, resource.get("id"))
+                await _track_checkout_completed(user_id, internal_order_id, "paypal")
 
     return {"received": True}
 

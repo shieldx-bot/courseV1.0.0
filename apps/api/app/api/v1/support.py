@@ -6,9 +6,11 @@ from pydantic import BaseModel, Field
 
 from app.core.deps import get_current_user, require_admin
 from app.core.response import api_response
+from app.services.proactive_support import get_active_interventions
 from app.services.support_tickets import (
     VALID_STATUSES,
     add_message,
+    check_sla_breaches,
     create_ticket,
     escalate_to_human,
     get_ticket,
@@ -44,6 +46,13 @@ class MessageIn(BaseModel):
 
 class SatisfactionIn(BaseModel):
     rating: int = Field(ge=1, le=5)
+
+
+@router.get("/interventions/active")
+async def my_active_interventions(user=Depends(get_current_user)):
+    """Active proactive-support interventions for the current user."""
+    interventions = await get_active_interventions(user["id"])
+    return api_response(interventions)
 
 
 @router.get("/tickets")
@@ -310,6 +319,12 @@ async def admin_assign(ticket_id: str, body: AdminAssignIn, _=Depends(require_ad
 async def admin_stats(_=Depends(require_admin)):
     stats = await get_stats()
     return api_response(stats)
+
+
+@admin_router.get("/sla-breaches")
+async def admin_sla_breaches(_=Depends(require_admin)):
+    breaches = await check_sla_breaches()
+    return api_response(breaches)
 
 
 def _user_id_from_dep(user: dict) -> str:

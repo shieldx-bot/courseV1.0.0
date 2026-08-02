@@ -15,6 +15,9 @@ worker:
     limits:
       cpu: "1000m"
       memory: "1Gi"
+  autoscaling:
+    minReplicas: 1
+    maxReplicas: 20
 cron:
   replicas: 1
   resources:
@@ -39,7 +42,3 @@ keda:
     scaleUpPercent: 100
     scaleDownStabilizationSeconds: 300
     scaleDownPercent: 50
-worker:
-  autoscaling:
-    minReplicas: 1
-    maxReplicas: 20

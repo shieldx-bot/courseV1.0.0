@@ -79,6 +79,23 @@ def send_password_reset(to: str, reset_url: str):
     _send(to, subject, body)
 
 
+def send_proactive_help(to: str, intervention_type: str, message: str):
+    """Proactive support email (e.g. learning stall nudge).
+
+    Uses the same SMTP path as the other transactional emails; falls back to
+    the ``[DEV EMAIL]`` console output when SMTP is not configured.
+    """
+    subject = "A little help from Ascendly"
+    body = (
+        f"Hi,\n\n"
+        f"{message}\n\n"
+        f"Log back in to continue where you left off: {settings.frontend_url}/learn\n\n"
+        f"If you need anything, our support team is one message away.\n\n"
+        f"Thanks,\nThe Ascendly Team"
+    )
+    _send(to, subject, body)
+
+
 async def find_renewals_due(db, days: int = 7):
     from datetime import timedelta
 

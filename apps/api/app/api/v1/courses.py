@@ -6,6 +6,7 @@ from app.core.deps import get_optional_user
 from app.services.search import search_courses, search_available
 from app.services.recommendation import get_recommendations, get_similar_courses, get_popular_courses
 from app.services.course_structure import ensure_chapters, sync_syllabus_from_chapters
+from app.services.proactive_support import track_event
 
 router = APIRouter()
 
@@ -62,6 +63,20 @@ async def get_category(slug: str):
     return api_response({"id": cat["_id"], **{k: v for k, v in cat.items() if k != "_id"}})
 
 
+async def _track_search_no_click(user: dict | None, q: str, total: int) -> None:
+    """Record a search that returned zero results (no-click proxy)."""
+    if not user or not q or total != 0:
+        return
+    try:
+        await track_event(
+            user["id"],
+            "search_no_click",
+            metadata={"query": q, "total": total},
+        )
+    except Exception:
+        pass
+
+
 @router.get("/courses")
 async def list_courses(
     q: str = Query("", alias="search"),
@@ -70,6 +85,7 @@ async def list_courses(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
     max_lesson_duration: int = Query(0, ge=0, description="Filter courses with lessons under N seconds (e.g. 600 for 10 min)"),
+    user: dict | None = Depends(get_optional_user),
 ):
     if q and search_available:
         result = await search_courses(q, category=category, sort_by=sort_by, page=page, per_page=per_page)
@@ -89,6 +105,7 @@ async def list_courses(
                     "instructor_name": hit.get("instructor_name", ""),
                 })
             total = result.get("estimatedTotalHits", result.get("total", len(courses)))
+            await _track_search_no_click(user, q, total)
             return api_response(courses, meta={
                 "page": page,
                 "per_page": per_page,
@@ -106,6 +123,7 @@ async def list_courses(
             {"description": {"$regex": q, "$options": "i"}},
         ]
     total = await db.courses.count_documents(query)
+    await _track_search_no_click(user, q, total)
     skip = (page - 1) * per_page
     courses = await db.courses.find(query).sort("created_at", -1).skip(skip).limit(per_page).to_list(per_page)
     enriched = [_enrich_course(c) for c in courses]

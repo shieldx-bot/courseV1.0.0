@@ -42,3 +42,25 @@ export interface ConvertTicketResult {
 }
 
 export type ChatStreamEventType = "message" | "context" | "actions" | "done" | "error";
+
+// ── Proactive interventions ──────────────────────────────────────────────────
+
+export type InterventionType =
+  | "learning_stall"
+  | "quiz_low_score"
+  | "video_rewatch"
+  | "checkout_drop"
+  | (string & {});
+
+export interface Intervention {
+  type: InterventionType;
+  message?: string;
+  created_at?: string;
+  /** Present on some intervention payloads (video_rewatch / quiz_low_score). */
+  lesson_id?: string;
+  quiz_id?: string;
+  score?: number;
+  /** Admin views only. */
+  user_id?: string;
+  data?: Record<string, unknown>;
+}

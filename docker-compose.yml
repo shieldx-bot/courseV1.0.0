@@ -35,6 +35,19 @@ services:
     volumes:
       - meili_data:/meili_data
 
+  # Local email catcher (dev): SMTP 1025 / web UI 8025.
+  # Accepts ANY username/password — the non-empty dummy creds below are what
+  # makes backend email.py leave its `[DEV EMAIL]` print-fallback and actually
+  # deliver via SMTP so you can inspect messages in the UI.
+  mailpit:
+    image: axllent/mailpit:v1.20
+    restart: unless-stopped
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # Web UI: http://localhost:8025
+    volumes:
+      - mailpit_data:/data
+
   api:
     build:
       context: .
@@ -58,6 +71,13 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-}
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      # Email (dev → Mailpit). Dummy non-empty creds are required: email.py
+      # treats empty SMTP_USER/PASSWORD as "no SMTP configured" and only prints
+      # [DEV EMAIL]; Mailpit accepts any credentials.
+      - SMTP_HOST=${SMTP_HOST:-mailpit}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_USER=${SMTP_USER:-mailpit}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-mailpit}
     env_file:
       - .env
     healthcheck:
@@ -72,6 +92,8 @@ services:
       redis:
         condition: service_healthy
       meilisearch:
+        condition: service_started
+      mailpit:
         condition: service_started
     volumes:
       - ./apps/api:/app
@@ -99,6 +121,11 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-}
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      # Email (dev → Mailpit) — dummy creds, see api service comment
+      - SMTP_HOST=${SMTP_HOST:-mailpit}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_USER=${SMTP_USER:-mailpit}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-mailpit}
     env_file:
       - .env
     depends_on:
@@ -107,6 +134,8 @@ services:
       redis:
         condition: service_healthy
       meilisearch:
+        condition: service_started
+      mailpit:
         condition: service_started
     volumes:
       - ./apps/api:/app
@@ -134,6 +163,11 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       - GEMINI_MODEL=${GEMINI_MODEL:-}
       - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      # Email (dev → Mailpit) — dummy creds, see api service comment
+      - SMTP_HOST=${SMTP_HOST:-mailpit}
+      - SMTP_PORT=${SMTP_PORT:-1025}
+      - SMTP_USER=${SMTP_USER:-mailpit}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-mailpit}
     env_file:
       - .env
     depends_on:
@@ -142,6 +176,8 @@ services:
       redis:
         condition: service_healthy
       meilisearch:
+        condition: service_started
+      mailpit:
         condition: service_started
     volumes:
       - ./apps/api:/app
@@ -201,3 +237,4 @@ volumes:
   meili_data:
   prometheus_data:
   grafana_data:
+  mailpit_data:

@@ -1,4 +1,4 @@
-# Ascendly — DevOps (Phase 0 → Phase 2)
+# Ascendly — DevOps (Phase 0 → Phase 3)
 
 Infrastructure, CI/CD, and local developer tooling for the Ascendly monorepo.
 
@@ -20,7 +20,7 @@ The repo root `Makefile` drives local dev. Docker contexts are the **repo root**
 
 ```bash
 make setup          # create apps/api/.venv, pip install -r requirements.txt, npm ci in apps/web
-make compose-up     # docker compose up -d mongo redis meilisearch (infra only)
+make compose-up     # docker compose up -d mongo redis meilisearch mailpit (infra only)
 make compose-down   # docker compose down
 make test-api       # cd apps/api && pytest tests/ -q   (hermetic: in-memory Mongo)
 make test-web       # cd apps/web && npm test -- --ci
@@ -78,6 +78,64 @@ Monitoring (`llm_*` metrics exposed by the backend — see Phase 2 report):
   `LLMSpikeInRequests`, `LLMCostSpike`.
 - Grafana dashboard `devops/docker/grafana/dashboards/api-metrics.json` gains
   LLM request rate, error rate, cost, and token panels.
+
+## Email development (Mailpit) — Phase 3
+
+`docker-compose.yml` ships a `mailpit` service for local email dev:
+
+| Port | Purpose |
+|---|---|
+| `1025` | SMTP (backend `SMTP_PORT`) |
+| `8025` | Web UI — open **http://localhost:8025** to inspect received mail |
+
+The `api`, `worker`, and `cron` services pass through `SMTP_HOST`/`SMTP_PORT`/
+`SMTP_USER`/`SMTP_PASSWORD` from the environment (compose defaults:
+`SMTP_HOST=mailpit`, `SMTP_PORT=1025`, `SMTP_USER=mailpit`,
+`SMTP_PASSWORD=mailpit` — Mailpit accepts any credentials, so the backend
+delivers real SMTP messages you can read in the UI instead of only
+`[DEV EMAIL]` print fallbacks).
+
+- `make compose-up` starts Mailpit together with the other infra services.
+- `.env.example` ships dev-safe defaults (`SMTP_HOST=mailpit`,
+  `SMTP_PORT=1025`, empty user/password). Inside compose, empty
+  user/password resolve to the Mailpit dummy creds, so mail still lands in
+  the UI. Running the backend *without* compose (`make dev`) with empty
+  `SMTP_USER`/`SMTP_PASSWORD` keeps the `[DEV EMAIL]` print fallback in
+  `apps/api/app/services/email.py` (no mail server needed).
+- Real SMTP: set `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD` in
+  `.env` (user+password non-empty) — compose passes them through and the
+  backend sends real mail. Never commit real SMTP credentials.
+
+## Phase 3 — Proactive support (ops)
+
+- **Cron schedule**: `run_proactive_support_checks` runs once per day at
+  **03:00 UTC** (arq `cron_jobs` in `apps/api/app/worker.py`). It is defined
+  exactly once — no duplicate run. In K8s/Helm the cron process is a
+  `Deployment` (`devops/k8s/cron-deployment.yaml` /
+  `ascendly-runtime` `templates/cron-deployment.yaml`) running with
+  `PROCESS_MODE=cron`; scheduling happens *inside* the pod via arq, so it is
+  **not** a Kubernetes `CronJob` and no `ttlSecondsAfterFinished` is needed.
+  The daily 03:00 cadence is deliberately conservative for cost; if a higher
+  frequency (e.g. every 15 min, per `15-de-xuat-cai-tien.md`) is approved,
+  adjust the `cron()` entry in `worker.py` (backend/AI-A) — no infra change
+  is required for it.
+- **Alerts** (both `devops/prometheus/alerts.yml` and
+  `devops/docker/prometheus/alerts.yml`): `LLMHighErrorRate`,
+  `LLMSpikeInRequests`, `LLMCostSpike`, and `ProactiveCheckJobFailed`.
+  `ProactiveCheckJobFailed` watches
+  `worker_jobs_completed_total{task="run_proactive_support_checks",status="error"}`.
+- **Grafana** (`devops/docker/grafana/dashboards/api-metrics.json`): LLM
+  panels + proactive run / email-sent panels.
+- **Backend dependency**: `worker_jobs_completed_total` is defined in
+  `apps/api/app/core/telemetry.py` but the arq hooks
+  (`on_job_complete`/`on_job_failed` in `apps/api/app/worker.py` are `None`)
+  are not wired and the worker/cron process does not serve `/metrics` (only
+  the API process does, and Prometheus scrapes `api:8000`). For the proactive
+  alert and dashboard panels to go live, the backend must (a) wire the arq
+  hooks to increment `worker_jobs_completed_total{task,status}` (or export a
+  dedicated `proactive_checks_total{status}` counter), and (b) expose those
+  counters on a scraped `/metrics` endpoint (e.g. start a metrics HTTP server
+  in the worker/cron runtime and add a scrape target).
 
 ## CI (`.github/workflows/ci.yml`)
 

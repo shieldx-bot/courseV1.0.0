@@ -25,6 +25,23 @@ WORKER_DLQ_COUNT = Gauge("worker_dlq_count", "Current number of jobs in the dead
 WORKER_JOBS_ENQUEUED = Counter("worker_jobs_enqueued_total", "Total jobs enqueued", ["task"])
 WORKER_JOBS_COMPLETED = Counter("worker_jobs_completed_total", "Total jobs completed", ["task", "status"])
 
+# LLM metrics (consumed by AI-B's Phase 2 alerts).
+LLM_REQUESTS = Counter(
+    "llm_requests_total",
+    "Total LLM requests by provider and status (success/error)",
+    ["provider", "status"],
+)
+LLM_TOKENS = Counter(
+    "llm_tokens_total",
+    "Total LLM tokens (estimated) by provider",
+    ["provider"],
+)
+LLM_COST_USD = Counter(
+    "llm_cost_total_usd",
+    "Estimated LLM cost in USD by provider",
+    ["provider"],
+)
+
 
 class TelemetryMiddleware(BaseHTTPMiddleware):
     async def dispatch(

@@ -1,10 +1,9 @@
 """Proactive support endpoints.
 
-Internal/worker-facing routes for behavioral event tracking and
-periodic intervention checks.
+User-facing routes for behavioral event tracking; admin routes for
+intervention management (list, summary, resolve).
 """
 
-from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,13 +11,12 @@ from pydantic import BaseModel, Field
 
 from app.core.deps import get_current_user, require_admin
 from app.core.response import api_response
-from app.db.mongodb import get_db
 from app.services.proactive_support import (
-    detect_checkout_drop,
-    detect_learning_stall,
-    detect_quiz_low_score,
-    detect_video_rewatch,
     get_active_interventions,
+    get_intervention,
+    get_intervention_summary,
+    list_interventions,
+    resolve_intervention,
     track_event,
 )
 
@@ -43,19 +41,50 @@ async def track_user_event(event: EventIn, user=Depends(get_current_user)):
     return api_response({"tracked": True})
 
 
+# ── Admin intervention management ────────────────────────────────────────────
+
+
+@admin_router.get("/interventions")
+async def list_admin_interventions(
+    type: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    _=Depends(require_admin),
+):
+    filters: dict[str, Any] = {}
+    if type:
+        filters["type"] = type
+    if status:
+        filters["status"] = status
+    if user_id:
+        filters["user_id"] = user_id
+    interventions = await list_interventions(filters or None)
+    return api_response(interventions)
+
+
+@admin_router.get("/interventions/summary")
+async def admin_intervention_summary(_=Depends(require_admin)):
+    summary = await get_intervention_summary()
+    return api_response(summary)
+
+
 @admin_router.get("/interventions/{user_id}")
 async def get_user_interventions(user_id: str, _=Depends(require_admin)):
     interventions = await get_active_interventions(user_id)
     return api_response(interventions)
 
 
-@admin_router.get("/interventions")
-async def list_recent_interventions(_=Depends(require_admin)):
-    db = get_db()
-    now = datetime.now(timezone.utc)
-    cutoff = (now - timedelta(days=7)).isoformat()
-    events = await db.user_behavior_events.find({
-        "event_type": {"$in": ["video_rewatch", "checkout_drop", "learning_stall", "quiz_low_score"]},
-        "created_at": {"$gte": cutoff},
-    }).sort("created_at", -1).to_list(200)
-    return api_response(events)
+@admin_router.get("/interventions/id/{intervention_id}")
+async def admin_intervention_detail(intervention_id: str, _=Depends(require_admin)):
+    intervention = await get_intervention(intervention_id)
+    if not intervention:
+        raise HTTPException(status_code=404, detail="Intervention not found")
+    return api_response(intervention)
+
+
+@admin_router.post("/interventions/{intervention_id}/resolve")
+async def admin_resolve_intervention(intervention_id: str, _=Depends(require_admin)):
+    intervention = await resolve_intervention(intervention_id)
+    if not intervention:
+        raise HTTPException(status_code=404, detail="Intervention not found")
+    return api_response(intervention)

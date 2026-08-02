@@ -24,7 +24,7 @@ help: ## Show available targets
 	@echo "Ascendly local dev tooling — Phase 0"
 	@echo ""
 	@echo "  make setup           Install deps: pip (apps/api) + npm ci (apps/web)"
-	@echo "  make compose-up      Start infra (mongo, redis, meilisearch) in Docker"
+	@echo "  make compose-up      Start infra (mongo, redis, meilisearch, mailpit) in Docker"
 	@echo "  make compose-up-all  Start ALL compose services (infra + api + web + observability)"
 	@echo "  make compose-down    Stop and remove compose services"
 	@echo "  make test-api        Run backend pytest suite (in-memory DB, no external services)"
@@ -46,9 +46,9 @@ setup: ## Install backend + frontend dependencies
 	cd $(WEB_DIR) && npm ci
 	@echo "Frontend deps installed ✓"
 
-compose-up: ## Start infra services only (mongo, redis, meilisearch)
-	docker compose up -d mongo redis meilisearch
-	@echo "Infra ready: MongoDB :27017 | Redis :6379 | MeiliSearch :7700"
+compose-up: ## Start infra services (mongo, redis, meilisearch, mailpit)
+	docker compose up -d mongo redis meilisearch mailpit
+	@echo "Infra ready: MongoDB :27017 | Redis :6379 | MeiliSearch :7700 | Mailpit UI http://localhost:8025"
 
 compose-up-all: ## Start every compose service (infra + app + observability)
 	docker compose up -d

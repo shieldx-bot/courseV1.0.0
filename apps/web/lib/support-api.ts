@@ -4,11 +4,15 @@ import type {
   ChatResponse,
   ConvertTicketPayload,
   ConvertTicketResult,
+  Intervention,
 } from "@/types/support";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "/api/v1";
 
 export const SUPPORT_CHAT_STORAGE_KEY = "ascendly-support-chat";
+export const PROACTIVE_DISMISS_KEY = "ascendly-proactive-dismissed";
+/** How long a dismissed intervention stays hidden before it may re-appear. */
+export const PROACTIVE_DISMISS_TTL_MS = 24 * 60 * 60 * 1000;
 
 // ── envelope parsing (matches backend `api_response`) ─────────────────────
 
@@ -234,6 +238,56 @@ export function clearLocalHistory(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(SUPPORT_CHAT_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// ── Proactive interventions ───────────────────────────────────────────────────
+
+/**
+ * GET /support/interventions/active (added by AI-A). Returns an empty array on
+ * any failure so callers can stay silent when the endpoint is not deployed yet.
+ */
+export async function getActiveInterventions(): Promise<Intervention[]> {
+  try {
+    const res = await fetch(`${API_URL}/support/interventions/active`, {
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) return [];
+    const data = await parseEnvelope<Intervention[]>(res);
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+export function loadDismissedInterventions(): Record<string, number> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(PROACTIVE_DISMISS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, number>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** Returns true when this intervention type was dismissed within the TTL. */
+export function isInterventionDismissed(type: string, now = Date.now()): boolean {
+  const dismissed = loadDismissedInterventions();
+  const at = dismissed[type];
+  if (typeof at !== "number") return false;
+  return now - at < PROACTIVE_DISMISS_TTL_MS;
+}
+
+export function dismissIntervention(type: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    const dismissed = loadDismissedInterventions();
+    dismissed[type] = Date.now();
+    window.localStorage.setItem(PROACTIVE_DISMISS_KEY, JSON.stringify(dismissed));
   } catch {
     // ignore
   }

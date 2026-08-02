@@ -24,13 +24,14 @@ export default function NotificationsView() {
   const [items, setItems] = useState<NotificationItem[] | null>(null);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [filter, setFilter] = useState<"all" | "unread" | "proactive">("all");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const r = await notificationsApi.list({ unread_only: filter === "unread" });
-      setItems(r.notifications);
+      const all = r.notifications;
+      setItems(filter === "proactive" ? all.filter((n) => n.type.startsWith("proactive")) : all);
       setUnread(r.unread_count);
     } catch (e: any) {
       notify(e?.message || "Failed to load notifications", "error");
@@ -74,15 +75,16 @@ export default function NotificationsView() {
       <p className="mt-1 text-sm text-neutral-500">Battles, followers, events, achievements — everything that matters in one place.</p>
 
       <div className="mt-5 flex gap-2">
-        {(["all", "unread"] as const).map(f => (
+        {(["all", "unread", "proactive"] as const).map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
+            aria-pressed={filter === f}
             className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
               filter === f ? "bg-neutral-900 text-white" : "bg-white text-neutral-600 ring-1 ring-neutral-200"
             }`}
           >
-            {f === "all" ? "All" : `Unread${unread > 0 ? ` (${unread})` : ""}`}
+            {f === "all" ? "All" : f === "unread" ? `Unread${unread > 0 ? ` (${unread})` : ""}` : "Proactive"}
           </button>
         ))}
       </div>

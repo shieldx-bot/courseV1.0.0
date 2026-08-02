@@ -1,16 +1,17 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.core.config import settings
 from app.core.dlq import push_to_dlq
 from app.core.worker import MAX_RETRIES, exponential_backoff
 from app.services.proactive_support import (
-    detect_checkout_drop,
-    detect_learning_stall,
-    detect_quiz_low_score,
-    detect_video_rewatch,
-    track_event,
+    BATCH_LIMIT,
+    detect_checkout_drop_batch,
+    detect_learning_stall_batch,
+    detect_quiz_low_score_batch,
+    detect_video_rewatch_batch,
+    trigger_intervention,
 )
 
 logger = logging.getLogger(__name__)
@@ -242,18 +243,71 @@ async def migrate_video_task(ctx: dict, lesson_id: str, drive_file_id: str, wate
 
 
 async def run_proactive_support_checks(ctx: dict) -> dict:
+    """Run all four proactive detections over a bounded user cohort.
+
+    Batch strategy (learned from the intelligence request-time report): scan
+    ``user_behavior_events`` / users in small bounded groups (default 200
+    users per run) instead of sweeping the whole database. Every detected
+    signal goes through ``trigger_intervention``, which deduplicates per
+    user+type within a 7-day window, so the cron can safely re-run.
+    """
     retry_count = ctx.get("job_try", 0)
     try:
         from app.db.mongodb import get_db
         db = get_db()
-        users = await db.users.find().to_list(5000)
-        interventions = []
-        for user in users:
-            uid = user["_id"]
-            stall = await detect_learning_stall(uid)
-            if stall:
-                interventions.append({"user_id": uid, **stall})
-        return {"checked": len(users), "interventions": interventions}
+
+        # Cohort: recently-active users first (bounded, sorted by recency).
+        recent_cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        recent_users = await db.users.find(
+            {"last_active_at": {"$gte": recent_cutoff}}
+        ).sort("last_active_at", -1).limit(BATCH_LIMIT).to_list(BATCH_LIMIT)
+        user_ids = [u["_id"] for u in recent_users]
+
+        # Fallback: derive the cohort from recent behavior events.
+        if not user_ids:
+            events = await db.user_behavior_events.find().sort("created_at", -1).to_list(BATCH_LIMIT)
+            user_ids = list(dict.fromkeys(e.get("user_id") for e in events if e.get("user_id")))[:BATCH_LIMIT]
+
+        # Run all four detections (order: cheapest aggregations first).
+        signals: list[dict[str, Any]] = []
+        signals += await detect_learning_stall_batch(db, user_ids)
+        signals += await detect_video_rewatch_batch(db, user_ids)
+        signals += await detect_checkout_drop_batch(db, user_ids)
+        signals += await detect_quiz_low_score_batch(db, user_ids)
+
+        triggered = []
+        for signal in signals:
+            uid = signal.get("user_id")
+            itype = signal.get("intervention_type")
+            if not uid or not itype:
+                continue
+            context = {
+                k: v for k, v in signal.items()
+                if k not in ("user_id", "intervention_type", "message")
+            }
+            result = await trigger_intervention(
+                uid,
+                itype,
+                context=context,
+                message=signal.get("message"),
+            )
+            if result:
+                triggered.append({"user_id": uid, "intervention_type": itype})
+
+        by_type: dict[str, int] = {}
+        for t in triggered:
+            by_type[t["intervention_type"]] = by_type.get(t["intervention_type"], 0) + 1
+
+        logger.info(
+            "Proactive checks: checked=%d signals=%d triggered=%d by_type=%s",
+            len(user_ids), len(signals), len(triggered), by_type,
+        )
+        return {
+            "checked": len(user_ids),
+            "signals": len(signals),
+            "triggered": len(triggered),
+            "by_type": by_type,
+        }
     except Exception as exc:
         if retry_count < MAX_RETRIES:
             delay = exponential_backoff(retry_count)

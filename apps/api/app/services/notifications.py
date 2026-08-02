@@ -65,6 +65,12 @@ NOTIFICATION_TYPES = {
     "course_completed": {"label": "Course completed", "emoji": "🎓"},
     "path_completed": {"label": "Path completed", "emoji": "🗺️"},
 
+    # Proactive support interventions
+    "video_rewatch": {"label": "We can help with this section", "emoji": "🎬"},
+    "checkout_drop": {"label": "Complete your purchase", "emoji": "🛒"},
+    "learning_stall": {"label": "Your course is waiting", "emoji": "📚"},
+    "quiz_low_score": {"label": "Review to improve", "emoji": "📝"},
+
     # Moderation / trust
     "moderation_content_removed": {"label": "Content removed", "emoji": "⚠️"},
     "moderation_warning": {"label": "Warning received", "emoji": "⚠️"},

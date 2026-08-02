@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -6,6 +6,7 @@ from app.core.deps import get_current_user
 from app.core.response import api_response
 from app.db.mongodb import get_db, get_read_db
 from app.services.certificate import issue_certificate
+from app.services.proactive_support import track_event
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +72,45 @@ async def update_progress(lesson_id: str, body: ProgressUpdate, user: dict = Dep
         upsert=True,
     )
     record = await db.progress.find_one({"_id": progress_id})
+
+    # Track video rewatch behavior for proactive support.
+    # Every progress update counts as a `video_seek`; when a lesson is
+    # revisited >= 3 times within one hour, emit a `video_rewatch` signal.
+    try:
+        await track_event(
+            user["id"],
+            "video_seek",
+            metadata={
+                "lesson_id": lesson_id,
+                "position_seconds": body.last_position_seconds,
+                "section_seconds": body.last_position_seconds,
+            },
+            page=f"/learn/{course['_id']}/{lesson_id}",
+        )
+        hour_ago = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        seek_count = await get_read_db().user_behavior_events.count_documents({
+            "user_id": user["id"],
+            "event_type": "video_seek",
+            "metadata.lesson_id": lesson_id,
+            "created_at": {"$gte": hour_ago},
+        })
+        already_emitted = await get_read_db().user_behavior_events.count_documents({
+            "user_id": user["id"],
+            "event_type": "video_rewatch",
+            "metadata.lesson_id": lesson_id,
+            "created_at": {"$gte": hour_ago},
+        })
+        if seek_count >= 3 and already_emitted == 0:
+            await track_event(
+                user["id"],
+                "video_rewatch",
+                metadata={
+                    "lesson_id": lesson_id,
+                    "message": "Need help? Ask our AI assistant about this section.",
+                },
+            )
+    except Exception as exc:
+        logger.warning("Failed to track video behavior for user %s: %s", user["id"], exc)
 
     if body.completed:
         lesson_ids = {l["id"] for l in course.get("syllabus", [])}

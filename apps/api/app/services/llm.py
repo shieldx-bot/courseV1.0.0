@@ -23,11 +23,40 @@ from typing import Any
 import httpx
 
 from app.core.config import settings
+from app.core.telemetry import LLM_REQUESTS, LLM_TOKENS, LLM_COST_USD
 
 logger = logging.getLogger(__name__)
 
 # Provider priority list (first available provider wins)
 _PROVIDER_PRIORITY = ["openrouter", "gemini", "groq", "openai"]
+
+# Rough blended USD cost per 1M tokens, used only for cost estimation metrics.
+_ESTIMATED_COST_PER_1M_TOKENS = {
+    "openrouter": 0.5,
+    "gemini": 0.0,
+    "groq": 0.15,
+    "openai": 2.0,
+}
+
+
+def _estimate_tokens(*texts: str | None) -> int:
+    """Rough token estimate (~4 chars per token) for metrics."""
+    return sum(len(t) // 4 for t in texts if t)
+
+
+def _record_llm_metrics(
+    provider: str,
+    status: str,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+) -> None:
+    """Increment LLM Prometheus counters (requests / tokens / cost)."""
+    LLM_REQUESTS.labels(provider=provider, status=status).inc()
+    total_tokens = prompt_tokens + completion_tokens
+    if total_tokens > 0:
+        LLM_TOKENS.labels(provider=provider).inc(total_tokens)
+        rate = _ESTIMATED_COST_PER_1M_TOKENS.get(provider, 0.5)
+        LLM_COST_USD.labels(provider=provider).inc(total_tokens / 1_000_000 * rate)
 
 # Strong model recommendations per provider, ordered by preference for content quality
 _MODEL_PRIORITY = {
@@ -561,14 +590,22 @@ async def call_llm(
             continue
         try:
             logger.info("Calling LLM provider: %s", provider.name)
-            return await provider.call(
+            result = await provider.call(
                 messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 response_format=response_format,
             )
+            _record_llm_metrics(
+                provider.name,
+                "success",
+                prompt_tokens=_estimate_tokens(*(m.get("content", "") for m in messages)),
+                completion_tokens=_estimate_tokens(result),
+            )
+            return result
         except Exception as e:
             logger.warning("LLM provider %s failed: %s", provider.name, e)
+            _record_llm_metrics(provider.name, "error")
             errors.append(f"{provider.name}: {e}")
             continue
 
@@ -601,16 +638,25 @@ async def call_llm_stream(
             continue
         try:
             logger.info("Streaming from LLM provider: %s", provider.name)
+            chunks: list[str] = []
             async for chunk in provider.stream(
                 messages=messages,
                 max_tokens=max_tokens,
                 temperature=temperature,
                 response_format=response_format,
             ):
+                chunks.append(chunk)
                 yield chunk
+            _record_llm_metrics(
+                provider.name,
+                "success",
+                prompt_tokens=_estimate_tokens(*(m.get("content", "") for m in messages)),
+                completion_tokens=_estimate_tokens("".join(chunks)),
+            )
             return
         except Exception as e:
             logger.warning("LLM stream provider %s failed: %s", provider.name, e)
+            _record_llm_metrics(provider.name, "error")
             errors.append(f"{provider.name}: {e}")
             continue
 

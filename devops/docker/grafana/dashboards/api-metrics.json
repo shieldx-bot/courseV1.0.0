@@ -137,6 +137,40 @@
         "x": 12,
         "y": 24
       }
+    },
+    {
+      "title": "Proactive Support Runs (by status)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(increase(worker_jobs_completed_total{task=\"run_proactive_support_checks\"}[1h])) by (status)",
+          "legendFormat": "{{status}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      }
+    },
+    {
+      "title": "Emails Sent (by task)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(increase(worker_jobs_completed_total{task=~\"send_.*task\",status=\"success\"}[1h])) by (task)",
+          "legendFormat": "{{task}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      }
     }
   ]
 }

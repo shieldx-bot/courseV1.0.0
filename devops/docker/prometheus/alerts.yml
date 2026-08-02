@@ -38,9 +38,11 @@ groups:
           description: "{{ $value }} jobs in dead-letter queue — investigate worker failures."
 
       # ── LLM / AI support chat ─────────────────────────────────────────────
-      # Metrics exposed by the backend once AI-A wires call_llm_stream:
-      # llm_requests_total{status}, llm_tokens_total{provider},
-      # llm_cost_total_usd{provider}. Empty series → no fires until then.
+      # Metric contract (backend, exported via /metrics):
+      #   llm_requests_total{provider,status="ok"|"error"}
+      #   llm_tokens_total{provider}
+      #   llm_cost_total_usd{provider}
+      # Empty series → no fires until the backend exports them.
       - alert: LLMHighErrorRate
         expr: |
           sum(rate(llm_requests_total{status="error"}[5m]))
@@ -70,3 +72,21 @@ groups:
         annotations:
           summary: "LLM cost spike > $10/h"
           description: "LLM spend increased by ${{ $value }} in the last hour — investigate abnormal usage."
+
+      # ── Proactive support job ─────────────────────────────────────────────
+      # Fires when run_proactive_support_checks finishes in error. The metric
+      # worker_jobs_completed_total{task,status} exists in app/core/telemetry.py;
+      # for this to fire the backend must wire the arq on_job_complete/on_job_failed
+      # hooks and expose the counter on a scraped /metrics endpoint (or export
+      # proactive_checks_total{status} instead — then update this expr accordingly).
+      # Empty series → no fires until then.
+      - alert: ProactiveCheckJobFailed
+        expr: |
+          sum(increase(worker_jobs_completed_total{task="run_proactive_support_checks",status="error"}[1h]))
+          > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Proactive support check job failed"
+          description: "run_proactive_support_checks reported {{ $value }} failed run(s) in the last hour — check worker/cron logs and DLQ."

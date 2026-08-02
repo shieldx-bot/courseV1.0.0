@@ -136,6 +136,24 @@ async def submit_quiz(course_id: str, body: QuizSubmitIn, user=Depends(get_curre
         answers=body.answers,
         questions=body.questions,
     )
+
+    # Track low quiz scores (< 50%) for proactive support.
+    try:
+        from app.services.proactive_support import track_event
+        if result.get("score_pct", 0) < 50:
+            await track_event(
+                user["id"],
+                "quiz_low_score",
+                metadata={
+                    "quiz_id": body.quiz_id,
+                    "course_id": course_id,
+                    "score_pct": result.get("score_pct"),
+                    "passed": result.get("passed", False),
+                },
+            )
+    except Exception as exc:
+        logger.warning("Failed to track quiz_low_score for %s: %s", user["id"], exc)
+
     return api_response(result)
 
 
