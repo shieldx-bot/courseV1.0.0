@@ -61,6 +61,7 @@ async def create_ticket(
     message: str,
     category: str | None = None,
     priority: str | None = None,
+    ai_summary: str | None = None,
 ) -> dict[str, Any]:
     db = get_db()
     ticket_id = _ticket_id(user_id)
@@ -77,7 +78,7 @@ async def create_ticket(
         "priority": priority or auto_priority,
         "subject": subject,
         "status": "open",
-        "ai_summary": "",
+        "ai_summary": ai_summary or "",
         "created_at": now,
         "updated_at": now,
         "resolved_at": None,
@@ -132,6 +133,33 @@ async def get_user_tickets(user_id: str) -> list[dict[str, Any]]:
         .sort("created_at", -1)
         .to_list(1000)
     )
+
+
+async def escalate_to_human(
+    ticket_id: str,
+    reason: str = "Escalated to human support",
+) -> dict[str, Any] | None:
+    """Flag a ticket for human review: set status ``in_progress`` and log it.
+
+    Returns the updated ticket, or ``None`` if the ticket does not exist.
+    """
+    db = get_db()
+    ticket = await get_ticket(ticket_id)
+    if not ticket:
+        return None
+    await db.support_tickets.update_one(
+        {"_id": ticket_id},
+        {
+            "$set": {
+                "status": "in_progress",
+                "escalated": True,
+                "escalation_reason": reason,
+                "updated_at": _now(),
+            }
+        },
+    )
+    await add_message(ticket_id, "system", "system", "System", reason)
+    return await get_ticket(ticket_id)
 
 
 async def list_tickets(filters: dict[str, Any] | None = None) -> list[dict[str, Any]]:

@@ -21,6 +21,15 @@ autoscaling:
 ingress:
   enabled: true
   host: ascendly.io
+  # SSE support for /api/support/chat/stream (text/event-stream):
+  # nginx-ingress must not buffer or hold the connection open. proxy-read-timeout
+  # is set to 120s so a single LLM streamed response can run to completion
+  # without being cut off, while still bounded (not infinite).
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
 resources:
   requests:
     cpu: "250m"

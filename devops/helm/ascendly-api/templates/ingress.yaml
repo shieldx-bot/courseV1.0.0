@@ -4,6 +4,10 @@ kind: Ingress
 metadata:
   name: ascendly-ingress
   namespace: {{ .Values.namespace }}
+  {{- if .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+  {{- end }}
 spec:
   rules:
     - host: {{ .Values.ingress.host }}

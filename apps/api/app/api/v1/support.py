@@ -1,14 +1,16 @@
-from datetime import datetime, timezone
+import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from app.core.deps import get_current_user, get_optional_user, require_admin
+from app.core.deps import get_current_user, require_admin
 from app.core.response import api_response
-from app.db.mongodb import get_db
 from app.services.support_tickets import (
     VALID_STATUSES,
     add_message,
     create_ticket,
+    escalate_to_human,
     get_ticket,
     get_ticket_messages,
     get_user_tickets,
@@ -19,13 +21,9 @@ from app.services.support_tickets import (
     get_stats,
     send_ticket_notification,
 )
-from app.services.support_ai import chat as support_ai_chat, get_chat_history as get_support_chat_history, clear_chat_history as clear_support_chat_history
-from app.services.knowledge_base import (
-    get_article,
-    search_articles,
-    list_articles as list_articles_svc,
-    record_article_feedback,
-)
+from app.services.support_ai import chat as support_ai_chat, chat_stream as support_ai_chat_stream, create_ticket_from_conversation, get_chat_history as get_support_chat_history, clear_chat_history as clear_support_chat_history
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 admin_router = APIRouter()
@@ -145,6 +143,59 @@ class ChatIn(BaseModel):
 @router.post("/chat")
 async def support_chat(body: ChatIn, user=Depends(get_current_user)):
     result = await support_ai_chat(user_id=user["id"], question=body.message)
+    return api_response(result)
+
+
+@router.post("/chat/stream")
+async def support_chat_stream(body: ChatIn, user=Depends(get_current_user)):
+    """Server-Sent Events stream: context → message chunks → actions → done."""
+    async def _event_generator():
+        try:
+            async for event in support_ai_chat_stream(user_id=user["id"], question=body.message):
+                payload = json.dumps(event["data"], ensure_ascii=False)
+                yield f"event: {event['event']}\ndata: {payload}\n\n"
+        except Exception as e:
+            logger.exception("Chat stream failed")
+            payload = json.dumps({"error": str(e)}, ensure_ascii=False)
+            yield f"event: error\ndata: {payload}\n\n"
+
+    return StreamingResponse(_event_generator(), media_type="text/event-stream")
+
+
+class ConvertToTicketIn(BaseModel):
+    question: str = Field(min_length=1, max_length=2000)
+    answer: str = Field(default="", max_length=4000)
+
+
+@router.post("/chat/convert-to-ticket")
+async def convert_chat_to_ticket(body: ConvertToTicketIn, user=Depends(get_current_user)):
+    """Create a support ticket from a chat exchange (user confirms in UI)."""
+    ticket = await create_ticket_from_conversation(
+        user_id=user["id"],
+        question=body.question,
+        answer=body.answer,
+    )
+    result = {k: v for k, v in ticket.items() if k != "_id"}
+    result["id"] = ticket["_id"]
+    return api_response(result)
+
+
+class EscalateIn(BaseModel):
+    reason: str = Field(default="Escalated to human support", max_length=1000)
+
+
+@router.post("/tickets/{ticket_id}/escalate")
+async def escalate_ticket(ticket_id: str, body: EscalateIn, user=Depends(get_current_user)):
+    """Escalate the user's own ticket to a human support agent."""
+    ticket = await get_ticket(ticket_id)
+    if not ticket:
+        raise HTTPException(status_code=404, detail="Ticket not found")
+    if ticket["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    updated = await escalate_to_human(ticket_id, body.reason)
+    result = {k: v for k, v in updated.items() if k != "_id"}
+    result["id"] = updated["_id"]
     return api_response(result)
 
 

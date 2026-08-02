@@ -90,10 +90,10 @@ make test-api  # nếu Makefile đã tạo
 
 ### Trạng thái hiện tại — Phase 0 (cập nhật lần cuối: sau khi nhận báo cáo AI-B + AI-C)
 
-| Agent | Trạng thái | Ghi chú |
+| Agent | Trạng thái | Ghi chú verify cuối (10:06) |
 |---|---|---|
-| AI-A (Backend) | ✔ **ĐÃ SIGN-OFF** | Verify lần cuối: pytest **129 passed / 0 failed**, migration 001 (`{'inserted': 7}`) + 002 (`{'indexes_ensured': True}`) chạy thành công trên DB test, `cli.py` path `apps/api/migrations` + `apps/api/seed` đúng, `002` dùng `create_indexes(db)`. 2 bug blocker đã fix. |
-| AI-B (DevOps) | ✔ **ĐÃ SIGN-OFF** (có điều kiện) | CI tiến triển tốt: YAML 31/31 OK, Makefile chạy được, web test 14 pass. Giới hạn ghi nhận: docker build/kubectl/helm chưa chạy local (permission/absent) — cần chạy trên CI. `migration-check` giờ có thể xanh vì AI-A đã fix 2 bug. |
+| AI-A (Backend) | ✔ **ĐÃ SIGN-OFF** | Verify thực tế: pytest **133 passed / 0 failed** (957 warnings không ảnh hưởng). Phase 0 cuối đã fix 2 bug thật: thiếu import `get_stats` trong `support.py` + `update_article` sửa `_id` bất hợp pháp trong `knowledge_base.py`. Migration 001/002 chạy được, Pydantic v2 sạch, dead code sạch, DB helpers đủ, parity test pass. |
+| AI-B (DevOps) | ✔ **ĐÃ SIGN-OFF** | Verify thực tế: `make test-api` 133 pass, `make test-web` 5 suites/23 pass, migration check idempotent pass, **helm lint + helm template pass 3/3** (đã sử
 | AI-C (Frontend) | ✔ ĐÃ SIGN-OFF | Verify độc lập: `npm test` 14 passed, `tsc --noEmit` exit 0. Ghi nhận rủi ro: Next.js 14.2.35 (không phải 15), `request<T>` default `any` cho endpoint chưa có schema. |
 | Supervisor | — | ✅ **Phase 0 INTEGRATION SIGN-OFF** — cả 3 AI đã hoàn tất. Việc tiếp theo: giao Phase 1 (Support System Foundation) cho cả 3 AI. |
 

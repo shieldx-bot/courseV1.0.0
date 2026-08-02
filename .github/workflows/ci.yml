@@ -172,11 +172,11 @@ jobs:
         with:
           sarif_file: 'trivy-results.sarif'
 
-  # ── Manifest verification: Helm lint + template + k8s client-side dry-run ────
-  # Runs in parallel with api/web. Installs helm + kubectl on the runner, lints
-  # and renders all 3 charts (dev values), and client-validates devops/k8s/*.
+  # ── Manifest verification: Helm lint + template + offline k8s validation ──
+  # Runs in parallel with api/web. Installs helm, lints and renders all 3 charts
+  # (dev values), and validates devops/k8s/* offline with kubeconform.
   manifest-check:
-    name: Manifest Check (Helm + K8s dry-run)
+    name: Manifest Check (Helm + K8s)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -185,11 +185,6 @@ jobs:
         uses: azure/setup-helm@v4
         with:
           version: v3.14.4
-
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: v1.30.0
 
       - name: Helm lint (all charts)
         run: |
@@ -218,6 +213,17 @@ jobs:
           # KEDA ScaledObject is a CRD not present in upstream schemas; it is
           # skipped via --ignore-missing-schemas and its YAML is still parsed.
           /tmp/kubeconform -strict -kubernetes-version 1.30.0 -ignore-missing-schemas devops/k8s/
+
+      - name: Helm rendered manifest validation (kubeconform)
+        run: |
+          set -e
+          # Render each chart and validate the OUTPUT too — catches bugs that
+          # live in templates (e.g. invalid fields) which helm lint misses.
+          for chart in platform-base ascendly-api ascendly-runtime; do
+            echo "== kubeconform $chart (rendered) =="
+            helm template "$chart-dev" "devops/helm/$chart" -f "devops/helm/$chart/values-dev.yaml" 2>/dev/null \
+              | /tmp/kubeconform -strict -kubernetes-version 1.30.0 -ignore-missing-schemas
+          done
 
   # ── Common gate: merge is allowed only when ALL required jobs are green ────
   gate:

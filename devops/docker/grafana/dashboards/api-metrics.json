@@ -1,6 +1,6 @@
 {
   "title": "Ascendly API",
-  "version": 1,
+  "version": 2,
   "panels": [
     {
       "title": "Request Rate",
@@ -12,7 +12,12 @@
           "legendFormat": "{{method}} {{path}}"
         }
       ],
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
     },
     {
       "title": "Request Duration (p99)",
@@ -24,7 +29,12 @@
           "legendFormat": "{{method}} {{path}}"
         }
       ],
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
     },
     {
       "title": "Error Rate (5xx)",
@@ -36,7 +46,12 @@
           "legendFormat": "5xx errors"
         }
       ],
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      }
     },
     {
       "title": "Requests by Status Code",
@@ -48,7 +63,80 @@
           "legendFormat": "{{status}}"
         }
       ],
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      }
+    },
+    {
+      "title": "LLM Request Rate (by provider)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(llm_requests_total[1m])) by (provider)",
+          "legendFormat": "{{provider}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      }
+    },
+    {
+      "title": "LLM Error Rate",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(llm_requests_total{status=\"error\"}[5m])) / clamp_min(sum(rate(llm_requests_total[5m])), 1)",
+          "legendFormat": "error rate"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      }
+    },
+    {
+      "title": "LLM Cost ($/h, by provider)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(increase(llm_cost_total_usd[1h])) by (provider)",
+          "legendFormat": "{{provider}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      }
+    },
+    {
+      "title": "LLM Token Usage (by provider)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(llm_tokens_total[1m])) by (provider)",
+          "legendFormat": "{{provider}}"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      }
     }
   ]
 }

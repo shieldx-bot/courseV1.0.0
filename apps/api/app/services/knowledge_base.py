@@ -15,6 +15,21 @@ logger = logging.getLogger(__name__)
 
 VALID_CATEGORIES = {"billing", "technical", "content", "account", "general"}
 
+# Category keywords used to boost search results when the query mentions a
+# category (cheap "RAG reranker" without embeddings).
+_CATEGORY_KEYWORDS: dict[str, list[str]] = {
+    "billing": ["billing", "payment", "charge", "charged", "refund", "invoice", "subscription", "cancel", "renew", "price", "pay", "coupon", "trial", "money"],
+    "technical": ["technical", "error", "bug", "broken", "video", "stream", "buffering", "watch", "playing", "crash", "not working", "fail", "fix"],
+    "account": ["account", "profile", "email", "login", "sign in", "password", "verify", "phone", "2fa", "access"],
+    "content": ["content", "course", "lesson", "curriculum", "quiz", "certificate", "learning"],
+}
+
+
+def _query_categories(query: str) -> set[str]:
+    """Return the set of categories whose keywords appear in the query."""
+    q = (query or "").lower()
+    return {cat for cat, kws in _CATEGORY_KEYWORDS.items() if any(k in q for k in kws)}
+
 
 def _slugify(title: str) -> str:
     slug = title.lower().strip()
@@ -113,6 +128,7 @@ async def search_articles(query: str, category: str | None = None, limit: int = 
         return articles[:limit]
 
     q = query.lower()
+    q_categories = _query_categories(query)
     scored = []
     for article in articles:
         score = 0
@@ -128,6 +144,12 @@ async def search_articles(query: str, category: str | None = None, limit: int = 
             score += 4
         if q in text:
             score += 1
+        # Category affinity boost: query mentions a category the article belongs to.
+        if q_categories and article.get("category") in q_categories:
+            score += 4
+        # Quality tiebreaker: frequently-helpful articles rank slightly higher.
+        helpful = article.get("helpful_count", 0) or 0
+        score += min(helpful, 8) * 0.25
         if score > 0:
             scored.append((score, article))
 

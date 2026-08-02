@@ -54,3 +54,38 @@ groups:
         annotations:
           summary: "Instance {{ $labels.instance }} is down"
           description: "Instance has been unreachable for over 1 minute"
+
+      # ── LLM / AI support chat ─────────────────────────────────────────────
+      # Metrics are exposed by the backend (app/core/telemetry.py) once AI-A
+      # wires call_llm_stream: llm_requests_total{status="ok"|"error"},
+      # llm_tokens_total{provider}, llm_cost_total_usd{provider}.
+      # Until then these rules evaluate on empty series (no fires).
+      - alert: LLMHighErrorRate
+        expr: |
+          sum(rate(llm_requests_total{status="error"}[5m]))
+            / clamp_min(sum(rate(llm_requests_total[5m])), 1)
+          > 0.20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM error rate > 20%"
+          description: "LLM request error rate is {{ $value | humanizePercentage }} over the last 5 minutes — provider outage or key/rate-limit issues."
+
+      - alert: LLMSpikeInRequests
+        expr: rate(llm_requests_total[5m]) > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM request rate > 100 req/5m"
+          description: "LLM request rate is {{ $value | humanize }} req/s over 5m — possible runaway retry loop or abuse."
+
+      - alert: LLMCostSpike
+        expr: increase(llm_cost_total_usd[1h]) > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM cost spike > $10/h"
+          description: "LLM spend increased by ${{ $value }} in the last hour — investigate abnormal usage."

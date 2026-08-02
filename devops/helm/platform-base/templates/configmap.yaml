@@ -12,3 +12,8 @@ data:
   REDIS_URL: {{ .Values.config.REDIS_URL | quote }}
   MEILI_URL: {{ .Values.config.MEILI_URL | quote }}
   MEILI_MASTER_KEY: {{ .Values.config.MEILI_MASTER_KEY | quote }}
+  # LLM provider non-secret defaults (keys come from Secret via secretData)
+  OPENAI_BASE_URL: {{ .Values.config.OPENAI_BASE_URL | quote }}
+  OPENAI_MODEL: {{ .Values.config.OPENAI_MODEL | quote }}
+  OPENROUTER_BASE_URL: {{ .Values.config.OPENROUTER_BASE_URL | quote }}
+  OPENROUTER_MODEL: {{ .Values.config.OPENROUTER_MODEL | quote }}

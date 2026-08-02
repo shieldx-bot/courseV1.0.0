@@ -35,7 +35,6 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
-        allowPrivilegeEscalation: false
         seccompProfile:
           type: RuntimeDefault
       containers:
